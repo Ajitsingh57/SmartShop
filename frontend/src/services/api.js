@@ -1,0 +1,210 @@
+import axios from "axios";
+
+const API_URL = import.meta.env.VITE_API_URL;
+
+const api = axios.create({
+  baseURL: API_URL,
+  headers: {
+    "Content-Type": "application/json",
+  },
+});
+
+// Attach authorization bearer token to outgoing requests
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem("authToken");
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
+// Format and extract response errors
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    const message =
+      error.response?.data?.message ||
+      error.response?.data?.error ||
+      error.message ||
+      "Something went wrong. Please try again.";
+
+    return Promise.reject(new Error(message));
+  }
+);
+
+// User authentication endpoints
+export const authApi = {
+  register: async (userData) => {
+    const response = await api.post("/users/register", userData);
+    return response.data;
+  },
+
+  login: async (credentials) => {
+    const response = await api.post("/users/login", credentials);
+    return response.data;
+  },
+
+  getMyProfile: async () => {
+    const response = await api.get("/users/my-profile");
+    return response.data;
+  },
+
+  changePassword: async (passwordData) => {
+    const response = await api.post("/users/change-password", passwordData);
+    return response.data;
+  },
+
+  forgotPassword: async (data) => {
+    const response = await api.post("/users/forgot-password", data);
+    return response.data;
+  },
+
+  resetPassword: async (data) => {
+    const response = await api.post("/users/reset-password", data);
+    return response.data;
+  },
+
+  updateMyProfile: async (data) => {
+    const response = await api.put("/users/my-profile", data);
+    return response.data;
+  },
+};
+
+// Customer sales history endpoints
+export const salesApi = {
+  getMySales: async () => {
+    const response = await api.get("/sales/my");
+    return response.data;
+  },
+  getById: async (id) => {
+    const response = await api.get(`/sales/${id}`);
+    return response.data;
+  },
+};
+
+// Product catalog endpoints
+export const productsApi = {
+  list: async () => {
+    const response = await api.get("/products");
+    return response.data;
+  },
+
+  getById: async (id) => {
+    const response = await api.get(`/products/${id}`);
+    return response.data;
+  },
+};
+
+// Customer credit ledger endpoints
+export const creditsApi = {
+  getMyCredits: async () => {
+    const response = await api.get("/credits/my");
+    return response.data;
+  },
+
+  getById: async (id) => {
+    const response = await api.get(`/credits/${id}`);
+    return response.data;
+  },
+};
+
+// Customer payments and online checkout endpoints
+export const paymentsApi = {
+  getMyPayments: async () => {
+    const response = await api.get("/payments/my");
+    return response.data;
+  },
+
+  createClaim: async (paymentData) => {
+    const response = await api.post("/payments/claim", paymentData);
+    return response.data;
+  },
+
+  getSettings: async () => {
+    const response = await api.get("/payments/settings");
+    return response.data;
+  },
+
+  createRazorpayOrder: async (data) => {
+    const response = await api.post("/payments/razorpay/create-order", data);
+    return response.data;
+  },
+
+  verifyRazorpayPayment: async (data) => {
+    const response = await api.post("/payments/razorpay/verify", data);
+    return response.data;
+  },
+};
+
+// Customer returns history
+export const returnsApi = {
+  getMyReturns: async () => {
+    const response = await api.get("/returns/my");
+    return response.data;
+  },
+};
+
+// Auth token storage helpers
+export const getToken = () => localStorage.getItem("authToken");
+export const setToken = (token) => localStorage.setItem("authToken", token);
+export const removeToken = () => localStorage.removeItem("authToken");
+
+// Local storage session management
+export const authStorage = {
+  setToken: (token) => {
+    localStorage.setItem("authToken", token);
+  },
+
+  getToken: () => {
+    return localStorage.getItem("authToken");
+  },
+
+  removeToken: () => {
+    localStorage.removeItem("authToken");
+  },
+
+  setUser: (user) => {
+    localStorage.setItem("authUser", JSON.stringify(user));
+  },
+
+  getUser: () => {
+    const user = localStorage.getItem("authUser");
+    if (!user) return null;
+    try {
+      return JSON.parse(user);
+    } catch {
+      return null;
+    }
+  },
+
+  removeUser: () => {
+    localStorage.removeItem("authUser");
+  },
+
+  clear: () => {
+    localStorage.removeItem("authToken");
+    localStorage.removeItem("authUser");
+  },
+};
+
+// Generic authenticated API caller
+export const authRequest = async (endpoint, options = {}) => {
+  const response = await api({
+    url: endpoint,
+    ...options,
+  });
+  return response.data;
+};
+
+// Shop information endpoint
+export const aboutApi = {
+  get: async () => {
+    const response = await api.get("/about");
+    return response.data;
+  },
+};
+
+export default api;

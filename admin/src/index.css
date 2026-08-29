@@ -1,0 +1,126 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* =====================================================
+   ROOT THEME VARIABLES
+   ===================================================== */
+
+:root {
+  --app-bg: #050811;
+  --app-text: #f1f5f9;
+
+  --app-accent: #f97316;
+  --app-accent-hover: #ea580c;
+
+  --app-accent-soft: rgba(249, 115, 22, 0.10);
+  --app-accent-border: rgba(249, 115, 22, 0.20);
+
+  --app-surface: #09090b;
+  --app-surface-light: #18181b;
+  --app-border: #27272a;
+}
+
+/* =====================================================
+   RESET
+   ===================================================== */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* =====================================================
+   HTML
+   ===================================================== */
+
+html {
+  min-height: 100%;
+  background: var(--app-bg);
+
+  transition:
+    background-color 0.4s ease;
+}
+
+/* =====================================================
+   BODY
+   ===================================================== */
+
+body {
+  min-height: 100vh;
+
+  font-family:
+    "Plus Jakarta Sans",
+    -apple-system,
+    BlinkMacSystemFont,
+    "SF Pro Display",
+    "Inter",
+    sans-serif;
+
+  background-color: var(--app-bg);
+  color: var(--app-text);
+
+  overflow-x: hidden;
+
+  transition:
+    background-color 0.4s ease,
+    color 0.4s ease;
+}
+
+/* =====================================================
+   ROOT
+   ===================================================== */
+
+#root {
+  min-height: 100vh;
+
+  background-color: var(--app-bg);
+
+  transition:
+    background-color 0.4s ease;
+}
+
+/* =====================================================
+   THEME UTILITY CLASSES
+   ===================================================== */
+
+.theme-bg {
+  background-color: var(--app-bg);
+}
+
+.theme-surface {
+  background-color: var(--app-surface);
+}
+
+.theme-surface-light {
+  background-color: var(--app-surface-light);
+}
+
+.theme-border {
+  border-color: var(--app-border);
+}
+
+.theme-text {
+  color: var(--app-text);
+}
+
+.theme-accent {
+  color: var(--app-accent);
+}
+
+.theme-accent-bg {
+  background-color: var(--app-accent);
+}
+
+.theme-accent-soft {
+  background-color: var(--app-accent-soft);
+}
+
+.theme-accent-border {
+  border-color: var(--app-accent-border);
+}
+
+.theme-accent-hover:hover {
+  color: var(--app-accent-hover);
+}

@@ -1,0 +1,812 @@
+import validator from "validator";
+import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
+
+import User from "../models/userModel.js";
+import Customer from "../models/customerModel.js";
+import Credit from "../models/creditModel.js";
+import Payment from "../models/paymentModel.js";
+import Sale from "../models/saleModel.js";
+import Return from "../models/returnModel.js";
+
+const TOKEN_EXPIRES_IN = "24h";
+const JWT_SECRET = process.env.JWT_SECRET;
+
+// Register new customer account and create profile ledger
+export async function register(req, res) {
+    const session = await User.startSession();
+
+    try {
+        const { name, email, phone, password, username } = req.body;
+
+        if (!name || !password) {
+            return res.status(400).json({
+                success: false,
+                message: "Name and password are required"
+            });
+        }
+
+        if (!name.trim()) {
+            return res.status(400).json({
+                success: false,
+                message: "Name cannot be empty"
+            });
+        }
+
+        if (!email && !phone && !username) {
+            return res.status(400).json({
+                success: false,
+                message: "Email or phone number is required"
+            });
+        }
+
+        const normalizedEmail = email ? email.trim().toLowerCase() : undefined;
+        if (normalizedEmail && !validator.isEmail(normalizedEmail)) {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid email"
+            });
+        }
+
+        const normalizedPhone = phone ? phone.trim() : undefined;
+        if (normalizedPhone && !validator.isMobilePhone(normalizedPhone, "any")) {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid phone number"
+            });
+        }
+
+        const normalizedUsername = username ? username.trim() : undefined;
+
+        if (password.length < 6) {
+            return res.status(400).json({
+                success: false,
+                message: "Password must be at least 6 characters"
+            });
+        }
+
+        if (!JWT_SECRET) {
+            throw new Error("JWT_SECRET is not defined");
+        }
+
+        const conditions = [];
+        if (normalizedEmail) conditions.push({ email: normalizedEmail });
+        if (normalizedPhone) conditions.push({ phone: normalizedPhone });
+        if (normalizedUsername) conditions.push({ username: normalizedUsername });
+
+        if (conditions.length > 0) {
+            const existingUser = await User.findOne({ $or: conditions });
+            if (existingUser) {
+                if (normalizedEmail && existingUser.email === normalizedEmail) {
+                    return res.status(409).json({
+                        success: false,
+                        message: "Email already exists"
+                    });
+                }
+                if (normalizedPhone && existingUser.phone === normalizedPhone) {
+                    return res.status(409).json({
+                        success: false,
+                        message: "Phone number already exists"
+                    });
+                }
+                if (normalizedUsername && existingUser.username === normalizedUsername) {
+                    return res.status(409).json({
+                        success: false,
+                        message: "Username already exists"
+                    });
+                }
+            }
+        }
+
+        const hashedPassword = await bcrypt.hash(password, 10);
+        let user;
+
+        await session.withTransaction(async () => {
+            const users = await User.create(
+                [
+                    {
+                        name: name.trim(),
+                        username: normalizedUsername,
+                        email: normalizedEmail,
+                        phone: normalizedPhone,
+                        password: hashedPassword,
+                        role: "customer",
+                        isActive: true
+                    }
+                ],
+                { session }
+            );
+
+            user = users[0];
+
+            await Customer.create(
+                [
+                    {
+                        userId: user._id,
+                        totalPurchase: 0,
+                        trustScore: 0,
+                        maxBorrowAmount: 0,
+                        pendingAmount: 0,
+                        manualBorrowLimit: 0
+                    }
+                ],
+                { session }
+            );
+        });
+
+        const token = jwt.sign(
+            { id: user._id.toString(), role: user.role },
+            JWT_SECRET,
+            { expiresIn: TOKEN_EXPIRES_IN }
+        );
+
+        return res.status(201).json({
+            success: true,
+            message: "Account created successfully",
+            token,
+            user: {
+                id: user._id.toString(),
+                name: user.name,
+                username: user.username,
+                email: user.email,
+                phone: user.phone,
+                role: user.role
+            }
+        });
+    } catch (err) {
+        console.error("Registration error:", err);
+        if (err.code === 11000) {
+            return res.status(409).json({
+                success: false,
+                message: "Email, phone or customer account already exists"
+            });
+        }
+        return res.status(500).json({
+            success: false,
+            message: "Registration failed"
+        });
+    } finally {
+        await session.endSession();
+    }
+}
+
+// User login (supports username, email or phone)
+export async function login(req, res) {
+    try {
+        const { identifier, password } = req.body;
+
+        if (!identifier || !password) {
+            return res.status(400).json({
+                success: false,
+                message: "Username, email/phone and password are required"
+            });
+        }
+
+        const value = identifier.trim();
+        if (!JWT_SECRET) {
+            throw new Error("JWT_SECRET is not defined");
+        }
+
+        let user;
+        if (validator.isEmail(value)) {
+            user = await User.findOne({ email: value.toLowerCase() });
+        } else {
+            user = await User.findOne({
+                $or: [{ phone: value }, { username: value }]
+            });
+        }
+
+        if (!user) {
+            return res.status(401).json({
+                success: false,
+                message: "Invalid username/email/phone or password"
+            });
+        }
+
+        if (!user.isActive) {
+            return res.status(403).json({
+                success: false,
+                message: "This account is inactive"
+            });
+        }
+
+        if (!user.password) {
+            return res.status(401).json({
+                success: false,
+                message: "Password login is not available for this account"
+            });
+        }
+
+        const isMatch = await bcrypt.compare(password, user.password);
+        if (!isMatch) {
+            return res.status(401).json({
+                success: false,
+                message: "Invalid username/email/phone or password"
+            });
+        }
+
+        if (user.role === "customer") {
+            let customer = await Customer.findOne({ userId: user._id });
+            if (!customer) {
+                customer = await Customer.create({
+                    userId: user._id,
+                    totalPurchase: 0,
+                    trustScore: 0,
+                    maxBorrowAmount: 0,
+                    pendingAmount: 0,
+                    manualBorrowLimit: 0
+                });
+            }
+        }
+
+        const token = jwt.sign(
+            { id: user._id.toString(), role: user.role },
+            JWT_SECRET,
+            { expiresIn: TOKEN_EXPIRES_IN }
+        );
+
+        return res.status(200).json({
+            success: true,
+            message: "Login successful",
+            token,
+            user: {
+                id: user._id.toString(),
+                name: user.name,
+                username: user.username,
+                email: user.email,
+                phone: user.phone,
+                role: user.role
+            }
+        });
+    } catch (err) {
+        console.error("Login error:", err);
+        return res.status(500).json({
+            success: false,
+            message: "Server Error"
+        });
+    }
+}
+
+// Fetch all customers for admin listing
+export async function getAllCustomers(req, res) {
+    try {
+        const customers = await Customer.find()
+            .populate(
+                "userId",
+                "name username email phone role isActive deactivatedAt createdAt updatedAt"
+            )
+            .sort({ createdAt: -1 });
+
+        return res.status(200).json({
+            success: true,
+            count: customers.length,
+            customers
+        });
+    } catch (err) {
+        console.error("Get all customers error:", err);
+        return res.status(500).json({
+            success: false,
+            message: "Server Error"
+        });
+    }
+}
+
+// Fetch complete customer dossier with all transaction history
+export async function getCustomerById(req, res) {
+    try {
+        const { id } = req.params;
+
+        let user = await User.findOne({ _id: id, role: "customer" }).select("-password");
+        let customer;
+
+        if (!user) {
+            customer = await Customer.findById(id);
+            if (customer) {
+                user = await User.findOne({ _id: customer.userId, role: "customer" }).select("-password");
+            }
+        } else {
+            customer = await Customer.findOne({ userId: user._id });
+        }
+
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: "Customer not found"
+            });
+        }
+
+        if (!customer) {
+            customer = await Customer.create({
+                userId: user._id,
+                totalPurchase: 0,
+                trustScore: 0,
+                maxBorrowAmount: 0,
+                pendingAmount: 0,
+                manualBorrowLimit: 0
+            });
+        }
+
+        const customerIds = [customer._id, user._id];
+
+        const [sales, credits, payments, returns] = await Promise.all([
+            Sale.find({ customerId: { $in: customerIds } })
+                .populate("adminId", "name username email phone")
+                .populate("items.productId", "name price")
+                .sort({ createdAt: -1 }),
+            Credit.find({ $or: [{ customerId: { $in: customerIds } }, { userId: user._id }] })
+                .populate("extension.extendedBy", "name username email")
+                .sort({ createdAt: -1 }),
+            Payment.find({ $or: [{ customerId: { $in: customerIds } }, { userId: user._id }] })
+                .populate("recordedBy", "name username email")
+                .populate("verifiedBy", "name username email")
+                .populate("claimedReceiver", "name username email")
+                .sort({ paidAt: -1 }),
+            Return.find({ customerId: { $in: customerIds } })
+                .populate("saleId")
+                .populate("adminId", "name username email phone")
+                .populate("items.productId", "name price")
+                .sort({ returnedAt: -1 })
+        ]);
+
+        const totalSaleAmount = sales.reduce((sum, sale) => sum + Number(sale.totalAmount || 0), 0);
+        const totalCreditBorrowed = credits.reduce((sum, credit) => sum + Number(credit.borrowedAmount || 0), 0);
+        const totalCreditPaid = credits.reduce((sum, credit) => sum + Number(credit.paidAmount || 0), 0);
+        const totalCreditPending = credits.reduce((sum, credit) => sum + Number(credit.pendingAmount || 0), 0);
+        const totalPaymentAmount = payments
+            .filter(payment => payment.status === "approved")
+            .reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+        const totalReturnAmount = returns.reduce((sum, item) => sum + Number(item.returnAmount || 0), 0);
+
+        return res.status(200).json({
+            success: true,
+            customer: {
+                profile: {
+                    _id: user._id,
+                    name: user.name,
+                    username: user.username,
+                    email: user.email,
+                    phone: user.phone,
+                    role: user.role,
+                    isActive: user.isActive,
+                    deactivatedAt: user.deactivatedAt,
+                    createdAt: user.createdAt,
+                    updatedAt: user.updatedAt
+                },
+                summary: {
+                    customerId: customer._id,
+                    totalPurchase: totalSaleAmount || customer.totalPurchase,
+                    trustScore: customer.trustScore,
+                    maxBorrowAmount: customer.maxBorrowAmount,
+                    pendingAmount: totalCreditPending || customer.pendingAmount,
+                    manualBorrowLimit: customer.manualBorrowLimit,
+                    totalSaleAmount,
+                    totalCreditBorrowed,
+                    totalCreditPaid,
+                    totalCreditPending,
+                    totalPaymentAmount,
+                    totalReturnAmount,
+                    totalSales: sales.length,
+                    totalCredits: credits.length,
+                    totalPayments: payments.length,
+                    totalReturns: returns.length
+                },
+                records: {
+                    sales,
+                    credits,
+                    payments,
+                    returns
+                }
+            }
+        });
+    } catch (err) {
+        console.error("Get customer details error:", err);
+        return res.status(500).json({
+            success: false,
+            message: "Server Error"
+        });
+    }
+}
+
+// Update customer details from admin portal
+export async function updateCustomer(req, res) {
+    try {
+        const { id } = req.params;
+        const { name, username, email, phone, password, manualBorrowLimit } = req.body;
+
+        let user = await User.findOne({ _id: id, role: "customer" });
+        let customer;
+
+        if (!user) {
+            customer = await Customer.findById(id);
+            if (customer) {
+                user = await User.findOne({ _id: customer.userId, role: "customer" });
+            }
+        } else {
+            customer = await Customer.findOne({ userId: user._id });
+        }
+
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: "Customer not found"
+            });
+        }
+
+        if (name !== undefined) {
+            if (!name.trim()) {
+                return res.status(400).json({
+                    success: false,
+                    message: "Name cannot be empty"
+                });
+            }
+            user.name = name.trim();
+        }
+
+        if (username !== undefined) {
+            if (username !== null && !username.trim()) {
+                return res.status(400).json({
+                    success: false,
+                    message: "Username cannot be empty"
+                });
+            }
+
+            if (username) {
+                const normalizedUsername = username.trim();
+                const existingUsername = await User.findOne({
+                    username: normalizedUsername,
+                    _id: { $ne: user._id }
+                });
+
+                if (existingUsername) {
+                    return res.status(409).json({
+                        success: false,
+                        message: "Username already exists"
+                    });
+                }
+                user.username = normalizedUsername;
+            } else {
+                user.username = undefined;
+            }
+        }
+
+        if (email !== undefined) {
+            const normalizedEmail = email ? email.trim().toLowerCase() : undefined;
+            if (normalizedEmail && !validator.isEmail(normalizedEmail)) {
+                return res.status(400).json({
+                    success: false,
+                    message: "Invalid email"
+                });
+            }
+
+            if (normalizedEmail) {
+                const existingEmail = await User.findOne({
+                    email: normalizedEmail,
+                    _id: { $ne: user._id }
+                });
+
+                if (existingEmail) {
+                    return res.status(409).json({
+                        success: false,
+                        message: "Email already exists"
+                    });
+                }
+            }
+            user.email = normalizedEmail;
+        }
+
+        if (phone !== undefined) {
+            const normalizedPhone = phone ? phone.trim() : undefined;
+            if (normalizedPhone && !validator.isMobilePhone(normalizedPhone, "any")) {
+                return res.status(400).json({
+                    success: false,
+                    message: "Invalid phone number"
+                });
+            }
+
+            if (normalizedPhone) {
+                const existingPhone = await User.findOne({
+                    phone: normalizedPhone,
+                    _id: { $ne: user._id }
+                });
+
+                if (existingPhone) {
+                    return res.status(409).json({
+                        success: false,
+                        message: "Phone number already exists"
+                    });
+                }
+            }
+            user.phone = normalizedPhone;
+        }
+
+        if (password !== undefined && password) {
+            if (password.length < 6) {
+                return res.status(400).json({
+                    success: false,
+                    message: "Password must be at least 6 characters"
+                });
+            }
+            user.password = await bcrypt.hash(password, 10);
+        }
+
+        await user.save();
+
+        if (manualBorrowLimit !== undefined && customer) {
+            const limit = Number(manualBorrowLimit);
+            if (Number.isFinite(limit) && limit >= 0) {
+                customer.manualBorrowLimit = limit;
+                await customer.save();
+            }
+        }
+
+        return res.status(200).json({
+            success: true,
+            message: "Customer updated successfully",
+            customer: {
+                id: user._id,
+                name: user.name,
+                username: user.username,
+                email: user.email,
+                phone: user.phone,
+                isActive: user.isActive
+            }
+        });
+    } catch (err) {
+        console.error("Update customer error:", err);
+        if (err.code === 11000) {
+            return res.status(409).json({
+                success: false,
+                message: "Username, email or phone already exists"
+            });
+        }
+        return res.status(500).json({
+            success: false,
+            message: "Server Error"
+        });
+    }
+}
+
+// Activate / Deactivate customer account
+export async function updateCustomerStatus(req, res) {
+    try {
+        const { id } = req.params;
+        const { isActive, status } = req.body;
+
+        const finalStatus =
+            typeof isActive === "boolean"
+                ? isActive
+                : status === "Active" || status === true;
+
+        let customer = await User.findOne({ _id: id, role: "customer" });
+        if (!customer) {
+            const cust = await Customer.findById(id);
+            if (cust) {
+                customer = await User.findOne({ _id: cust.userId, role: "customer" });
+            }
+        }
+
+        if (!customer) {
+            return res.status(404).json({
+                success: false,
+                message: "Customer not found"
+            });
+        }
+
+        customer.isActive = finalStatus;
+        await customer.save();
+
+        return res.status(200).json({
+            success: true,
+            message: finalStatus
+                ? "Customer activated successfully"
+                : "Customer deactivated successfully",
+            customer: {
+                id: customer._id,
+                name: customer.name,
+                username: customer.username,
+                role: customer.role,
+                isActive: customer.isActive
+            }
+        });
+    } catch (err) {
+        console.error("Update customer status error:", err);
+        return res.status(500).json({
+            success: false,
+            message: "Server Error"
+        });
+    }
+}
+
+// Delete customer account and all related transactions
+export async function deleteCustomer(req, res) {
+    const session = await User.startSession();
+
+    try {
+        const { id } = req.params;
+        let user = await User.findOne({ _id: id, role: "customer" });
+        let customer;
+
+        if (!user) {
+            customer = await Customer.findById(id);
+            if (customer) {
+                user = await User.findOne({ _id: customer.userId, role: "customer" });
+            }
+        } else {
+            customer = await Customer.findOne({ userId: user._id });
+        }
+
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: "Customer not found"
+            });
+        }
+
+        await session.withTransaction(async () => {
+            if (customer) {
+                await Payment.deleteMany({ userId: user._id }, { session });
+                await Return.deleteMany({ customerId: customer._id }, { session });
+                await Sale.deleteMany({ customerId: customer._id }, { session });
+                await Credit.deleteMany({ customerId: customer._id }, { session });
+                await Customer.deleteOne({ _id: customer._id }, { session });
+            }
+            await User.deleteOne({ _id: user._id }, { session });
+        });
+
+        return res.status(200).json({
+            success: true,
+            message: "Customer account and all related data deleted successfully"
+        });
+    } catch (err) {
+        console.error("Delete customer error:", err);
+        return res.status(500).json({
+            success: false,
+            message: "Customer deletion failed"
+        });
+    } finally {
+        await session.endSession();
+    }
+}
+
+// Update profile for authenticated customer
+export async function updateMyProfile(req, res) {
+    try {
+        const { name, phone } = req.body;
+        const user = await User.findById(req.user._id);
+
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: "User account not found"
+            });
+        }
+
+        if (name !== undefined) {
+            if (!name.trim()) {
+                return res.status(400).json({
+                    success: false,
+                    message: "Name cannot be empty"
+                });
+            }
+            user.name = name.trim();
+        }
+
+        if (phone !== undefined) {
+            if (!phone.trim()) {
+                return res.status(400).json({
+                    success: false,
+                    message: "Phone number cannot be empty"
+                });
+            }
+
+            const normalizedPhone = phone.trim();
+            if (!validator.isMobilePhone(normalizedPhone, "any")) {
+                return res.status(400).json({
+                    success: false,
+                    message: "Invalid phone number"
+                });
+            }
+
+            const existingUser = await User.findOne({
+                phone: normalizedPhone,
+                _id: { $ne: user._id }
+            });
+
+            if (existingUser) {
+                return res.status(409).json({
+                    success: false,
+                    message: "Phone number already exists"
+                });
+            }
+
+            user.phone = normalizedPhone;
+        }
+
+        await user.save();
+        const customer = await Customer.findOne({ userId: user._id });
+
+        return res.status(200).json({
+            success: true,
+            message: "Profile updated successfully",
+            user: {
+                id: user._id,
+                name: user.name,
+                email: user.email,
+                phone: user.phone,
+                role: user.role
+            },
+            customer
+        });
+    } catch (err) {
+        console.error("Update my profile error:", err);
+        if (err.code === 11000) {
+            return res.status(409).json({
+                success: false,
+                message: "Phone number already exists"
+            });
+        }
+        return res.status(500).json({
+            success: false,
+            message: "Server Error"
+        });
+    }
+}
+
+// Fetch self profile details with purchasing and transaction history
+export async function getMyProfile(req, res) {
+    try {
+        const user = await User.findById(req.user._id).select("-password");
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: "User account not found"
+            });
+        }
+
+        let customer = await Customer.findOne({ userId: req.user._id });
+        if (!customer) {
+            customer = await Customer.create({
+                userId: req.user._id,
+                totalPurchase: 0,
+                trustScore: 0,
+                maxBorrowAmount: 0,
+                pendingAmount: 0,
+                manualBorrowLimit: 0
+            });
+        }
+
+        const customerIds = [customer._id, user._id];
+        const [sales, credits, payments] = await Promise.all([
+            Sale.find({ customerId: { $in: customerIds } }).sort({ createdAt: -1 }),
+            Credit.find({ $or: [{ customerId: { $in: customerIds } }, { userId: user._id }] }).sort({ createdAt: -1 }),
+            Payment.find({ $or: [{ customerId: { $in: customerIds } }, { userId: user._id }] }).sort({ paidAt: -1 })
+        ]);
+
+        const totalSaleAmount = sales.reduce((sum, s) => sum + Number(s.totalAmount || 0), 0);
+        const totalPendingCredit = credits.reduce((sum, c) => sum + Number(c.pendingAmount || 0), 0);
+
+        return res.status(200).json({
+            success: true,
+            user,
+            customer,
+            summary: {
+                totalPurchases: totalSaleAmount || customer.totalPurchase || 0,
+                totalSalesCount: sales.length,
+                pendingCredit: totalPendingCredit || customer.pendingAmount || 0,
+                trustScore: customer.trustScore || 0,
+                borrowLimit: customer.manualBorrowLimit || customer.maxBorrowAmount || 0
+            },
+            records: {
+                recentSales: sales.slice(0, 10),
+                recentCredits: credits.slice(0, 10),
+                recentPayments: payments.slice(0, 10)
+            }
+        });
+    } catch (err) {
+        console.error("Get my profile error:", err);
+        return res.status(500).json({
+            success: false,
+            message: "Server Error"
+        });
+    }
+}

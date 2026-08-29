@@ -1,0 +1,1588 @@
+import React, {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { Link } from "react-router-dom";
+import {
+  Search,
+  User,
+  Package,
+  Trash2,
+  Plus,
+  Minus,
+  RefreshCw,
+  CheckCircle2,
+  AlertCircle,
+  Wallet,
+  Banknote,
+  Smartphone,
+  CreditCard,
+  X,
+} from "lucide-react";
+
+import {
+  customersApi,
+  productsApi,
+  salesApi,
+} from "../services/api";
+
+const money = (value) => {
+  return `₹${Number(value || 0).toLocaleString("en-IN", {
+    maximumFractionDigits: 2,
+  })}`;
+};
+
+const getId = (item) => {
+  if (!item || typeof item !== "object") return "";
+
+  return String(
+    item._id ||
+      item.id ||
+      (typeof item.userId === "string" ? item.userId : "") ||
+      (typeof item.customerId === "string" ? item.customerId : "") ||
+      (typeof item.productId === "string" ? item.productId : "") ||
+      ""
+  );
+};
+
+// Customer name extractor compatible with nested user/profile objects
+const getCustomerName = (customer) => {
+  if (!customer || typeof customer !== "object") {
+    return "Customer";
+  }
+
+  const userId =
+    customer.userId && typeof customer.userId === "object"
+      ? customer.userId
+      : null;
+
+  const user =
+    customer.user && typeof customer.user === "object"
+      ? customer.user
+      : null;
+
+  const profile =
+    customer.profile && typeof customer.profile === "object"
+      ? customer.profile
+      : null;
+
+  const name =
+    customer.name ||
+    customer.fullName ||
+    userId?.name ||
+    userId?.fullName ||
+    user?.name ||
+    user?.fullName ||
+    profile?.name ||
+    profile?.fullName ||
+    userId?.username ||
+    user?.username ||
+    customer.username;
+
+  return typeof name === "string" && name.trim() ? name.trim() : "Customer";
+};
+
+const getCustomerPhone = (customer) => {
+  if (!customer || typeof customer !== "object") return "";
+
+  const userId =
+    customer.userId && typeof customer.userId === "object"
+      ? customer.userId
+      : null;
+
+  const user =
+    customer.user && typeof customer.user === "object"
+      ? customer.user
+      : null;
+
+  return (
+    customer.phone ||
+    customer.mobile ||
+    userId?.phone ||
+    userId?.mobile ||
+    user?.phone ||
+    user?.mobile ||
+    ""
+  );
+};
+
+const getCustomerEmail = (customer) => {
+  if (!customer || typeof customer !== "object") return "";
+
+  const userId =
+    customer.userId && typeof customer.userId === "object"
+      ? customer.userId
+      : null;
+
+  const user =
+    customer.user && typeof customer.user === "object"
+      ? customer.user
+      : null;
+
+  return customer.email || userId?.email || user?.email || "";
+};
+
+const getCustomerOutstanding = (customer) => {
+  if (!customer || typeof customer !== "object") return 0;
+
+  return Number(
+    customer.pendingAmount ??
+      customer.outstanding ??
+      customer.profile?.pendingAmount ??
+      0
+  );
+};
+
+const getCustomerCreditLimit = (customer) => {
+  if (!customer || typeof customer !== "object") return 0;
+
+  return Number(
+    customer.manualBorrowLimit ??
+      customer.maxBorrowAmount ??
+      customer.creditLimit ??
+      customer.profile?.manualBorrowLimit ??
+      customer.profile?.maxBorrowAmount ??
+      customer.profile?.creditLimit ??
+      0
+  );
+};
+
+const getProductName = (product) => {
+  return product?.name || product?.productName || "Unnamed product";
+};
+
+const getProductPrice = (product) => {
+  return Number(
+    product?.price ?? product?.sellingPrice ?? product?.salePrice ?? 0
+  );
+};
+
+const getProductStock = (product) => {
+  const value =
+    product?.stockQuantity ?? product?.stock ?? product?.quantity;
+
+  if (value === null || value === undefined || value === "") return null;
+  return Number(value);
+};
+
+const normalizeCustomers = (response) => {
+  const data =
+    response?.customers ||
+    response?.data?.customers ||
+    response?.data ||
+    response;
+
+  return Array.isArray(data) ? data : [];
+};
+
+const normalizeProducts = (response) => {
+  const data =
+    response?.products ||
+    response?.data?.products ||
+    response?.data ||
+    response;
+
+  return Array.isArray(data) ? data : [];
+};
+
+const Sales = () => {
+  const [customers, setCustomers] = useState([]);
+  const [customerSearch, setCustomerSearch] = useState("");
+  const [selectedCustomer, setSelectedCustomer] = useState(null);
+  const [showCustomerList, setShowCustomerList] = useState(false);
+  const customerSearchRef = useRef(null);
+  const productSearchRef = useRef(null);
+
+  const [products, setProducts] = useState([]);
+  const [productSearch, setProductSearch] = useState("");
+  const [cart, setCart] = useState([]);
+  const [showProductList, setShowProductList] = useState(false);
+
+  const [totalAmount, setTotalAmount] = useState("");
+  const [paymentType, setPaymentType] = useState("cash");
+  const [paidAmount, setPaidAmount] = useState("");
+  const [partialPaymentType, setPartialPaymentType] = useState("");
+
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [message, setMessage] = useState("");
+  const [messageType, setMessageType] = useState("");
+
+  const clearMessage = () => {
+    setMessage("");
+    setMessageType("");
+  };
+
+  // Load customer and product datasets
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      clearMessage();
+
+      const [customersResponse, productsResponse] = await Promise.all([
+        customersApi.getAll(),
+        productsApi.list(),
+      ]);
+
+      setCustomers(normalizeCustomers(customersResponse));
+      setProducts(normalizeProducts(productsResponse));
+    } catch (error) {
+      console.error("Load sales data error:", error);
+      setMessage(error?.message || "Failed to load customers and products.");
+      setMessageType("error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  // Handle dropdown dismiss on outside click
+  useEffect(() => {
+    const handleOutsidePointerDown = (event) => {
+      if (
+        customerSearchRef.current &&
+        !customerSearchRef.current.contains(event.target)
+      ) {
+        setShowCustomerList(false);
+      }
+
+      if (
+        productSearchRef.current &&
+        !productSearchRef.current.contains(event.target)
+      ) {
+        setShowProductList(false);
+      }
+    };
+
+    document.addEventListener("pointerdown", handleOutsidePointerDown);
+    return () => {
+      document.removeEventListener("pointerdown", handleOutsidePointerDown);
+    };
+  }, []);
+
+  const filteredCustomers = useMemo(() => {
+    const query = customerSearch.trim().toLowerCase();
+    if (!query) return customers.slice(0, 10);
+
+    return customers
+      .filter((customer) => {
+        const name = String(getCustomerName(customer)).toLowerCase();
+        const phone = String(getCustomerPhone(customer)).toLowerCase();
+        const email = String(getCustomerEmail(customer)).toLowerCase();
+
+        return (
+          name.includes(query) || phone.includes(query) || email.includes(query)
+        );
+      })
+      .slice(0, 10);
+  }, [customers, customerSearch]);
+
+  const filteredProducts = useMemo(() => {
+    const query = productSearch.trim().toLowerCase();
+    if (!query) return products.slice(0, 10);
+
+    return products
+      .filter((product) =>
+        getProductName(product).toLowerCase().includes(query)
+      )
+      .slice(0, 10);
+  }, [products, productSearch]);
+
+  const handleCustomerSelect = (customer) => {
+    if (!customer || typeof customer !== "object") return;
+    setSelectedCustomer(customer);
+    setCustomerSearch(getCustomerName(customer));
+    setShowCustomerList(false);
+    clearMessage();
+  };
+
+  const clearCustomer = () => {
+    setSelectedCustomer(null);
+    setCustomerSearch("");
+    setShowCustomerList(false);
+  };
+
+  // Add selected product to the cart
+  const addProduct = (product) => {
+    clearMessage();
+    const productId = getId(product);
+
+    if (!productId) {
+      setMessage("Product ID is missing.");
+      setMessageType("error");
+      return;
+    }
+
+    const stock = getProductStock(product);
+    if (stock !== null && stock <= 0) {
+      setMessage(`${getProductName(product)} is out of stock.`);
+      setMessageType("error");
+      return;
+    }
+
+    const existing = cart.find(
+      (item) => String(item.productId) === String(productId)
+    );
+
+    if (existing) {
+      if (stock !== null && existing.quantity >= stock) {
+        setMessage(
+          `Available stock limit reached for ${getProductName(product)}.`
+        );
+        setMessageType("error");
+        return;
+      }
+
+      setCart((prev) =>
+        prev.map((item) =>
+          String(item.productId) === String(productId)
+            ? {
+                ...item,
+                quantity: Number(item.quantity || 1) + 1,
+              }
+            : item
+        )
+      );
+    } else {
+      setCart((prev) => [
+        ...prev,
+        {
+          productId,
+          productName: getProductName(product),
+          quantity: 1,
+          unit: product?.unit || product?.sellingUnit || null,
+          price: getProductPrice(product),
+          total: getProductPrice(product),
+          stock,
+        },
+      ]);
+    }
+
+    setProductSearch("");
+    setShowProductList(false);
+  };
+
+  const updateQuantity = (productId, type) => {
+    setCart((prev) =>
+      prev.map((item) => {
+        if (String(item.productId) !== String(productId)) return item;
+
+        let quantity = Number(item.quantity || 1);
+
+        if (type === "increase") {
+          if (item.stock !== null && quantity >= item.stock) return item;
+          quantity += 1;
+        }
+
+        if (type === "decrease") {
+          quantity = Math.max(1, quantity - 1);
+        }
+
+        return {
+          ...item,
+          quantity,
+          total:
+            item.price !== null && item.price !== undefined
+              ? Number(item.price) * quantity
+              : null,
+        };
+      })
+    );
+  };
+
+  const updateItem = (productId, field, value) => {
+    setCart((prev) =>
+      prev.map((item) => {
+        if (String(item.productId) !== String(productId)) return item;
+
+        const updated = {
+          ...item,
+          [field]: value,
+        };
+
+        if (field === "price" || field === "quantity") {
+          const price = Number(field === "price" ? value : item.price);
+          const quantity = Number(
+            field === "quantity" ? value : item.quantity
+          );
+
+          if (Number.isFinite(price) && Number.isFinite(quantity)) {
+            updated.total = price * quantity;
+          }
+        }
+
+        return updated;
+      })
+    );
+  };
+
+  const removeProduct = (productId) => {
+    setCart((prev) =>
+      prev.filter((item) => String(item.productId) !== String(productId))
+    );
+  };
+
+  const itemTotal = (item) => {
+    const price = Number(item.price);
+    const quantity = Number(item.quantity);
+
+    if (!Number.isFinite(price) || !Number.isFinite(quantity)) return 0;
+    return price * quantity;
+  };
+
+  const calculatedItemsTotal = useMemo(() => {
+    return cart.reduce((sum, item) => sum + itemTotal(item), 0);
+  }, [cart]);
+
+  const enteredTotal = Number(totalAmount);
+  const hasEnteredTotal = totalAmount !== "" && Number.isFinite(enteredTotal);
+  const total = hasEnteredTotal ? Math.max(0, enteredTotal) : calculatedItemsTotal;
+
+  const calculatedPaid =
+    paymentType === "cash" || paymentType === "upi"
+      ? total
+      : paymentType === "credit"
+      ? 0
+      : paymentType === "partial"
+      ? Math.min(Math.max(Number(paidAmount) || 0, 0), total)
+      : 0;
+
+  const pendingAmount = Math.max(0, total - calculatedPaid);
+
+  const currentOutstanding = selectedCustomer
+    ? getCustomerOutstanding(selectedCustomer)
+    : 0;
+
+  const creditLimit = selectedCustomer
+    ? getCustomerCreditLimit(selectedCustomer)
+    : 0;
+
+  const availableCredit = Math.max(0, creditLimit - currentOutstanding);
+
+  const needsCredit = paymentType === "credit" || paymentType === "partial";
+  const creditExceeded =
+    needsCredit && selectedCustomer && pendingAmount > availableCredit;
+
+  // Validate sale requirements before backend submission
+  const validateSale = () => {
+    const amount = Number(total);
+
+    if (!Number.isFinite(amount) || amount <= 0) {
+      return "Please enter a valid total amount.";
+    }
+
+    if (needsCredit && !selectedCustomer) {
+      return "Customer is required for credit or partial payment.";
+    }
+
+    if (paymentType === "partial") {
+      const paid = Number(paidAmount);
+
+      if (!paidAmount || !Number.isFinite(paid) || paid <= 0) {
+        return "Please enter the amount paid by customer.";
+      }
+
+      if (paid >= amount) {
+        return "For partial payment, paid amount must be less than total amount.";
+      }
+
+      if (!["cash", "upi"].includes(partialPaymentType)) {
+        return "Please select whether the partial payment was received by cash or UPI.";
+      }
+    }
+
+    if (needsCredit && selectedCustomer && creditExceeded) {
+      return `Credit limit exceeded. Available credit is ${money(availableCredit)}.`;
+    }
+
+    return "";
+  };
+
+  const preparedItems = cart.map((item) => {
+    const quantity =
+      item.quantity === "" || item.quantity === null || item.quantity === undefined
+        ? null
+        : Number(item.quantity);
+
+    const price =
+      item.price === "" || item.price === null || item.price === undefined
+        ? null
+        : Number(item.price);
+
+    const itemTotalValue =
+      quantity !== null &&
+      price !== null &&
+      Number.isFinite(quantity) &&
+      Number.isFinite(price)
+        ? quantity * price
+        : null;
+
+    return {
+      productId: item.productId || null,
+      productName: item.productName?.trim() || "Unrecorded item",
+      quantity: Number.isFinite(quantity) ? quantity : null,
+      unit: item.unit || null,
+      price: Number.isFinite(price) ? price : null,
+      total: itemTotalValue !== null ? itemTotalValue : item.total ?? null,
+    };
+  });
+
+  // Submit sale payload to backend
+  const handleCreateSale = async (e) => {
+    e.preventDefault();
+    if (submitting) return;
+
+    clearMessage();
+    const validation = validateSale();
+
+    if (validation) {
+      setMessage(validation);
+      setMessageType("error");
+      return;
+    }
+
+    const amount = Number(total);
+    const paid =
+      paymentType === "cash" || paymentType === "upi"
+        ? amount
+        : paymentType === "credit"
+        ? 0
+        : Number(paidAmount);
+
+    const pending = Math.max(0, amount - paid);
+
+    const saleData = {
+      customerId: selectedCustomer ? getId(selectedCustomer) : null,
+      items: preparedItems,
+      totalAmount: amount,
+      paymentType,
+      paidAmount:
+        paymentType === "partial"
+          ? paid
+          : paymentType === "cash" || paymentType === "upi"
+          ? amount
+          : 0,
+      pendingAmount:
+        paymentType === "partial" || paymentType === "credit" ? pending : 0,
+      partialPaymentType:
+        paymentType === "partial" ? partialPaymentType : null,
+    };
+
+    try {
+      setSubmitting(true);
+      const response = await salesApi.create(saleData);
+
+      setMessage(response?.message || "Sale created successfully.");
+      setMessageType("success");
+      resetSale();
+
+      try {
+        const productsResponse = await productsApi.list();
+        setProducts(normalizeProducts(productsResponse));
+      } catch {
+        // Continue if background product refresh fails
+      }
+    } catch (error) {
+      console.error("Create sale error:", error);
+      setMessage(error?.message || "Failed to create sale.");
+      setMessageType("error");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const resetSale = () => {
+    setSelectedCustomer(null);
+    setCustomerSearch("");
+    setProductSearch("");
+    setCart([]);
+    setTotalAmount("");
+    setPaymentType("cash");
+    setPaidAmount("");
+    setPartialPaymentType("");
+    setShowCustomerList(false);
+    setShowProductList(false);
+  };
+
+  if (loading) {
+    return (
+      <div
+        className="flex min-h-[70vh] items-center justify-center px-4"
+        style={{ backgroundColor: "var(--app-bg)" }}
+      >
+        <div className="text-center">
+          <RefreshCw
+            className="mx-auto h-8 w-8 animate-spin"
+            style={{ color: "var(--app-accent)" }}
+          />
+          <p className="mt-3 text-sm text-zinc-500">
+            Loading customers and products...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className="w-full min-w-0 overflow-x-hidden px-3 py-4 sm:px-5 sm:py-6 md:px-8 lg:px-10"
+      style={{
+        backgroundColor: "var(--app-bg)",
+        color: "var(--app-text)",
+      }}
+    >
+      <div className="mx-auto max-w-7xl">
+        <div className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="mb-1 text-sm font-medium" style={{ color: "var(--app-accent)" }}>
+              SmartShop Admin Panel
+            </p>
+            <h1 className="text-3xl font-bold tracking-tight text-white">
+              Create Sale
+            </h1>
+            <p className="mt-2 text-sm text-zinc-500">
+              Record a quick sale with optional product details.
+            </p>
+          </div>
+
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+            <button
+              type="button"
+              onClick={loadData}
+              className="inline-flex w-full items-center justify-center gap-2 rounded-lg border px-3 py-2.5 text-sm font-medium text-zinc-300 transition hover:text-white sm:w-auto sm:px-4"
+              style={{
+                borderColor: "var(--app-border)",
+                backgroundColor: "var(--app-surface)",
+              }}
+            >
+              <RefreshCw className="h-4 w-4" />
+              Refresh
+            </button>
+
+            <Link
+              to="/transactions"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-lg border px-3 py-2.5 text-sm font-medium text-zinc-300 transition hover:text-white sm:w-auto sm:px-4"
+              style={{
+                borderColor: "var(--app-border)",
+                backgroundColor: "var(--app-surface)",
+              }}
+            >
+              View Transactions →
+            </Link>
+          </div>
+        </div>
+
+        {message && (
+          <div
+            className="mb-6 flex items-start gap-3 rounded-xl border px-4 py-3 text-sm"
+            style={
+              messageType === "success"
+                ? {
+                    borderColor: "rgba(34,197,94,.2)",
+                    backgroundColor: "rgba(34,197,94,.05)",
+                    color: "#4ade80",
+                  }
+                : {
+                    borderColor: "rgba(239,68,68,.2)",
+                    backgroundColor: "rgba(239,68,68,.05)",
+                    color: "#f87171",
+                  }
+            }
+          >
+            {messageType === "success" ? (
+              <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+            ) : (
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+            )}
+            <span>{message}</span>
+          </div>
+        )}
+
+        <form onSubmit={handleCreateSale}>
+          <div className="grid min-w-0 grid-cols-1 gap-4 sm:gap-5 lg:gap-6 xl:grid-cols-3">
+            {/* Customer and products selection */}
+            <div className="min-w-0 space-y-4 sm:space-y-5 xl:col-span-2">
+              <section
+                className="min-w-0 rounded-xl border p-3 sm:p-4 md:p-5"
+                style={{
+                  borderColor: "var(--app-border)",
+                  backgroundColor: "var(--app-surface)",
+                }}
+              >
+                <div className="mb-5 flex items-start justify-between">
+                  <div>
+                    <h2 className="text-base font-semibold text-white">Customer</h2>
+                    <p className="mt-1 text-xs text-zinc-500">
+                      Optional. Leave empty for Walk-in Customer.
+                    </p>
+                  </div>
+
+                  {selectedCustomer && (
+                    <button
+                      type="button"
+                      onClick={clearCustomer}
+                      className="text-zinc-500 transition hover:text-red-400"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+
+                <div ref={customerSearchRef} className="relative">
+                  <div className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2">
+                    <Search className="h-4 w-4 text-zinc-600" />
+                  </div>
+
+                  <input
+                    type="text"
+                    value={customerSearch}
+                    onChange={(e) => {
+                      setCustomerSearch(e.target.value);
+                      setSelectedCustomer(null);
+                      setShowCustomerList(true);
+                      clearMessage();
+                    }}
+                    onFocus={() => setShowCustomerList(true)}
+                    placeholder="Search customer by name, phone or email..."
+                    className="w-full rounded-lg border py-3 pl-9 pr-4 text-sm text-white outline-none placeholder:text-zinc-600"
+                    style={{
+                      borderColor: "var(--app-border)",
+                      backgroundColor: "var(--app-surface-light)",
+                    }}
+                  />
+
+                  {showCustomerList && (
+                    <div
+                      className="absolute left-0 right-0 top-full z-40 mt-2 max-h-[60vh] overflow-y-auto overscroll-contain rounded-lg border shadow-2xl"
+                      style={{
+                        borderColor: "var(--app-border)",
+                        backgroundColor: "var(--app-surface-light)",
+                      }}
+                    >
+                      {filteredCustomers.length > 0 ? (
+                        filteredCustomers.map((customer, index) => {
+                          const id = getId(customer) || `customer-${index}`;
+
+                          return (
+                            <button
+                              key={id}
+                              type="button"
+                              onClick={() => handleCustomerSelect(customer)}
+                              className="flex w-full items-center justify-between border-b px-4 py-3 text-left last:border-0 hover:bg-white/[0.03]"
+                              style={{ borderColor: "var(--app-border)" }}
+                            >
+                              <div className="flex min-w-0 items-center gap-3">
+                                <div
+                                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full"
+                                  style={{
+                                    backgroundColor: "var(--app-accent-soft)",
+                                    color: "var(--app-accent)",
+                                  }}
+                                >
+                                  <User className="h-4 w-4" />
+                                </div>
+
+                                <div className="min-w-0">
+                                  <p className="truncate text-sm font-medium text-zinc-200">
+                                    {getCustomerName(customer)}
+                                  </p>
+                                  <p className="mt-1 truncate text-xs text-zinc-600">
+                                    {getCustomerPhone(customer) ||
+                                      getCustomerEmail(customer) ||
+                                      "No contact details"}
+                                  </p>
+                                </div>
+                              </div>
+
+                              <span className="text-xs" style={{ color: "var(--app-accent)" }}>
+                                Select
+                              </span>
+                            </button>
+                          );
+                        })
+                      ) : (
+                        <div className="px-4 py-6 text-center text-sm text-zinc-600">
+                          No customer found
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {selectedCustomer && (
+                  <div
+                    className="mt-4 rounded-xl border p-4"
+                    style={{
+                      borderColor: "var(--app-border)",
+                      backgroundColor: "var(--app-surface-light)",
+                    }}
+                  >
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <p className="text-xs text-zinc-600">Selected Customer</p>
+                        <p className="mt-1 text-base font-semibold text-white">
+                          {getCustomerName(selectedCustomer)}
+                        </p>
+                        <div className="mt-1 flex flex-wrap gap-3 text-xs text-zinc-600">
+                          {getCustomerPhone(selectedCustomer) && (
+                            <span>{getCustomerPhone(selectedCustomer)}</span>
+                          )}
+                          {getCustomerEmail(selectedCustomer) && (
+                            <span>{getCustomerEmail(selectedCustomer)}</span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="grid w-full grid-cols-2 gap-3 sm:w-auto">
+                        <div>
+                          <p className="text-[10px] uppercase tracking-wider text-zinc-600">
+                            Outstanding
+                          </p>
+                          <p className="mt-1 text-sm font-semibold text-red-400">
+                            {money(currentOutstanding)}
+                          </p>
+                        </div>
+
+                        <div>
+                          <p className="text-[10px] uppercase tracking-wider text-zinc-600">
+                            Available Credit
+                          </p>
+                          <p className="mt-1 text-sm font-semibold text-emerald-400">
+                            {money(availableCredit)}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </section>
+
+              <section
+                className="min-w-0 rounded-xl border p-3 sm:p-4 md:p-5"
+                style={{
+                  borderColor: "var(--app-border)",
+                  backgroundColor: "var(--app-surface)",
+                }}
+              >
+                <div className="mb-5 flex items-start justify-between">
+                  <div>
+                    <h2 className="text-base font-semibold text-white">Products</h2>
+                    <p className="mt-1 text-xs text-zinc-500">
+                      Optional. You can create a sale without recording items.
+                    </p>
+                  </div>
+
+                  <span
+                    className="rounded-full px-3 py-1 text-xs font-medium"
+                    style={{
+                      backgroundColor: "var(--app-accent-soft)",
+                      color: "var(--app-accent)",
+                    }}
+                  >
+                    {cart.length} Items
+                  </span>
+                </div>
+
+                <div ref={productSearchRef} className="relative">
+                  <div className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2">
+                    <Search className="h-4 w-4 text-zinc-600" />
+                  </div>
+
+                  <input
+                    type="text"
+                    value={productSearch}
+                    onChange={(e) => {
+                      setProductSearch(e.target.value);
+                      setShowProductList(true);
+                      clearMessage();
+                    }}
+                    onFocus={() => setShowProductList(true)}
+                    placeholder="Search product..."
+                    className="w-full rounded-lg border py-3 pl-9 pr-4 text-sm text-white outline-none placeholder:text-zinc-600"
+                    style={{
+                      borderColor: "var(--app-border)",
+                      backgroundColor: "var(--app-surface-light)",
+                    }}
+                  />
+
+                  {showProductList && (
+                    <div
+                      className="absolute left-0 right-0 top-full z-40 mt-2 max-h-[60vh] overflow-y-auto overscroll-contain rounded-lg border shadow-2xl"
+                      style={{
+                        borderColor: "var(--app-border)",
+                        backgroundColor: "var(--app-surface-light)",
+                      }}
+                    >
+                      {filteredProducts.length > 0 ? (
+                        filteredProducts.map((product) => {
+                          const stock = getProductStock(product);
+                          const outOfStock = stock !== null && stock <= 0;
+
+                          return (
+                            <button
+                              key={getId(product)}
+                              type="button"
+                              disabled={outOfStock}
+                              onClick={() => addProduct(product)}
+                              className="flex w-full items-center justify-between border-b px-4 py-3 text-left last:border-0 disabled:cursor-not-allowed disabled:opacity-40 hover:bg-white/[0.03]"
+                              style={{ borderColor: "var(--app-border)" }}
+                            >
+                              <div className="flex min-w-0 items-center gap-3">
+                                <div
+                                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
+                                  style={{
+                                    backgroundColor: "var(--app-accent-soft)",
+                                    color: "var(--app-accent)",
+                                  }}
+                                >
+                                  <Package className="h-4 w-4" />
+                                </div>
+
+                                <div className="min-w-0">
+                                  <p className="truncate text-sm font-medium text-zinc-200">
+                                    {getProductName(product)}
+                                  </p>
+                                  <p className="mt-1 text-xs text-zinc-600">
+                                    {stock === null ? "Stock not recorded" : `Stock ${stock}`}
+                                  </p>
+                                </div>
+                              </div>
+
+                              <div className="text-right">
+                                <p className="text-sm font-semibold text-white">
+                                  {money(getProductPrice(product))}
+                                </p>
+                                <p className="mt-1 text-xs" style={{ color: "var(--app-accent)" }}>
+                                  {outOfStock ? "Out of stock" : "Add +"}
+                                </p>
+                              </div>
+                            </button>
+                          );
+                        })
+                      ) : (
+                        <div className="px-4 py-6 text-center text-sm text-zinc-600">
+                          No product found
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {cart.length > 0 ? (
+                  <div className="mt-5 space-y-3">
+                    {cart.map((item) => (
+                      <div
+                        key={item.productId}
+                        className="min-w-0 overflow-hidden rounded-xl border p-3 sm:p-4"
+                        style={{
+                          borderColor: "var(--app-border)",
+                          backgroundColor: "var(--app-surface-light)",
+                        }}
+                      >
+                        <div className="flex flex-col gap-4">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-medium text-zinc-200">
+                                {item.productName}
+                              </p>
+                              <p className="mt-1 text-xs text-zinc-600">
+                                Product ID: {item.productId}
+                              </p>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() => removeProduct(item.productId)}
+                              className="shrink-0 text-zinc-600 transition hover:text-red-400"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
+
+                          <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                            <div>
+                              <label className="mb-1.5 block text-[10px] uppercase tracking-wider text-zinc-600">
+                                Quantity
+                              </label>
+                              <div
+                                className="flex h-10 items-center rounded-lg border"
+                                style={{
+                                  borderColor: "var(--app-border)",
+                                  backgroundColor: "var(--app-surface)",
+                                }}
+                              >
+                                <button
+                                  type="button"
+                                  onClick={() => updateQuantity(item.productId, "decrease")}
+                                  className="flex h-full w-9 items-center justify-center text-zinc-500 hover:text-white"
+                                >
+                                  <Minus className="h-3.5 w-3.5" />
+                                </button>
+                                <input
+                                  type="number"
+                                  min="0.001"
+                                  step="any"
+                                  value={item.quantity ?? ""}
+                                  onChange={(e) =>
+                                    updateItem(item.productId, "quantity", e.target.value)
+                                  }
+                                  className="h-full min-w-0 flex-1 bg-transparent text-center text-sm text-white outline-none"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => updateQuantity(item.productId, "increase")}
+                                  className="flex h-full w-9 items-center justify-center text-zinc-500 hover:text-white"
+                                >
+                                  <Plus className="h-3.5 w-3.5" />
+                                </button>
+                              </div>
+                            </div>
+
+                            <div>
+                              <label className="mb-1.5 block text-[10px] uppercase tracking-wider text-zinc-600">
+                                Unit
+                              </label>
+                              <select
+                                value={item.unit || ""}
+                                onChange={(e) =>
+                                  updateItem(item.productId, "unit", e.target.value || null)
+                                }
+                                className="h-10 w-full rounded-lg border px-3 text-sm text-zinc-300 outline-none"
+                                style={{
+                                  borderColor: "var(--app-border)",
+                                  backgroundColor: "var(--app-surface)",
+                                }}
+                              >
+                                <option value="">Not specified</option>
+                                <option value="piece">Piece</option>
+                                <option value="kg">Kg</option>
+                                <option value="gram">Gram</option>
+                                <option value="liter">Liter</option>
+                                <option value="ml">Ml</option>
+                                <option value="meter">Meter</option>
+                                <option value="box">Box</option>
+                                <option value="packet">Packet</option>
+                                <option value="dozen">Dozen</option>
+                              </select>
+                            </div>
+
+                            <div>
+                              <label className="mb-1.5 block text-[10px] uppercase tracking-wider text-zinc-600">
+                                Price
+                              </label>
+                              <div className="relative">
+                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-zinc-600">
+                                  ₹
+                                </span>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  step="any"
+                                  value={item.price ?? ""}
+                                  onChange={(e) =>
+                                    updateItem(item.productId, "price", e.target.value)
+                                  }
+                                  placeholder="Optional"
+                                  className="h-10 w-full rounded-lg border pl-7 pr-3 text-sm text-white outline-none placeholder:text-zinc-700"
+                                  style={{
+                                    borderColor: "var(--app-border)",
+                                    backgroundColor: "var(--app-surface)",
+                                  }}
+                                />
+                              </div>
+                            </div>
+
+                            <div>
+                              <label className="mb-1.5 block text-[10px] uppercase tracking-wider text-zinc-600">
+                                Item Total
+                              </label>
+                              <div
+                                className="flex h-10 items-center rounded-lg border px-3 text-sm font-semibold text-white"
+                                style={{
+                                  borderColor: "var(--app-border)",
+                                  backgroundColor: "var(--app-surface)",
+                                }}
+                              >
+                                {itemTotal(item) > 0
+                                  ? money(itemTotal(item))
+                                  : "Not calculated"}
+                              </div>
+                            </div>
+                          </div>
+
+                          <p className="text-[11px] text-zinc-600">
+                            Product details are optional. You can leave quantity/unit/price incomplete and enter the final sale amount below.
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div
+                    className="mt-5 rounded-xl border border-dashed px-5 py-12 text-center"
+                    style={{ borderColor: "var(--app-border)" }}
+                  >
+                    <div
+                      className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl"
+                      style={{
+                        backgroundColor: "var(--app-accent-soft)",
+                        color: "var(--app-accent)",
+                      }}
+                    >
+                      <Package className="h-5 w-5" />
+                    </div>
+                    <p className="mt-3 text-sm font-medium text-zinc-300">
+                      No products added
+                    </p>
+                    <p className="mt-1 text-xs text-zinc-600">
+                      That's okay. A sale can be recorded using only the total amount.
+                    </p>
+                  </div>
+                )}
+
+                <div
+                  className="mt-5 rounded-xl border p-5"
+                  style={{
+                    borderColor: "var(--app-border)",
+                    backgroundColor: "var(--app-surface-light)",
+                  }}
+                >
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+                    <div>
+                      <h3 className="text-sm font-semibold text-white">
+                        Total Sale Amount
+                      </h3>
+                      <p className="mt-1 text-xs text-zinc-600">
+                        Required. This is the final amount recorded by the backend.
+                      </p>
+                    </div>
+
+                    {calculatedItemsTotal > 0 && (
+                      <div className="text-right">
+                        <p className="text-[10px] uppercase tracking-wider text-zinc-600">
+                          Product Total
+                        </p>
+                        <p className="mt-1 text-sm font-semibold text-zinc-400">
+                          {money(calculatedItemsTotal)}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="relative mt-4">
+                    <span
+                      className="absolute left-4 top-1/2 -translate-y-1/2 text-sm"
+                      style={{ color: "var(--app-accent)" }}
+                    >
+                      ₹
+                    </span>
+                    <input
+                      type="number"
+                      min="0.01"
+                      step="0.01"
+                      value={totalAmount}
+                      onChange={(e) => {
+                        setTotalAmount(e.target.value);
+                        clearMessage();
+                      }}
+                      placeholder={
+                        calculatedItemsTotal > 0
+                          ? String(calculatedItemsTotal)
+                          : "Enter total amount"
+                      }
+                      className="w-full rounded-lg border py-3 pl-9 pr-4 text-lg font-semibold text-white outline-none placeholder:text-zinc-700"
+                      style={{
+                        borderColor: "var(--app-border)",
+                        backgroundColor: "var(--app-surface)",
+                      }}
+                    />
+                  </div>
+
+                  {totalAmount === "" && calculatedItemsTotal > 0 && (
+                    <p className="mt-2 text-xs text-zinc-600">
+                      If left blank, the calculated product total will be used.
+                    </p>
+                  )}
+                </div>
+              </section>
+            </div>
+
+            {/* Payment method and sale summary */}
+            <div className="min-w-0 xl:col-span-1">
+              <div
+                className="overflow-hidden rounded-xl border xl:sticky xl:top-24"
+                style={{
+                  borderColor: "var(--app-border)",
+                  backgroundColor: "var(--app-surface)",
+                }}
+              >
+                <div
+                  className="border-b p-5"
+                  style={{
+                    borderColor: "var(--app-border)",
+                    background: `radial-gradient(circle at top right, var(--app-accent-soft), transparent 55%), var(--app-surface)`,
+                  }}
+                >
+                  <p className="text-xs font-medium" style={{ color: "var(--app-accent)" }}>
+                    SALE SUMMARY
+                  </p>
+                  <h2 className="mt-1 text-xl font-bold text-white">Payment Details</h2>
+                </div>
+
+                <div className="p-5">
+                  <div
+                    className="min-w-0 overflow-hidden rounded-xl border p-3 sm:p-4"
+                    style={{
+                      borderColor: "var(--app-border)",
+                      backgroundColor: "var(--app-surface-light)",
+                    }}
+                  >
+                    <p className="text-xs uppercase tracking-wider text-zinc-600">Total</p>
+                    <p className="mt-2 text-3xl font-bold text-white">{money(total)}</p>
+                  </div>
+
+                  <div className="mt-6">
+                    <p className="mb-3 text-sm font-medium text-zinc-300">Payment Type</p>
+                    <div className="space-y-2">
+                      <PaymentOption
+                        active={paymentType === "cash"}
+                        icon={<Banknote className="h-4 w-4" />}
+                        title="Cash"
+                        description="Customer pays the full amount in cash."
+                        onClick={() => {
+                          setPaymentType("cash");
+                          setPaidAmount("");
+                          setPartialPaymentType("");
+                          clearMessage();
+                        }}
+                      />
+
+                      <PaymentOption
+                        active={paymentType === "upi"}
+                        icon={<Smartphone className="h-4 w-4" />}
+                        title="UPI"
+                        description="Customer pays the full amount by UPI."
+                        onClick={() => {
+                          setPaymentType("upi");
+                          setPaidAmount("");
+                          setPartialPaymentType("");
+                          clearMessage();
+                        }}
+                      />
+
+                      <PaymentOption
+                        active={paymentType === "credit"}
+                        danger
+                        icon={<Wallet className="h-4 w-4" />}
+                        title="Full Credit"
+                        description="Entire amount is added to customer credit."
+                        onClick={() => {
+                          setPaymentType("credit");
+                          setPaidAmount("");
+                          setPartialPaymentType("");
+                          clearMessage();
+                        }}
+                      />
+
+                      <PaymentOption
+                        active={paymentType === "partial"}
+                        icon={<CreditCard className="h-4 w-4" />}
+                        title="Partial Payment"
+                        description="Some amount is paid now and remaining becomes credit."
+                        onClick={() => {
+                          setPaymentType("partial");
+                          clearMessage();
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  {paymentType === "partial" && (
+                    <div className="mt-5 space-y-4">
+                      <div>
+                        <label className="mb-2 block text-sm font-medium text-zinc-300">
+                          Amount Paid
+                        </label>
+                        <div className="relative">
+                          <span
+                            className="absolute left-4 top-1/2 -translate-y-1/2 text-sm"
+                            style={{ color: "var(--app-accent)" }}
+                          >
+                            ₹
+                          </span>
+                          <input
+                            type="number"
+                            min="0"
+                            max={total}
+                            step="0.01"
+                            value={paidAmount}
+                            onChange={(e) => {
+                              setPaidAmount(e.target.value);
+                              clearMessage();
+                            }}
+                            placeholder="Enter amount paid"
+                            className="w-full rounded-lg border py-3 pl-9 pr-4 text-sm text-white outline-none placeholder:text-zinc-600"
+                            style={{
+                              borderColor: "var(--app-border)",
+                              backgroundColor: "var(--app-surface-light)",
+                            }}
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="mb-2 block text-sm font-medium text-zinc-300">
+                          Paid By
+                        </label>
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setPartialPaymentType("cash")}
+                            className="flex items-center justify-center gap-2 rounded-lg border px-3 py-3 text-sm"
+                            style={
+                              partialPaymentType === "cash"
+                                ? {
+                                    borderColor: "rgba(34,197,94,.3)",
+                                    backgroundColor: "rgba(34,197,94,.05)",
+                                    color: "#4ade80",
+                                  }
+                                : {
+                                    borderColor: "var(--app-border)",
+                                    backgroundColor: "var(--app-surface-light)",
+                                    color: "#a1a1aa",
+                                  }
+                            }
+                          >
+                            <Banknote className="h-4 w-4" />
+                            Cash
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => setPartialPaymentType("upi")}
+                            className="flex items-center justify-center gap-2 rounded-lg border px-3 py-3 text-sm"
+                            style={
+                              partialPaymentType === "upi"
+                                ? {
+                                    borderColor: "rgba(34,197,94,.3)",
+                                    backgroundColor: "rgba(34,197,94,.05)",
+                                    color: "#4ade80",
+                                  }
+                                : {
+                                    borderColor: "var(--app-border)",
+                                    backgroundColor: "var(--app-surface-light)",
+                                    color: "#a1a1aa",
+                                  }
+                            }
+                          >
+                            <Smartphone className="h-4 w-4" />
+                            UPI
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  <div
+                    className="mt-6 rounded-xl border p-4"
+                    style={{
+                      borderColor: "var(--app-border)",
+                      backgroundColor: "var(--app-surface-light)",
+                    }}
+                  >
+                    <div className="flex justify-between text-sm">
+                      <span className="text-zinc-500">Paid Now</span>
+                      <span className="font-semibold text-emerald-400">
+                        {money(calculatedPaid)}
+                      </span>
+                    </div>
+
+                    <div className="mt-3 flex justify-between text-sm">
+                      <span className="text-zinc-500">Pending / Credit</span>
+                      <span className="font-semibold text-red-400">
+                        {money(pendingAmount)}
+                      </span>
+                    </div>
+                  </div>
+
+                  {!selectedCustomer && pendingAmount > 0 && (
+                    <div className="mt-4 rounded-lg border border-red-500/20 bg-red-500/5 px-3 py-3 text-xs text-red-400">
+                      Customer is required because {money(pendingAmount)} will become credit.
+                    </div>
+                  )}
+
+                  {selectedCustomer && needsCredit && pendingAmount > 0 && (
+                    <div
+                      className="mt-4 rounded-lg border px-3 py-3 text-xs"
+                      style={
+                        creditExceeded
+                          ? {
+                              borderColor: "rgba(239,68,68,.2)",
+                              backgroundColor: "rgba(239,68,68,.05)",
+                              color: "#f87171",
+                            }
+                          : {
+                              borderColor: "var(--app-accent-border)",
+                              backgroundColor: "var(--app-accent-soft)",
+                              color: "var(--app-accent)",
+                            }
+                      }
+                    >
+                      {creditExceeded
+                        ? `Credit limit exceeded by ${money(pendingAmount - availableCredit)}.`
+                        : `${money(pendingAmount)} will be added to customer's credit.`}
+                    </div>
+                  )}
+
+                  <div className="mt-5 space-y-2 text-xs">
+                    <div className="flex justify-between gap-4">
+                      <span className="text-zinc-600">Customer</span>
+                      <span className="text-right text-zinc-300">
+                        {selectedCustomer
+                          ? getCustomerName(selectedCustomer)
+                          : "Walk-in Customer"}
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between gap-4">
+                      <span className="text-zinc-600">Items</span>
+                      <span className="text-zinc-300">{cart.length}</span>
+                    </div>
+
+                    <div className="flex justify-between gap-4">
+                      <span className="text-zinc-600">Payment</span>
+                      <span className="capitalize text-zinc-300">
+                        {paymentType === "partial"
+                          ? `Partial (${partialPaymentType || "method not selected"})`
+                          : paymentType}
+                      </span>
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={submitting || total <= 0}
+                    className="mt-6 flex w-full items-center justify-center gap-2 rounded-lg px-5 py-3.5 text-sm font-semibold text-white shadow-lg transition-all hover:-translate-y-[1px] disabled:cursor-not-allowed disabled:opacity-50"
+                    style={{
+                      backgroundColor: "var(--app-accent)",
+                      boxShadow: "0 10px 25px var(--app-accent-soft)",
+                    }}
+                  >
+                    {submitting ? (
+                      <>
+                        <RefreshCw className="h-4 w-4 animate-spin" />
+                        Creating Sale...
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle2 className="h-4 w-4" />
+                        Create Sale
+                      </>
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={resetSale}
+                    disabled={submitting}
+                    className="mt-2 w-full rounded-lg border px-5 py-3 text-sm font-medium text-zinc-400 transition hover:text-white disabled:opacity-50"
+                    style={{
+                      borderColor: "var(--app-border)",
+                      backgroundColor: "var(--app-surface-light)",
+                    }}
+                  >
+                    Clear Sale
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+// Payment type selection button
+const PaymentOption = ({
+  active,
+  danger = false,
+  icon,
+  title,
+  description,
+  onClick,
+}) => {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="w-full rounded-lg border p-3 text-left transition-all"
+      style={
+        active
+          ? danger
+            ? {
+                borderColor: "rgba(239,68,68,.3)",
+                backgroundColor: "rgba(239,68,68,.05)",
+              }
+            : {
+                borderColor: "var(--app-accent-border)",
+                backgroundColor: "var(--app-accent-soft)",
+              }
+          : {
+              borderColor: "var(--app-border)",
+              backgroundColor: "var(--app-surface-light)",
+            }
+      }
+    >
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div
+            className="flex h-8 w-8 items-center justify-center rounded-lg"
+            style={{
+              backgroundColor: active
+                ? danger
+                  ? "rgba(239,68,68,.1)"
+                  : "var(--app-accent-soft)"
+                : "var(--app-surface)",
+              color: active
+                ? danger
+                  ? "#f87171"
+                  : "var(--app-accent)"
+                : "#71717a",
+            }}
+          >
+            {icon}
+          </div>
+
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-zinc-200">{title}</p>
+            <p className="mt-1 break-words text-xs text-zinc-600">{description}</p>
+          </div>
+        </div>
+
+        <span
+          className="h-4 w-4 shrink-0 rounded-full border"
+          style={{
+            borderColor: active
+              ? danger
+                ? "#f87171"
+                : "var(--app-accent)"
+              : "#3f3f46",
+            backgroundColor: active
+              ? danger
+                ? "#f87171"
+                : "var(--app-accent)"
+              : "transparent",
+          }}
+        />
+      </div>
+    </button>
+  );
+};
+
+export default Sales;
