@@ -12,7 +12,9 @@ const api = axios.create({
 // Attach bearer token to outgoing requests
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem("authToken");
+    const token =
+      localStorage.getItem("adminAuthToken") ||
+      localStorage.getItem("authToken");
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -290,29 +292,104 @@ export const aboutApi = {
   },
 };
 
+// Helper to parse JWT payload safely
+const parseJwt = (token) => {
+  try {
+    if (!token || typeof token !== "string") return null;
+    const parts = token.split(".");
+    if (parts.length !== 3) return null;
+    const base64Url = parts[1];
+    const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+    const jsonPayload = decodeURIComponent(
+      atob(base64)
+        .split("")
+        .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
+        .join("")
+    );
+    return JSON.parse(jsonPayload);
+  } catch {
+    return null;
+  }
+};
+
 // Local token helper utilities
-export const getToken = () => localStorage.getItem("authToken");
-export const setToken = (token) => localStorage.setItem("authToken", token);
-export const removeToken = () => localStorage.removeItem("authToken");
+export const getToken = () =>
+  localStorage.getItem("adminAuthToken") || localStorage.getItem("authToken");
+export const setToken = (token) => {
+  localStorage.setItem("adminAuthToken", token);
+  localStorage.setItem("authToken", token);
+};
+export const removeToken = () => {
+  localStorage.removeItem("adminAuthToken");
+  localStorage.removeItem("authToken");
+};
 
 // Local storage session wrapper
 export const authStorage = {
-  setToken: (token) => localStorage.setItem("authToken", token),
-  getToken: () => localStorage.getItem("authToken"),
-  removeToken: () => localStorage.removeItem("authToken"),
-  setUser: (user) => localStorage.setItem("authUser", JSON.stringify(user)),
-  getUser: () => {
-    const user = localStorage.getItem("authUser");
-    if (!user) return null;
-    try {
-      return JSON.parse(user);
-    } catch {
-      return null;
-    }
+  setToken: (token) => {
+    localStorage.setItem("adminAuthToken", token);
+    localStorage.setItem("authToken", token);
   },
-  removeUser: () => localStorage.removeItem("authUser"),
-  clear: () => {
+  getToken: () => {
+    return (
+      localStorage.getItem("adminAuthToken") ||
+      localStorage.getItem("authToken")
+    );
+  },
+  removeToken: () => {
+    localStorage.removeItem("adminAuthToken");
     localStorage.removeItem("authToken");
+  },
+  setUser: (user) => {
+    localStorage.setItem("adminAuthUser", JSON.stringify(user));
+    localStorage.setItem("authUser", JSON.stringify(user));
+  },
+  getUser: () => {
+    const userStr =
+      localStorage.getItem("adminAuthUser") ||
+      localStorage.getItem("authUser");
+    let parsedUser = null;
+    if (userStr) {
+      try {
+        parsedUser = JSON.parse(userStr);
+      } catch {
+        parsedUser = null;
+      }
+    }
+
+    // Fallback: If user role or id is missing/corrupted, recover from valid JWT
+    const token =
+      localStorage.getItem("adminAuthToken") ||
+      localStorage.getItem("authToken");
+    if (token) {
+      const jwtPayload = parseJwt(token);
+      if (jwtPayload) {
+        if (!parsedUser) {
+          parsedUser = {
+            id: jwtPayload.id,
+            role: jwtPayload.role,
+          };
+        } else {
+          if (!parsedUser.role && jwtPayload.role) {
+            parsedUser.role = jwtPayload.role;
+          }
+          if (!parsedUser.id && jwtPayload.id) {
+            parsedUser.id = jwtPayload.id;
+          }
+        }
+      }
+    }
+
+    return parsedUser;
+  },
+  removeUser: () => {
+    localStorage.removeItem("adminAuthUser");
+    localStorage.removeItem("authUser");
+  },
+  clear: () => {
+    localStorage.removeItem("adminAuthToken");
+    localStorage.removeItem("authToken");
+    localStorage.removeItem("adminAuthUser");
     localStorage.removeItem("authUser");
   },
 };

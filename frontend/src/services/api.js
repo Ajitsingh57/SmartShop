@@ -12,7 +12,9 @@ const api = axios.create({
 // Attach authorization bearer token to outgoing requests
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem("authToken");
+    const token =
+      localStorage.getItem("customerAuthToken") ||
+      localStorage.getItem("authToken");
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -147,45 +149,110 @@ export const returnsApi = {
   },
 };
 
+// Helper to parse JWT payload safely
+const parseJwt = (token) => {
+  try {
+    if (!token || typeof token !== "string") return null;
+    const parts = token.split(".");
+    if (parts.length !== 3) return null;
+    const base64Url = parts[1];
+    const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+    const jsonPayload = decodeURIComponent(
+      atob(base64)
+        .split("")
+        .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
+        .join("")
+    );
+    return JSON.parse(jsonPayload);
+  } catch {
+    return null;
+  }
+};
+
 // Auth token storage helpers
-export const getToken = () => localStorage.getItem("authToken");
-export const setToken = (token) => localStorage.setItem("authToken", token);
-export const removeToken = () => localStorage.removeItem("authToken");
+export const getToken = () =>
+  localStorage.getItem("customerAuthToken") || localStorage.getItem("authToken");
+export const setToken = (token) => {
+  localStorage.setItem("customerAuthToken", token);
+  localStorage.setItem("authToken", token);
+};
+export const removeToken = () => {
+  localStorage.removeItem("customerAuthToken");
+  localStorage.removeItem("authToken");
+};
 
 // Local storage session management
 export const authStorage = {
   setToken: (token) => {
+    localStorage.setItem("customerAuthToken", token);
     localStorage.setItem("authToken", token);
   },
 
   getToken: () => {
-    return localStorage.getItem("authToken");
+    return (
+      localStorage.getItem("customerAuthToken") ||
+      localStorage.getItem("authToken")
+    );
   },
 
   removeToken: () => {
+    localStorage.removeItem("customerAuthToken");
     localStorage.removeItem("authToken");
   },
 
   setUser: (user) => {
+    localStorage.setItem("customerAuthUser", JSON.stringify(user));
     localStorage.setItem("authUser", JSON.stringify(user));
   },
 
   getUser: () => {
-    const user = localStorage.getItem("authUser");
-    if (!user) return null;
-    try {
-      return JSON.parse(user);
-    } catch {
-      return null;
+    const user =
+      localStorage.getItem("customerAuthUser") ||
+      localStorage.getItem("authUser");
+    let parsedUser = null;
+    if (user) {
+      try {
+        parsedUser = JSON.parse(user);
+      } catch {
+        parsedUser = null;
+      }
     }
+
+    // Fallback: If role or id is missing, recover from valid JWT
+    const token =
+      localStorage.getItem("customerAuthToken") ||
+      localStorage.getItem("authToken");
+    if (token) {
+      const jwtPayload = parseJwt(token);
+      if (jwtPayload) {
+        if (!parsedUser) {
+          parsedUser = {
+            id: jwtPayload.id,
+            role: jwtPayload.role,
+          };
+        } else {
+          if (!parsedUser.role && jwtPayload.role) {
+            parsedUser.role = jwtPayload.role;
+          }
+          if (!parsedUser.id && jwtPayload.id) {
+            parsedUser.id = jwtPayload.id;
+          }
+        }
+      }
+    }
+
+    return parsedUser;
   },
 
   removeUser: () => {
+    localStorage.removeItem("customerAuthUser");
     localStorage.removeItem("authUser");
   },
 
   clear: () => {
+    localStorage.removeItem("customerAuthToken");
     localStorage.removeItem("authToken");
+    localStorage.removeItem("customerAuthUser");
     localStorage.removeItem("authUser");
   },
 };

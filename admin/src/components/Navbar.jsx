@@ -18,8 +18,8 @@ const Navbar = () => {
     const currentUser = authStorage.getUser();
     const token = authStorage.getToken();
 
-    if (token && currentUser) {
-      setUser(currentUser);
+    if (token) {
+      setUser(currentUser || { name: "Admin" });
     } else {
       setUser(null);
     }
