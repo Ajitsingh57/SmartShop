@@ -30,8 +30,35 @@ app.use((req, res, next) => {
   next();
 });
 
-// Middlewares
-app.use(cors());
+// CORS configuration supporting local and cloud deployment origins
+const allowedOrigins = [
+  "http://localhost:5173",
+  "http://localhost:5174",
+  "http://localhost:3000",
+  process.env.FRONTEND_URL,
+  process.env.ADMIN_URL,
+].filter(Boolean);
+
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      // Allow requests with no origin (curl, mobile, server-to-server) or matching origins
+      if (
+        !origin ||
+        allowedOrigins.includes(origin) ||
+        origin.endsWith(".vercel.app") ||
+        origin.endsWith(".onrender.com")
+      ) {
+        return callback(null, true);
+      }
+      return callback(null, true);
+    },
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  })
+);
+
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
@@ -47,11 +74,20 @@ app.use("/api/payments", paymentRouter);
 app.use("/api/sales", saleRouter);
 app.use("/api/returns", returnRouter);
 
-// Health check endpoint
+// Root and health check endpoints
 app.get("/", (req, res) => {
   res.status(200).json({
     success: true,
     message: "SmartShop API running"
+  });
+});
+
+app.get("/api/health", (req, res) => {
+  res.status(200).json({
+    success: true,
+    status: "healthy",
+    timestamp: new Date().toISOString(),
+    message: "SmartShop API is operational"
   });
 });
 
