@@ -21,6 +21,9 @@ import {
   CreditCard,
   X,
   Sparkles,
+  Printer,
+  Receipt,
+  FileText,
 } from "lucide-react";
 
 import {
@@ -211,6 +214,7 @@ const Sales = () => {
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState("");
+  const [createdReceipt, setCreatedReceipt] = useState(null);
 
   const clearMessage = () => {
     setMessage("");
@@ -679,6 +683,31 @@ const Sales = () => {
     try {
       setSubmitting(true);
       const response = await salesApi.create(saleData);
+
+      const created = response?.sale || {
+        _id: "NEW",
+        ...saleData,
+        items: preparedItems,
+      };
+
+      setCreatedReceipt({
+        id: `SALE-${String(created._id).slice(-6).toUpperCase()}`,
+        rawId: created._id,
+        date: new Date().toLocaleString("en-IN", {
+          day: "2-digit",
+          month: "short",
+          year: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
+        customerName: selectedCustomer ? getCustomerName(selectedCustomer) : "Walk-in Customer",
+        customerPhone: selectedCustomer?.userId?.phone || selectedCustomer?.phone || "",
+        items: preparedItems,
+        totalAmount: amount,
+        paidAmount: saleData.paidAmount,
+        pendingAmount: saleData.pendingAmount,
+        paymentType: paymentType.toUpperCase(),
+      });
 
       setMessage(response?.message || "Sale created successfully.");
       setMessageType("success");
@@ -1866,6 +1895,165 @@ const Sales = () => {
             </div>
           </div>
         </form>
+
+        {/* Printable Bill / Invoice Modal */}
+        {createdReceipt && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-md">
+            <div
+              className="relative w-full max-w-lg overflow-hidden rounded-2xl border p-6 shadow-2xl"
+              style={{
+                borderColor: "var(--app-accent-border)",
+                backgroundColor: "var(--app-surface)",
+              }}
+            >
+              {/* Header */}
+              <div className="flex items-start justify-between border-b pb-4" style={{ borderColor: "var(--app-border)" }}>
+                <div className="flex items-center gap-3">
+                  <div
+                    className="flex h-10 w-10 items-center justify-center rounded-xl font-bold text-white shadow"
+                    style={{ backgroundColor: "var(--app-accent)" }}
+                  >
+                    S
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-white">SmartShop Retail Bill</h3>
+                    <p className="font-mono text-xs text-zinc-400">Invoice: {createdReceipt.id}</p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setCreatedReceipt(null)}
+                  className="rounded-lg p-1.5 text-zinc-400 hover:bg-white/10 hover:text-white"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              {/* Customer & Bill Meta */}
+              <div className="my-4 grid grid-cols-2 gap-3 text-xs">
+                <div>
+                  <span className="text-zinc-500">Customer:</span>
+                  <p className="font-bold text-white">{createdReceipt.customerName}</p>
+                  {createdReceipt.customerPhone && (
+                    <p className="text-zinc-400">{createdReceipt.customerPhone}</p>
+                  )}
+                </div>
+                <div>
+                  <span className="text-zinc-500">Date & Time:</span>
+                  <p className="font-medium text-zinc-200">{createdReceipt.date}</p>
+                </div>
+                <div>
+                  <span className="text-zinc-500">Payment Mode:</span>
+                  <p className="font-bold text-emerald-400">{createdReceipt.paymentType}</p>
+                </div>
+                <div>
+                  <span className="text-zinc-500">Bill Status:</span>
+                  <p className="font-semibold text-zinc-200">
+                    {createdReceipt.pendingAmount > 0 ? "Partial / Due" : "Completed / Paid"}
+                  </p>
+                </div>
+              </div>
+
+              {/* Itemized Table */}
+              <div
+                className="my-4 max-h-56 overflow-y-auto rounded-xl border p-3"
+                style={{
+                  borderColor: "var(--app-border)",
+                  backgroundColor: "var(--app-surface-light)",
+                }}
+              >
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="border-b text-zinc-500" style={{ borderColor: "var(--app-border)" }}>
+                      <th className="pb-2">Item Name</th>
+                      <th className="pb-2 text-center">Qty</th>
+                      <th className="pb-2 text-right">Price</th>
+                      <th className="pb-2 text-right">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y" style={{ borderColor: "var(--app-border)" }}>
+                    {createdReceipt.items && createdReceipt.items.length > 0 ? (
+                      createdReceipt.items.map((item, idx) => (
+                        <tr key={idx} className="text-zinc-300">
+                          <td className="py-2 font-medium text-white">
+                            {item.productName || "Unknown Item"}
+                          </td>
+                          <td className="py-2 text-center text-zinc-400">
+                            {item.quantity ?? 1} {item.unit || ""}
+                          </td>
+                          <td className="py-2 text-right font-mono text-zinc-400">
+                            ₹{item.price || 0}
+                          </td>
+                          <td className="py-2 text-right font-bold font-mono text-white">
+                            ₹{item.total || 0}
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={4} className="py-3 text-center text-zinc-400">
+                          Total Bill Amount: ₹{createdReceipt.totalAmount}
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Summary Totals */}
+              <div className="space-y-1.5 border-t pt-3 text-xs" style={{ borderColor: "var(--app-border)" }}>
+                <div className="flex justify-between text-base font-extrabold text-white">
+                  <span>Total Amount:</span>
+                  <span style={{ color: "var(--app-accent)" }}>
+                    ₹{Number(createdReceipt.totalAmount || 0).toLocaleString("en-IN")}
+                  </span>
+                </div>
+                {createdReceipt.paidAmount > 0 && (
+                  <div className="flex justify-between text-zinc-300">
+                    <span>Amount Paid:</span>
+                    <span className="font-semibold text-emerald-400">
+                      ₹{Number(createdReceipt.paidAmount || 0).toLocaleString("en-IN")}
+                    </span>
+                  </div>
+                )}
+                {createdReceipt.pendingAmount > 0 && (
+                  <div className="flex justify-between text-zinc-300">
+                    <span>Balance Due (Credit):</span>
+                    <span className="font-bold text-rose-400">
+                      ₹{Number(createdReceipt.pendingAmount || 0).toLocaleString("en-IN")}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* Actions */}
+              <div className="mt-6 flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => window.print()}
+                  className="inline-flex items-center gap-2 rounded-xl border px-4 py-2.5 text-xs font-bold text-white shadow transition hover:bg-white/10"
+                  style={{
+                    borderColor: "var(--app-border)",
+                    backgroundColor: "var(--app-surface-light)",
+                  }}
+                >
+                  <Printer className="h-4 w-4" />
+                  <span>Print Bill / PDF</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setCreatedReceipt(null)}
+                  className="rounded-xl px-5 py-2.5 text-xs font-bold text-white shadow-lg transition"
+                  style={{ backgroundColor: "var(--app-accent)" }}
+                >
+                  Done / Next Sale
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

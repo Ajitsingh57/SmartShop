@@ -226,6 +226,132 @@ const Transactions = () => {
     return "border-amber-500/20 bg-amber-500/10 text-amber-400";
   };
 
+  const handlePrintCustomerBill = (receipt) => {
+    if (!receipt) return;
+    const printWindow = window.open("", "_blank", "width=850,height=900");
+    if (!printWindow) {
+      window.print();
+      return;
+    }
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8" />
+          <title>Invoice - ${receipt.id}</title>
+          <style>
+            @page { size: A4; margin: 15mm; }
+            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: #18181b; padding: 25px; font-size: 13px; line-height: 1.5; }
+            .header { display: flex; justify-content: space-between; border-bottom: 2px solid #e4e4e7; padding-bottom: 15px; margin-bottom: 20px; }
+            .title { font-size: 24px; font-weight: 800; color: #f97316; }
+            .subtitle { font-size: 12px; color: #71717a; }
+            .meta { text-align: right; }
+            .meta-id { font-size: 16px; font-weight: 700; font-family: monospace; }
+            .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
+            .box { background: #f4f4f5; border: 1px solid #e4e4e7; border-radius: 8px; padding: 12px; }
+            .box-title { font-size: 11px; text-transform: uppercase; font-weight: 700; color: #71717a; margin-bottom: 4px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+            th { background: #f4f4f5; text-align: left; padding: 10px; font-size: 11px; text-transform: uppercase; border-bottom: 2px solid #d4d4d8; }
+            td { padding: 10px; border-bottom: 1px solid #e4e4e7; font-size: 12px; }
+            .text-right { text-align: right; }
+            .text-center { text-align: center; }
+            .totals { margin-top: 20px; margin-left: auto; width: 280px; }
+            .totals-row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 13px; }
+            .totals-grand { font-size: 16px; font-weight: 800; border-top: 2px solid #18181b; padding-top: 8px; margin-top: 6px; color: #f97316; }
+            .footer { margin-top: 40px; text-align: center; font-size: 11px; color: #a1a1aa; border-top: 1px solid #e4e4e7; padding-top: 15px; }
+            @media print { body { padding: 0; } }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div>
+              <div class="title">SmartShop</div>
+              <div class="subtitle">Retail Store & Customer Receipt</div>
+            </div>
+            <div class="meta">
+              <div class="meta-id">${receipt.id}</div>
+              <div>Date: ${formatDate(receipt.date)}</div>
+              <div>Status: <strong>${receipt.status}</strong></div>
+            </div>
+          </div>
+
+          <div class="grid">
+            <div class="box">
+              <div class="box-title">Billed To</div>
+              <div style="font-weight: 700;">${receipt.customerName || "Customer Account"}</div>
+              <div>Transaction: ${receipt.type}</div>
+            </div>
+            <div class="box">
+              <div class="box-title">Payment Info</div>
+              <div>Payment Mode: <strong>${receipt.paymentMethod}</strong></div>
+              <div>Processed By: SmartShop Store</div>
+            </div>
+          </div>
+
+          ${receipt.items && receipt.items.length > 0 ? `
+            <table>
+              <thead>
+                <tr>
+                  <th>Item / Product</th>
+                  <th class="text-center">Quantity</th>
+                  <th class="text-right">Unit Price</th>
+                  <th class="text-right">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${receipt.items.map(it => `
+                  <tr>
+                    <td><strong>${it.name}</strong></td>
+                    <td class="text-center">${it.quantity} ${it.unit || ''}</td>
+                    <td class="text-right">₹${Number(it.price || 0).toLocaleString('en-IN')}</td>
+                    <td class="text-right"><strong>₹${Number(it.total || (it.price * it.quantity) || 0).toLocaleString('en-IN')}</strong></td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          ` : `
+            <div style="padding: 20px; background: #f4f4f5; border-radius: 8px; text-align: center;">
+              <strong>${receipt.itemsSummary || receipt.note}</strong>
+            </div>
+          `}
+
+          <div class="totals">
+            <div class="totals-row totals-grand">
+              <span>Total Amount:</span>
+              <span>₹${Number(receipt.amount || 0).toLocaleString('en-IN')}</span>
+            </div>
+            ${receipt.paidAmount > 0 ? `
+              <div class="totals-row">
+                <span>Amount Paid:</span>
+                <span>₹${Number(receipt.paidAmount || 0).toLocaleString('en-IN')}</span>
+              </div>
+            ` : ''}
+            ${receipt.pendingAmount > 0 ? `
+              <div class="totals-row" style="color: #dc2626; font-weight: 700;">
+                <span>Balance Due:</span>
+                <span>₹${Number(receipt.pendingAmount || 0).toLocaleString('en-IN')}</span>
+              </div>
+            ` : ''}
+          </div>
+
+          <div class="footer">
+            <p>Thank you for shopping at SmartShop! Keep this digital invoice for your records.</p>
+          </div>
+
+          <script>
+            window.onload = function() {
+              window.print();
+            }
+          </script>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.write(html);
+    printWindow.document.close();
+  };
+
   // Filter transactions by search, status, and payment channel
   const filteredTransactions = useMemo(() => {
     const searchValue = search.trim().toLowerCase();
@@ -768,11 +894,11 @@ const Transactions = () => {
             <div className="mt-5 flex items-center justify-end gap-3">
               <button
                 type="button"
-                onClick={() => window.print()}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-xs font-semibold text-white transition hover:bg-white/10"
+                onClick={() => handlePrintCustomerBill(activeReceipt)}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-xs font-semibold text-white transition hover:border-[var(--app-accent-border)] hover:bg-[var(--app-accent-soft)] hover:text-[var(--app-accent)]"
               >
                 <Printer className="h-3.5 w-3.5" />
-                Print
+                <span>Print / Save PDF</span>
               </button>
               <button
                 type="button"

@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { Eye, EyeOff } from "lucide-react";
 import { authApi, authStorage } from "../services/api";
 
 const Login = () => {
@@ -194,16 +195,14 @@ const Login = () => {
                 type="button"
                 onClick={() => setShowPassword((prev) => !prev)}
                 disabled={loading}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50"
-                style={{ color: "var(--app-text-muted)" }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.color = "var(--app-accent)";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.color = "var(--app-text-muted)";
-                }}
+                aria-label={showPassword ? "Hide password" : "Show password"}
+                className="absolute right-3.5 top-1/2 -translate-y-1/2 rounded-md p-1 text-zinc-400 transition-colors hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {showPassword ? "Hide" : "Show"}
+                {showPassword ? (
+                  <EyeOff className="h-4 w-4" />
+                ) : (
+                  <Eye className="h-4 w-4" />
+                )}
               </button>
             </div>
           </div>

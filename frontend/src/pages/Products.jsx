@@ -1,6 +1,14 @@
 import React, { useEffect, useState, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Search, X, Package, SlidersHorizontal, RefreshCw } from "lucide-react";
+import {
+  Search,
+  X,
+  Package,
+  SlidersHorizontal,
+  RefreshCw,
+  ArrowUpDown,
+  CheckCircle2,
+} from "lucide-react";
 import ProductCard from "../components/ProductCard";
 import { productsApi } from "../services/api";
 
@@ -10,6 +18,9 @@ const Products = () => {
   const [search, setSearch] = useState("");
   const [submittedSearch, setSubmittedSearch] = useState("");
   const [error, setError] = useState("");
+
+  const [sortBy, setSortBy] = useState("featured"); // "featured", "price-low", "price-high", "name-asc"
+  const [inStockOnly, setInStockOnly] = useState(false);
 
   const [searchParams, setSearchParams] = useSearchParams();
   const initialCategory = searchParams.get("category") || "All";
@@ -88,12 +99,14 @@ const Products = () => {
   const clearFilters = () => {
     setSearch("");
     setSubmittedSearch("");
+    setSortBy("featured");
+    setInStockOnly(false);
     handleCategorySelect("All");
   };
 
-  // Filter products by category and title query
+  // Filter products by category, stock status, search, and sort order
   const filteredProducts = useMemo(() => {
-    return products.filter((product) => {
+    const list = products.filter((product) => {
       const productName = String(product?.name || "").toLowerCase();
       const productCategory = String(product?.category || "");
       const searchText = submittedSearch.toLowerCase();
@@ -103,9 +116,25 @@ const Products = () => {
       const matchesCategory =
         selectedCategory === "All" || productCategory === selectedCategory;
 
-      return matchesSearch && matchesCategory;
+      const stock = Number(product?.stock ?? 0);
+      const matchesStock =
+        !inStockOnly || (stock > 0 && product?.available !== false);
+
+      return matchesSearch && matchesCategory && matchesStock;
     });
-  }, [products, submittedSearch, selectedCategory]);
+
+    if (sortBy === "price-low") {
+      list.sort((a, b) => Number(a?.price || 0) - Number(b?.price || 0));
+    } else if (sortBy === "price-high") {
+      list.sort((a, b) => Number(b?.price || 0) - Number(a?.price || 0));
+    } else if (sortBy === "name-asc") {
+      list.sort((a, b) =>
+        String(a?.name || "").localeCompare(String(b?.name || ""))
+      );
+    }
+
+    return list;
+  }, [products, submittedSearch, selectedCategory, inStockOnly, sortBy]);
 
   return (
     <div className="w-full px-4 sm:px-6 md:px-[50px] pb-16">
@@ -168,40 +197,71 @@ const Products = () => {
             })}
           </div>
 
-          {/* Search Form */}
-          <form
-            onSubmit={handleSearch}
-            className="relative flex w-full items-center lg:w-80"
-          >
-            <div className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500">
-              <Search className="h-4 w-4" />
+          {/* Search Form and Filters */}
+          <div className="flex flex-wrap items-center gap-2.5">
+            {/* In-Stock Toggle */}
+            <button
+              type="button"
+              onClick={() => setInStockOnly((prev) => !prev)}
+              className={`inline-flex items-center gap-1.5 rounded-xl border px-3.5 py-2 text-xs font-semibold transition ${
+                inStockOnly
+                  ? "border-emerald-500/30 bg-emerald-950/50 text-emerald-400"
+                  : "border-white/10 bg-zinc-900 text-zinc-400 hover:text-white"
+              }`}
+            >
+              <CheckCircle2 className="h-3.5 w-3.5" />
+              <span>In Stock Only</span>
+            </button>
+
+            {/* Sort Dropdown */}
+            <div className="relative">
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                className="h-10 rounded-xl border border-white/10 bg-zinc-900 px-3 pr-8 text-xs font-semibold text-zinc-300 outline-none transition focus:border-[var(--app-accent-border)]"
+              >
+                <option value="featured">Sort: Featured</option>
+                <option value="price-low">Price: Low to High</option>
+                <option value="price-high">Price: High to Low</option>
+                <option value="name-asc">Name: A to Z</option>
+              </select>
             </div>
 
-            <input
-              type="text"
-              placeholder="Search products..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="h-10 w-full rounded-xl border border-white/10 bg-zinc-900/90 pl-10 pr-10 text-xs font-medium text-white placeholder:text-zinc-500 outline-none transition-all focus:border-[var(--app-accent-border)] focus:bg-zinc-900"
-            />
+            {/* Search Input */}
+            <form
+              onSubmit={handleSearch}
+              className="relative flex w-full sm:w-64 items-center"
+            >
+              <div className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500">
+                <Search className="h-4 w-4" />
+              </div>
 
-            {search && (
-              <button
-                type="button"
-                onClick={() => {
-                  setSearch("");
-                  setSubmittedSearch("");
-                }}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            )}
-          </form>
+              <input
+                type="text"
+                placeholder="Search products..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="h-10 w-full rounded-xl border border-white/10 bg-zinc-900/90 pl-10 pr-10 text-xs font-medium text-white placeholder:text-zinc-500 outline-none transition-all focus:border-[var(--app-accent-border)] focus:bg-zinc-900"
+              />
+
+              {search && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSearch("");
+                    setSubmittedSearch("");
+                  }}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </form>
+          </div>
         </div>
 
         {/* Active Filter Tags & Reset */}
-        {(selectedCategory !== "All" || submittedSearch) && (
+        {(selectedCategory !== "All" || submittedSearch || inStockOnly || sortBy !== "featured") && (
           <div className="flex flex-wrap items-center gap-2 pt-1">
             <span className="text-xs text-zinc-500 font-medium">Active filters:</span>
             {selectedCategory !== "All" && (
@@ -225,6 +285,30 @@ const Products = () => {
                     setSearch("");
                     setSubmittedSearch("");
                   }}
+                  className="hover:text-white"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </span>
+            )}
+            {inStockOnly && (
+              <span className="inline-flex items-center gap-1 rounded-lg border border-emerald-500/30 bg-emerald-950/40 px-2.5 py-1 text-xs font-medium text-emerald-400">
+                In Stock Only
+                <button
+                  type="button"
+                  onClick={() => setInStockOnly(false)}
+                  className="hover:opacity-75"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </span>
+            )}
+            {sortBy !== "featured" && (
+              <span className="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-zinc-800 px-2.5 py-1 text-xs font-medium text-zinc-300">
+                Sort: {sortBy}
+                <button
+                  type="button"
+                  onClick={() => setSortBy("featured")}
                   className="hover:text-white"
                 >
                   <X className="h-3 w-3" />
@@ -282,8 +366,8 @@ const Products = () => {
           <p className="text-sm font-semibold text-zinc-300">No matching products found</p>
           <p className="mt-1 text-xs text-zinc-500">
             {submittedSearch
-              ? `No products match "${submittedSearch}" in ${selectedCategory} category.`
-              : "Try switching to another category."}
+              ? `No products match "${submittedSearch}" with selected filters.`
+              : "Try switching filters or selecting a different category."}
           </p>
           <button
             type="button"

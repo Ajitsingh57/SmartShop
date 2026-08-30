@@ -1,5 +1,18 @@
 import React, { useEffect, useMemo, useState } from "react";
+import {
+  Search,
+  Download,
+  Printer,
+  FileSpreadsheet,
+  Receipt,
+  RotateCcw,
+  CreditCard,
+  ShoppingBag,
+  X,
+  FileText,
+} from "lucide-react";
 import { salesApi, paymentsApi, returnsApi } from "../services/api";
+import { exportToCSV, printReportPDF } from "../utils/exportReports";
 
 const Transactions = () => {
   const [activeTab, setActiveTab] = useState("all");
@@ -52,6 +65,8 @@ const Transactions = () => {
             }),
             rawDate: s.createdAt,
             amount: Number(s.totalAmount || 0),
+            paidAmount: Number(s.paidAmount || 0),
+            pendingAmount: Number(s.pendingAmount || 0),
             method: (s.paymentType || "cash").toUpperCase(),
             status: s.status === "completed" ? "Completed" : s.status || "Completed",
             description: `Sale of ${s.items?.length || 0} product(s) - Paid: ₹${Number(s.paidAmount || 0).toLocaleString("en-IN")}, Pending: ₹${Number(s.pendingAmount || 0).toLocaleString("en-IN")}`,
@@ -89,6 +104,8 @@ const Transactions = () => {
             }),
             rawDate: p.paidAt || p.createdAt,
             amount: Number(p.amount || 0),
+            paidAmount: Number(p.amount || 0),
+            pendingAmount: 0,
             method: (p.paymentMethod || "cash").toUpperCase(),
             status: p.status === "approved" ? "Approved" : p.status === "rejected" ? "Rejected" : "Pending",
             description: p.note || `Payment claim via ${p.paymentMethod?.toUpperCase()}`,
@@ -105,9 +122,9 @@ const Transactions = () => {
           : [];
 
         returns.forEach((r) => {
-          const user = r.customerId?.userId || {};
-          const customerName = r.customerId?.name || user.name || "Customer";
-          const customerPhone = user.phone || r.customerId?.phone || "";
+          const customer = r.customerId?.userId || r.customerId || {};
+          const customerName = r.saleId?.customerId?.userId?.name || r.saleId?.customerId?.name || customer.name || "Customer";
+          const customerPhone = r.saleId?.customerId?.userId?.phone || r.saleId?.customerId?.phone || customer.phone || "";
 
           items.push({
             id: `RET-${String(r._id).slice(-6).toUpperCase()}`,
@@ -115,7 +132,7 @@ const Transactions = () => {
             type: "Return",
             customer: customerName,
             phone: customerPhone,
-            saleId: r.saleId ? `SALE-${String(r.saleId._id || r.saleId).slice(-6).toUpperCase()}` : "SALE",
+            saleId: r.saleId ? `SALE-${String(r.saleId._id || r.saleId).slice(-6).toUpperCase()}` : "DIRECT",
             date: new Date(r.returnedAt || r.createdAt).toLocaleString("en-IN", {
               day: "2-digit",
               month: "short",
@@ -125,19 +142,21 @@ const Transactions = () => {
             }),
             rawDate: r.returnedAt || r.createdAt,
             amount: Number(r.returnAmount || 0),
+            paidAmount: Number(r.returnAmount || 0),
+            pendingAmount: 0,
             method: (r.refundMethod || "cash").toUpperCase(),
             status: r.refundStatus === "completed" ? "Completed" : "Pending",
-            description: r.reason || "Product return refund",
+            description: r.reason || `Returned items from ${r.saleId ? `Sale #${String(r.saleId._id || r.saleId).slice(-6).toUpperCase()}` : "order"}`,
             items: r.items || [],
           });
         });
       }
 
-      items.sort((a, b) => new Date(b.rawDate).getTime() - new Date(a.rawDate).getTime());
+      items.sort((a, b) => new Date(b.rawDate) - new Date(a.rawDate));
       setTransactions(items);
     } catch (err) {
-      console.error("Failed to load transactions:", err);
-      setError(err?.message || "Failed to load transactions.");
+      console.error("Ledger load error:", err);
+      setError("Unable to load transaction records.");
     } finally {
       setLoading(false);
     }
@@ -189,6 +208,49 @@ const Transactions = () => {
 
   const formatAmount = (amount) => `₹${Number(amount || 0).toLocaleString("en-IN")}`;
 
+  // Export handlers
+  const handleExportExcel = () => {
+    const columns = [
+      { key: "id", label: "Transaction ID" },
+      { key: "type", label: "Type" },
+      { key: "customer", label: "Customer" },
+      { key: "phone", label: "Phone" },
+      { key: "amount", label: "Amount (₹)", formatter: (v) => v || 0 },
+      { key: "method", label: "Payment Method" },
+      { key: "status", label: "Status" },
+      { key: "date", label: "Date & Time" },
+      { key: "description", label: "Notes / Description" },
+    ];
+
+    exportToCSV(filteredTransactions, columns, `SmartShop_Transactions_${activeTab}`);
+  };
+
+  const handleExportPDF = () => {
+    const columns = [
+      { key: "id", label: "ID" },
+      { key: "type", label: "Type" },
+      { key: "customer", label: "Customer" },
+      { key: "amount", label: "Amount", align: "right", formatter: (v) => `₹${Number(v || 0).toLocaleString("en-IN")}` },
+      { key: "method", label: "Method" },
+      { key: "status", label: "Status" },
+      { key: "date", label: "Date" },
+    ];
+
+    const summary = [
+      { label: "Total Transactions", value: `${filteredTransactions.length}` },
+      { label: "Total Sales", value: formatAmount(totalSalesAmount) },
+      { label: "Cleared Payments", value: formatAmount(totalPaymentsAmount) },
+    ];
+
+    printReportPDF({
+      title: `Transactions Ledger (${activeTab.toUpperCase()})`,
+      subtitle: `Filtered view containing ${filteredTransactions.length} transaction entries`,
+      columns,
+      data: filteredTransactions,
+      summary,
+    });
+  };
+
   return (
     <div
       className="min-h-screen w-full px-4 py-6 sm:px-6 md:px-10 lg:px-12"
@@ -199,11 +261,33 @@ const Transactions = () => {
     >
       <div className="mx-auto max-w-7xl">
         {/* Header */}
-        <div className="mb-7">
-          <h1 className="text-2xl font-bold text-white sm:text-3xl">Transactions</h1>
-          <p className="mt-1 text-sm text-zinc-400">
-            Real-time unified audit ledger for all sales, payments, credits and refunds.
-          </p>
+        <div className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-white sm:text-3xl">Transactions</h1>
+            <p className="mt-1 text-sm text-zinc-400">
+              Real-time unified audit ledger for all sales, payments, credits and refunds.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={handleExportExcel}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-zinc-900 px-3.5 py-2 text-xs font-semibold text-zinc-200 shadow transition hover:border-emerald-500/40 hover:bg-emerald-950/30 hover:text-emerald-400"
+            >
+              <FileSpreadsheet className="h-4 w-4 text-emerald-400" />
+              <span>Export Excel</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleExportPDF}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-zinc-900 px-3.5 py-2 text-xs font-semibold text-zinc-200 shadow transition hover:border-[var(--app-accent-border)] hover:bg-[var(--app-accent-soft)] hover:text-[var(--app-accent)]"
+            >
+              <Printer className="h-4 w-4" style={{ color: "var(--app-accent)" }} />
+              <span>Print PDF Report</span>
+            </button>
+          </div>
         </div>
 
         {error && (
@@ -217,7 +301,7 @@ const Transactions = () => {
           <div className="rounded-xl border p-5" style={{ borderColor: "var(--app-border)", backgroundColor: "var(--app-surface)" }}>
             <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Gross Sales Volume</p>
             <p className="mt-2 text-2xl font-bold sm:text-3xl text-white">{formatAmount(totalSalesAmount)}</p>
-            <p className="mt-1 text-xs text-zinc-500">{transactions.filter(t => t.type === "Sale").length} sales invoices</p>
+            <p className="mt-1 text-xs text-zinc-500">{transactions.filter((t) => t.type === "Sale").length} sales invoices</p>
           </div>
 
           <div className="rounded-xl border p-5" style={{ borderColor: "var(--app-border)", backgroundColor: "var(--app-surface)" }}>
@@ -229,7 +313,7 @@ const Transactions = () => {
           <div className="rounded-xl border p-5" style={{ borderColor: "var(--app-border)", backgroundColor: "var(--app-surface)" }}>
             <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Total Ledger Entries</p>
             <p className="mt-2 text-2xl font-bold sm:text-3xl" style={{ color: "var(--app-accent)" }}>{transactions.length}</p>
-            <p className="mt-1 text-xs text-zinc-400">{filteredTransactions.length} records matching search</p>
+            <p className="mt-1 text-xs text-zinc-400">{filteredTransactions.length} records matching filter</p>
           </div>
         </div>
 
@@ -262,17 +346,16 @@ const Transactions = () => {
             ))}
           </div>
 
-          <input
-            type="search"
-            placeholder="Search ID, customer, phone, UTR..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full rounded-lg border px-4 py-2 text-sm text-white outline-none sm:w-72"
-            style={{
-              borderColor: "var(--app-border)",
-              backgroundColor: "var(--app-surface)",
-            }}
-          />
+          <div className="relative w-full sm:w-80">
+            <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
+            <input
+              type="search"
+              placeholder="Search ID, customer, phone, UTR..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full rounded-xl border border-white/10 bg-zinc-950 pl-9 pr-4 py-2.5 text-xs text-white outline-none focus:border-[var(--app-accent-border)]"
+            />
+          </div>
         </div>
 
         {/* Transactions Table */}
@@ -296,7 +379,7 @@ const Transactions = () => {
                     <th className="px-5 py-4">Method</th>
                     <th className="px-5 py-4">Date</th>
                     <th className="px-5 py-4">Status</th>
-                    <th className="px-5 py-4 text-right">View</th>
+                    <th className="px-5 py-4 text-right">Action</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -306,15 +389,20 @@ const Transactions = () => {
                       className="border-b transition hover:bg-white/[0.02]"
                       style={{ borderColor: "var(--app-border)" }}
                     >
-                      <td className="px-5 py-4 font-mono text-xs font-semibold text-zinc-300">{tx.id}</td>
+                      <td className="px-5 py-4">
+                        <span className="font-mono font-medium text-zinc-200">{tx.id}</span>
+                        {tx.transactionId && (
+                          <p className="text-[11px] font-mono text-zinc-500">Ref: {tx.transactionId}</p>
+                        )}
+                      </td>
                       <td className="px-5 py-4">
                         <span
                           className={`rounded-md px-2.5 py-1 text-xs font-semibold ${
                             tx.type === "Sale"
-                              ? "bg-blue-500/10 text-blue-400"
+                              ? "bg-amber-500/10 text-amber-400"
                               : tx.type === "Payment"
                               ? "bg-emerald-500/10 text-emerald-400"
-                              : "bg-purple-500/10 text-purple-400"
+                              : "bg-blue-500/10 text-blue-400"
                           }`}
                         >
                           {tx.type}
@@ -327,16 +415,16 @@ const Transactions = () => {
                       <td className="px-5 py-4 font-bold" style={{ color: tx.type === "Payment" ? "#4ade80" : "var(--app-accent)" }}>
                         {formatAmount(tx.amount)}
                       </td>
-                      <td className="px-5 py-4 text-xs font-semibold text-zinc-400">{tx.method}</td>
+                      <td className="px-5 py-4 text-zinc-300 font-mono text-xs">{tx.method}</td>
                       <td className="px-5 py-4 text-xs text-zinc-400">{tx.date}</td>
                       <td className="px-5 py-4">
                         <span
                           className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                            tx.status === "Approved" || tx.status === "Completed"
+                            tx.status === "Completed" || tx.status === "Approved"
                               ? "bg-emerald-500/10 text-emerald-400"
                               : tx.status === "Rejected"
                               ? "bg-red-500/10 text-red-400"
-                              : "bg-yellow-500/10 text-yellow-400"
+                              : "bg-amber-500/10 text-amber-400"
                           }`}
                         >
                           {tx.status}
@@ -346,10 +434,10 @@ const Transactions = () => {
                         <button
                           type="button"
                           onClick={() => setSelectedTransaction(tx)}
-                          className="rounded-lg border px-3 py-1.5 text-xs font-semibold text-zinc-300 transition hover:bg-white/5 hover:text-white"
+                          className="rounded-lg border px-3 py-1.5 text-xs font-semibold text-zinc-300 transition hover:border-[var(--app-accent-border)] hover:bg-[var(--app-accent-soft)] hover:text-[var(--app-accent)]"
                           style={{ borderColor: "var(--app-border)" }}
                         >
-                          Details
+                          Receipt / Details
                         </button>
                       </td>
                     </tr>
@@ -372,27 +460,17 @@ const Transactions = () => {
                   <div>
                     <div className="flex items-start justify-between gap-2">
                       <div>
-                        <span
-                          className={`rounded-md px-2 py-0.5 text-[11px] font-semibold ${
-                            tx.type === "Sale"
-                              ? "bg-blue-500/10 text-blue-400"
-                              : tx.type === "Payment"
-                              ? "bg-emerald-500/10 text-emerald-400"
-                              : "bg-purple-500/10 text-purple-400"
-                          }`}
-                        >
-                          {tx.type}
-                        </span>
-                        <p className="font-semibold text-white text-base mt-2">{tx.customer}</p>
-                        <p className="text-xs font-mono text-zinc-500">{tx.id}</p>
+                        <span className="font-mono text-xs text-zinc-400">{tx.id}</span>
+                        <p className="font-semibold text-white text-base mt-0.5">{tx.customer}</p>
+                        {tx.phone && <p className="text-xs text-zinc-500">{tx.phone}</p>}
                       </div>
                       <span
                         className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                          tx.status === "Approved" || tx.status === "Completed"
+                          tx.status === "Completed" || tx.status === "Approved"
                             ? "bg-emerald-500/10 text-emerald-400"
                             : tx.status === "Rejected"
                             ? "bg-red-500/10 text-red-400"
-                            : "bg-yellow-500/10 text-yellow-400"
+                            : "bg-amber-500/10 text-amber-400"
                         }`}
                       >
                         {tx.status}
@@ -419,7 +497,7 @@ const Transactions = () => {
                       className="w-full rounded-lg border py-2 text-xs font-semibold text-zinc-300 transition hover:bg-white/5"
                       style={{ borderColor: "var(--app-border)" }}
                     >
-                      View Details
+                      View Receipt / Details
                     </button>
                   </div>
                 </div>
@@ -428,74 +506,102 @@ const Transactions = () => {
           </div>
         )}
 
-        {/* Transaction Detail Modal */}
+        {/* Transaction Detail & Print Modal */}
         {selectedTransaction && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
-            <div className="w-full max-w-lg rounded-2xl border p-5 sm:p-6 shadow-2xl max-h-[90vh] overflow-y-auto" style={{ borderColor: "var(--app-border)", backgroundColor: "var(--app-surface)" }}>
-              <div className="mb-4 flex items-center justify-between">
-                <h3 className="text-lg font-bold text-white">Transaction Details</h3>
-                <button type="button" onClick={() => setSelectedTransaction(null)} className="text-zinc-400 hover:text-white">✕</button>
+            <div
+              className="w-full max-w-lg rounded-2xl border p-5 sm:p-6 shadow-2xl max-h-[90vh] overflow-y-auto"
+              style={{
+                borderColor: "var(--app-accent-border)",
+                backgroundColor: "var(--app-surface)",
+              }}
+            >
+              <div className="mb-4 flex items-center justify-between border-b pb-3" style={{ borderColor: "var(--app-border)" }}>
+                <div>
+                  <h3 className="text-lg font-bold text-white">SmartShop Bill / Receipt</h3>
+                  <p className="font-mono text-xs text-zinc-400">{selectedTransaction.id}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSelectedTransaction(null)}
+                  className="rounded p-1 text-zinc-400 hover:text-white"
+                >
+                  <X className="h-5 w-5" />
+                </button>
               </div>
 
-              <div className="space-y-3 text-sm">
-                <div className="flex justify-between border-b pb-2" style={{ borderColor: "var(--app-border)" }}>
-                  <span className="text-zinc-500">Transaction ID</span>
-                  <span className="font-mono font-semibold text-white">{selectedTransaction.id}</span>
+              <div className="space-y-3 text-xs">
+                <div className="grid grid-cols-2 gap-2 border-b pb-2" style={{ borderColor: "var(--app-border)" }}>
+                  <div>
+                    <span className="text-zinc-500">Customer:</span>
+                    <p className="font-semibold text-white">{selectedTransaction.customer}</p>
+                    {selectedTransaction.phone && <p className="text-zinc-400">{selectedTransaction.phone}</p>}
+                  </div>
+                  <div>
+                    <span className="text-zinc-500">Date & Time:</span>
+                    <p className="text-zinc-300">{selectedTransaction.date}</p>
+                  </div>
                 </div>
+
                 <div className="flex justify-between border-b pb-2" style={{ borderColor: "var(--app-border)" }}>
                   <span className="text-zinc-500">Type</span>
                   <span className="font-semibold text-zinc-300">{selectedTransaction.type}</span>
                 </div>
-                <div className="flex justify-between border-b pb-2" style={{ borderColor: "var(--app-border)" }}>
-                  <span className="text-zinc-500">Customer</span>
-                  <span className="font-semibold text-white">{selectedTransaction.customer} ({selectedTransaction.phone || "No phone"})</span>
-                </div>
-                <div className="flex justify-between border-b pb-2" style={{ borderColor: "var(--app-border)" }}>
-                  <span className="text-zinc-500">Amount</span>
-                  <span className="text-lg font-bold" style={{ color: "var(--app-accent)" }}>{formatAmount(selectedTransaction.amount)}</span>
-                </div>
+
                 <div className="flex justify-between border-b pb-2" style={{ borderColor: "var(--app-border)" }}>
                   <span className="text-zinc-500">Payment Channel</span>
-                  <span className="font-semibold text-zinc-300">{selectedTransaction.method}</span>
+                  <span className="font-semibold text-emerald-400 font-mono">{selectedTransaction.method}</span>
                 </div>
-                <div className="flex justify-between border-b pb-2" style={{ borderColor: "var(--app-border)" }}>
-                  <span className="text-zinc-500">Date</span>
-                  <span className="text-zinc-300">{selectedTransaction.date}</span>
-                </div>
+
                 {selectedTransaction.transactionId && (
                   <div className="flex justify-between border-b pb-2" style={{ borderColor: "var(--app-border)" }}>
-                    <span className="text-zinc-500">UTR / Reference</span>
+                    <span className="text-zinc-500">UTR / Reference ID</span>
                     <span className="font-mono text-zinc-300">{selectedTransaction.transactionId}</span>
                   </div>
                 )}
-                {selectedTransaction.description && (
-                  <div className="border-b pb-2" style={{ borderColor: "var(--app-border)" }}>
-                    <p className="text-zinc-500">Details</p>
-                    <p className="mt-1 text-zinc-300">{selectedTransaction.description}</p>
-                  </div>
-                )}
 
+                {/* Purchased items table if available */}
                 {selectedTransaction.items && selectedTransaction.items.length > 0 && (
-                  <div>
-                    <p className="mb-2 font-semibold text-white">Items</p>
-                    <div className="space-y-1 max-h-32 overflow-y-auto">
+                  <div className="border-b pb-3" style={{ borderColor: "var(--app-border)" }}>
+                    <p className="mb-2 font-bold text-white uppercase text-[10px] tracking-wider text-zinc-400">
+                      Itemized Products ({selectedTransaction.items.length})
+                    </p>
+                    <div className="space-y-1.5 max-h-40 overflow-y-auto rounded-lg border p-2.5" style={{ borderColor: "var(--app-border)", backgroundColor: "var(--app-surface-light)" }}>
                       {selectedTransaction.items.map((it, idx) => (
-                        <div key={idx} className="flex justify-between text-xs text-zinc-400">
-                          <span>{it.productName || "Item"} x {it.quantity || 1}</span>
-                          <span>₹{it.price ? (it.price * (it.quantity || 1)).toLocaleString("en-IN") : "—"}</span>
+                        <div key={idx} className="flex justify-between text-xs text-zinc-300">
+                          <span>
+                            {it.productName || it.productId?.name || "Product"} × {it.quantity || 1} {it.unit || ""}
+                          </span>
+                          <span className="font-mono font-semibold text-white">
+                            ₹{it.total ? it.total.toLocaleString("en-IN") : it.price ? (it.price * (it.quantity || 1)).toLocaleString("en-IN") : "—"}
+                          </span>
                         </div>
                       ))}
                     </div>
                   </div>
                 )}
+
+                <div className="flex justify-between text-sm font-bold text-white pt-1">
+                  <span>Total Amount</span>
+                  <span style={{ color: "var(--app-accent)" }}>{formatAmount(selectedTransaction.amount)}</span>
+                </div>
               </div>
 
-              <div className="mt-6">
+              <div className="mt-6 flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => window.print()}
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-xs font-semibold text-white transition hover:bg-white/10"
+                >
+                  <Printer className="h-3.5 w-3.5" />
+                  Print Receipt / PDF
+                </button>
+
                 <button
                   type="button"
                   onClick={() => setSelectedTransaction(null)}
-                  className="w-full rounded-lg border py-2.5 font-semibold text-zinc-300"
-                  style={{ borderColor: "var(--app-border)" }}
+                  className="rounded-xl px-5 py-2 text-xs font-bold text-white shadow"
+                  style={{ backgroundColor: "var(--app-accent)" }}
                 >
                   Close
                 </button>

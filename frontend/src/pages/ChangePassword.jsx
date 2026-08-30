@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { Eye, EyeOff, ShieldCheck } from "lucide-react";
 import { authApi } from "../services/api";
 
 const ChangePassword = () => {
@@ -8,6 +9,10 @@ const ChangePassword = () => {
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+
+  const [showCurrent, setShowCurrent] = useState(false);
+  const [showNew, setShowNew] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -70,9 +75,9 @@ const ChangePassword = () => {
   };
 
   return (
-    <div className="w-full px-4 sm:px-6 md:px-[50px]">
+    <div className="w-full px-4 sm:px-6 md:px-[50px] pb-16">
       <div
-        className="relative mx-auto mt-8 max-w-2xl overflow-hidden rounded-xl border border-white/5 px-5 py-10 text-white shadow-[0_10px_40px_rgba(0,0,0,0.5)] sm:mt-10 sm:rounded-[16px] sm:px-[50px] sm:py-[55px]"
+        className="relative mx-auto mt-8 max-w-2xl overflow-hidden rounded-2xl border border-white/5 px-5 py-10 text-white shadow-[0_10px_40px_rgba(0,0,0,0.5)] sm:mt-10 sm:rounded-3xl sm:px-[50px] sm:py-[55px]"
         style={{
           background:
             "radial-gradient(circle at top right, var(--app-accent-soft), transparent 60%), linear-gradient(135deg, var(--app-surface-light) 0%, var(--app-surface) 100%)",
@@ -115,16 +120,31 @@ const ChangePassword = () => {
               Current Password
             </label>
 
-            <input
-              id="currentPassword"
-              type="password"
-              placeholder="Enter your current password"
-              value={currentPassword}
-              onChange={(e) => setCurrentPassword(e.target.value)}
-              autoComplete="current-password"
-              required
-              className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-3 text-sm text-white placeholder:text-zinc-600 outline-none transition focus:border-[var(--app-accent-border)] focus:ring-1 focus:ring-[var(--app-accent-soft)]"
-            />
+            <div className="relative">
+              <input
+                id="currentPassword"
+                type={showCurrent ? "text" : "password"}
+                placeholder="Enter your current password"
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                autoComplete="current-password"
+                required
+                className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-3 pr-11 text-sm text-white placeholder:text-zinc-600 outline-none transition focus:border-[var(--app-accent-border)] focus:ring-1 focus:ring-[var(--app-accent-soft)]"
+              />
+
+              <button
+                type="button"
+                onClick={() => setShowCurrent((prev) => !prev)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 rounded p-1 text-zinc-400 hover:text-white"
+                aria-label={showCurrent ? "Hide current password" : "Show current password"}
+              >
+                {showCurrent ? (
+                  <EyeOff className="h-4 w-4" />
+                ) : (
+                  <Eye className="h-4 w-4" />
+                )}
+              </button>
+            </div>
           </div>
 
           <div>
@@ -135,16 +155,32 @@ const ChangePassword = () => {
               New Password
             </label>
 
-            <input
-              id="newPassword"
-              type="password"
-              placeholder="Enter your new password"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              autoComplete="new-password"
-              required
-              className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-3 text-sm text-white placeholder:text-zinc-600 outline-none transition focus:border-[var(--app-accent-border)] focus:ring-1 focus:ring-[var(--app-accent-soft)]"
-            />
+            <div className="relative">
+              <input
+                id="newPassword"
+                type={showNew ? "text" : "password"}
+                placeholder="Enter your new password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                autoComplete="new-password"
+                required
+                minLength={6}
+                className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-3 pr-11 text-sm text-white placeholder:text-zinc-600 outline-none transition focus:border-[var(--app-accent-border)] focus:ring-1 focus:ring-[var(--app-accent-soft)]"
+              />
+
+              <button
+                type="button"
+                onClick={() => setShowNew((prev) => !prev)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 rounded p-1 text-zinc-400 hover:text-white"
+                aria-label={showNew ? "Hide new password" : "Show new password"}
+              >
+                {showNew ? (
+                  <EyeOff className="h-4 w-4" />
+                ) : (
+                  <Eye className="h-4 w-4" />
+                )}
+              </button>
+            </div>
 
             <p className="mt-2 text-xs text-zinc-600">
               Password must be at least 6 characters.
@@ -159,16 +195,32 @@ const ChangePassword = () => {
               Confirm New Password
             </label>
 
-            <input
-              id="confirmPassword"
-              type="password"
-              placeholder="Confirm your new password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              autoComplete="new-password"
-              required
-              className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-3 text-sm text-white placeholder:text-zinc-600 outline-none transition focus:border-[var(--app-accent-border)] focus:ring-1 focus:ring-[var(--app-accent-soft)]"
-            />
+            <div className="relative">
+              <input
+                id="confirmPassword"
+                type={showConfirm ? "text" : "password"}
+                placeholder="Confirm your new password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                autoComplete="new-password"
+                required
+                minLength={6}
+                className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-3 pr-11 text-sm text-white placeholder:text-zinc-600 outline-none transition focus:border-[var(--app-accent-border)] focus:ring-1 focus:ring-[var(--app-accent-soft)]"
+              />
+
+              <button
+                type="button"
+                onClick={() => setShowConfirm((prev) => !prev)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 rounded p-1 text-zinc-400 hover:text-white"
+                aria-label={showConfirm ? "Hide confirm password" : "Show confirm password"}
+              >
+                {showConfirm ? (
+                  <EyeOff className="h-4 w-4" />
+                ) : (
+                  <Eye className="h-4 w-4" />
+                )}
+              </button>
+            </div>
           </div>
 
           <div className="flex flex-col gap-3 pt-2 sm:flex-row">
@@ -183,7 +235,7 @@ const ChangePassword = () => {
 
             <button
               type="button"
-              onClick={() => navigate("/settings/profile")}
+              onClick={() => navigate("/profile")}
               disabled={loading}
               className="flex-1 rounded-lg border border-zinc-700 bg-zinc-900 px-5 py-3 font-semibold text-zinc-300 transition-all duration-300 hover:border-zinc-600 hover:bg-zinc-800 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
             >
@@ -194,7 +246,7 @@ const ChangePassword = () => {
 
         <div className="mt-8 rounded-lg border border-[var(--app-accent-border)] bg-[var(--app-accent-soft)] px-4 py-4">
           <p className="text-sm font-medium text-[var(--app-accent)]">Security Tip</p>
-          <p className="mt-1 text-xs leading-5 text-zinc-500">
+          <p className="mt-1 text-xs leading-5 text-zinc-400">
             Use a strong password that is difficult to guess and avoid sharing your password with anyone.
           </p>
         </div>

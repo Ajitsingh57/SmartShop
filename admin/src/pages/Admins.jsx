@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { Eye, EyeOff } from "lucide-react";
 import { adminsApi } from "../services/api";
 
 const Admins = () => {
@@ -7,6 +8,7 @@ const Admins = () => {
   const [statusFilter, setStatusFilter] = useState("all");
 
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showAddPassword, setShowAddPassword] = useState(false);
   const [selectedAdmin, setSelectedAdmin] = useState(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -712,16 +714,26 @@ const Admins = () => {
 
                 <div>
                   <label className="mb-1 block text-xs font-semibold text-zinc-300">Password</label>
-                  <input
-                    type="password"
-                    required
-                    minLength={6}
-                    placeholder="Password (min 6 characters)"
-                    value={form.password}
-                    onChange={(e) => setForm({ ...form, password: e.target.value })}
-                    className="w-full rounded-lg border p-3 text-sm text-white outline-none"
-                    style={{ borderColor: "var(--app-border)", backgroundColor: "var(--app-surface-light)" }}
-                  />
+                  <div className="relative">
+                    <input
+                      type={showAddPassword ? "text" : "password"}
+                      required
+                      minLength={6}
+                      placeholder="Password (min 6 characters)"
+                      value={form.password}
+                      onChange={(e) => setForm({ ...form, password: e.target.value })}
+                      className="w-full rounded-lg border p-3 pr-10 text-sm text-white outline-none"
+                      style={{ borderColor: "var(--app-border)", backgroundColor: "var(--app-surface-light)" }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowAddPassword((prev) => !prev)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 rounded p-1 text-zinc-400 hover:text-white"
+                      aria-label={showAddPassword ? "Hide password" : "Show password"}
+                    >
+                      {showAddPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
                 </div>
 
                 <div className="flex gap-3 pt-2">

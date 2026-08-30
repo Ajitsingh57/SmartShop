@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { Eye, EyeOff, ShieldCheck, ArrowLeft } from "lucide-react";
 import { authApi } from "../services/api";
 
 const ForgotPassword = () => {
@@ -12,6 +13,9 @@ const ForgotPassword = () => {
 
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -63,12 +67,12 @@ const ForgotPassword = () => {
     setSuccess("");
 
     if (!newPassword) {
-      setError("Please enter a new password.");
+      setError("Please enter your new password.");
       return;
     }
 
     if (newPassword.length < 6) {
-      setError("Password must be at least 6 characters.");
+      setError("Password must be at least 6 characters long.");
       return;
     }
 
@@ -86,23 +90,25 @@ const ForgotPassword = () => {
       });
 
       setSuccess(
-        response.message || "Password has been reset successfully! Redirecting to login..."
+        response?.message ||
+          "Password has been reset successfully! Redirecting to login..."
       );
+
       setTimeout(() => {
         navigate("/login");
       }, 1500);
     } catch (err) {
       console.error("Reset password error:", err);
-      setError(err?.message || "Failed to reset password. Please try again.");
+      setError(err?.message || "Unable to reset password. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="w-full px-4 sm:px-6 md:px-[50px]">
+    <div className="w-full px-4 sm:px-6 md:px-[50px] pb-16">
       <div
-        className="relative mx-auto mt-8 max-w-2xl overflow-hidden rounded-xl border border-white/5 px-5 py-10 text-white shadow-[0_10px_40px_rgba(0,0,0,0.5)] sm:mt-10 sm:rounded-[16px] sm:px-[50px] sm:py-[55px]"
+        className="relative mx-auto mt-8 max-w-2xl overflow-hidden rounded-2xl border border-white/5 px-5 py-10 text-white shadow-[0_10px_40px_rgba(0,0,0,0.5)] sm:mt-10 sm:rounded-3xl sm:px-[50px] sm:py-[55px]"
         style={{
           background:
             "radial-gradient(circle at top right, var(--app-accent-soft), transparent 60%), linear-gradient(135deg, var(--app-surface-light) 0%, var(--app-surface) 100%)",
@@ -110,12 +116,12 @@ const ForgotPassword = () => {
       >
         <div className="mb-8 text-center">
           <h1 className="text-3xl font-bold text-white sm:text-4xl">
-            {step === 1 ? "Forgot Password?" : "Reset Password"}
+            {step === 1 ? "Forgot Password" : "Create New Password"}
           </h1>
           <p className="mt-2 text-sm text-zinc-400 sm:text-base">
             {step === 1
-              ? "Enter your email or phone to verify your SmartShop account"
-              : `Create a new password for ${userPreview?.name || "your account"}`}
+              ? "Recover your SmartShop account using your registered credentials"
+              : `Setting new password for ${userPreview?.name || "your account"}`}
           </p>
         </div>
 
@@ -189,16 +195,31 @@ const ForgotPassword = () => {
                 New Password
               </label>
 
-              <input
-                id="newPassword"
-                type="password"
-                placeholder="Create new password"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                required
-                minLength={6}
-                className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-3 text-sm text-white placeholder:text-zinc-600 outline-none transition focus:border-[var(--app-accent-border)] focus:ring-1 focus:ring-[var(--app-accent-soft)]"
-              />
+              <div className="relative">
+                <input
+                  id="newPassword"
+                  type={showNewPassword ? "text" : "password"}
+                  placeholder="Create new password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  required
+                  minLength={6}
+                  className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-3 pr-11 text-sm text-white placeholder:text-zinc-600 outline-none transition focus:border-[var(--app-accent-border)] focus:ring-1 focus:ring-[var(--app-accent-soft)]"
+                />
+
+                <button
+                  type="button"
+                  onClick={() => setShowNewPassword((prev) => !prev)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 rounded p-1 text-zinc-400 hover:text-white"
+                  aria-label={showNewPassword ? "Hide password" : "Show password"}
+                >
+                  {showNewPassword ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                </button>
+              </div>
 
               <p className="mt-2 text-xs text-zinc-600">
                 Password must be at least 6 characters.
@@ -213,16 +234,31 @@ const ForgotPassword = () => {
                 Confirm New Password
               </label>
 
-              <input
-                id="confirmPassword"
-                type="password"
-                placeholder="Re-enter new password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                required
-                minLength={6}
-                className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-3 text-sm text-white placeholder:text-zinc-600 outline-none transition focus:border-[var(--app-accent-border)] focus:ring-1 focus:ring-[var(--app-accent-soft)]"
-              />
+              <div className="relative">
+                <input
+                  id="confirmPassword"
+                  type={showConfirmPassword ? "text" : "password"}
+                  placeholder="Re-enter new password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  required
+                  minLength={6}
+                  className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-3 pr-11 text-sm text-white placeholder:text-zinc-600 outline-none transition focus:border-[var(--app-accent-border)] focus:ring-1 focus:ring-[var(--app-accent-soft)]"
+                />
+
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword((prev) => !prev)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 rounded p-1 text-zinc-400 hover:text-white"
+                  aria-label={showConfirmPassword ? "Hide confirm password" : "Show confirm password"}
+                >
+                  {showConfirmPassword ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                </button>
+              </div>
             </div>
 
             <button

@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { FileSpreadsheet, Printer, Search } from "lucide-react";
 import { creditsApi, paymentsApi } from "../services/api";
+import { exportToCSV, printReportPDF } from "../utils/exportReports";
 
 const Credits = () => {
   const [activeTab, setActiveTab] = useState("outstanding");
@@ -195,6 +197,46 @@ const Credits = () => {
 
   const formatAmount = (amount) => `₹${Number(amount || 0).toLocaleString("en-IN")}`;
 
+  const handleExportExcel = () => {
+    const columns = [
+      { key: "customer", label: "Customer Name" },
+      { key: "phone", label: "Phone Number" },
+      { key: "saleId", label: "Invoice Ref" },
+      { key: "totalAmount", label: "Credit Borrowed (₹)", formatter: (v) => v || 0 },
+      { key: "paidAmount", label: "Repaid Amount (₹)", formatter: (v) => v || 0 },
+      { key: "pendingAmount", label: "Pending Due (₹)", formatter: (v) => v || 0 },
+      { key: "status", label: "Credit Status" },
+      { key: "saleDate", label: "Borrow Date" },
+      { key: "dueDate", label: "Due Date" },
+    ];
+
+    exportToCSV(filteredCredits, columns, `SmartShop_Credit_Ledger_${activeTab}`);
+  };
+
+  const handleExportPDF = () => {
+    const columns = [
+      { key: "customer", label: "Customer" },
+      { key: "phone", label: "Phone" },
+      { key: "pendingAmount", label: "Pending (₹)", align: "right", formatter: (v) => `₹${Number(v || 0).toLocaleString("en-IN")}` },
+      { key: "status", label: "Status" },
+      { key: "dueDate", label: "Due Date" },
+    ];
+
+    const summary = [
+      { label: "Active Credit Accounts", value: `${filteredCredits.length}` },
+      { label: "Total Outstanding Due", value: formatAmount(totalOutstanding) },
+      { label: "Total Cleared", value: formatAmount(totalCleared) },
+    ];
+
+    printReportPDF({
+      title: `Store Credit Ledger (${activeTab.toUpperCase()})`,
+      subtitle: `Export of ${filteredCredits.length} credit account records`,
+      columns,
+      data: filteredCredits,
+      summary,
+    });
+  };
+
   return (
     <div
       className="min-h-screen w-full px-4 py-6 sm:px-6 md:px-10 lg:px-12"
@@ -211,6 +253,26 @@ const Credits = () => {
             <p className="mt-1 text-sm text-zinc-400">
               Track customer credit lines, repayment histories and extend due dates.
             </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={handleExportExcel}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-zinc-900 px-3.5 py-2 text-xs font-semibold text-zinc-200 shadow transition hover:border-emerald-500/40 hover:bg-emerald-950/30 hover:text-emerald-400"
+            >
+              <FileSpreadsheet className="h-4 w-4 text-emerald-400" />
+              <span>Export Excel</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleExportPDF}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-zinc-900 px-3.5 py-2 text-xs font-semibold text-zinc-200 shadow transition hover:border-[var(--app-accent-border)] hover:bg-[var(--app-accent-soft)] hover:text-[var(--app-accent)]"
+            >
+              <Printer className="h-4 w-4" style={{ color: "var(--app-accent)" }} />
+              <span>Print PDF Report</span>
+            </button>
           </div>
         </div>
 
