@@ -4,12 +4,18 @@ import Sale from "../models/saleModel.js";
 import Customer from "../models/customerModel.js";
 
 /**
- * Calculates a reliable, explainable Trust Score (0-100) and Auto Credit Limit (₹)
- * based on:
- *  1. Total Purchase volume & frequency
- *  2. Repayment history (on-time cleared vs delayed)
- *  3. Overdue debt penalties
- *  4. Debt-to-purchase risk ratio
+ * Calculates a fair, risk-balanced Trust Score (0-100) and Auto Credit Limit (₹)
+ * directly tying Auto Credit Limit to BOTH Trust Score and Total Purchase Volume.
+ * 
+ * Rules:
+ *  1. ZERO Purchases = ZERO Trust Score & ZERO Auto Credit Limit.
+ *  2. ANY Verified Purchase (`totalPurchase > 0`) unlocks a fair proportional Trust Score and Auto Credit Limit.
+ *  3. Auto Credit Limit formula:
+ *     `autoCreditLimit = Math.round(purchaseAmount * (trustScore / 100) * 0.40)`
+ *     - Scaled smoothly from 0% up to 40% of lifetime spending.
+ *     - Fairness: Even small purchases get a starter limit (e.g. ₹10-₹40 on small purchases).
+ *     - Risk Safety: Limit can NEVER exceed 40% of what customer has already paid/spent.
+ *  4. Overdue delays penalize Trust Score and proportionally reduce/freeze Auto Credit Limit.
  *
  * @param {Object} params
  * @param {number} params.totalPurchase - Lifetime spending in ₹
@@ -24,41 +30,115 @@ export const calculateCustomerTrustScoreAndLimits = ({
   credits = [],
   payments = [],
 }) => {
-  const purchaseAmount = Math.max(0, Number(totalPurchase || 0));
-  const salesCount = Array.isArray(sales) ? sales.length : 0;
+  const salesList = Array.isArray(sales) ? sales : [];
   const creditsList = Array.isArray(credits) ? credits : [];
   const paymentsList = Array.isArray(payments) ? payments : [];
 
+  // Calculate actual total spending across completed sales
+  const calculatedSalesTotal = salesList.reduce(
+    (sum, s) => sum + Math.max(0, Number(s.totalAmount || s.amount || 0)),
+    0
+  );
+  const purchaseAmount = Math.max(
+    0,
+    Number(totalPurchase || 0),
+    calculatedSalesTotal
+  );
+
   const now = new Date();
 
-  // ==========================================
-  // 1. PURCHASE SCORE (Max 35 points)
-  // ==========================================
-  // Baseline for any account: 10 points
-  let purchaseScore = 10;
-
-  // Volume points: +2 points per ₹1,000 spent (capped at +20 points for ₹10,000+ purchase)
-  const volumePoints = Math.min(20, Math.floor(purchaseAmount / 1000) * 2);
-  purchaseScore += volumePoints;
-
-  // Frequency points: +1 for 2+ orders, +3 for 5+ orders, +5 for 10+ orders
-  if (salesCount >= 10) {
-    purchaseScore += 5;
-  } else if (salesCount >= 5) {
-    purchaseScore += 3;
-  } else if (salesCount >= 2) {
-    purchaseScore += 1;
+  // =========================================================================
+  // RULE 1: ZERO PURCHASES = ZERO TRUST SCORE & ZERO AUTO CREDIT LIMIT
+  // =========================================================================
+  if (purchaseAmount <= 0 || salesList.length === 0) {
+    return {
+      trustScore: 0,
+      autoCreditLimit: 0,
+      trustTier: "New",
+      breakdown: {
+        purchaseScore: 0,
+        volumePoints: 0,
+        instantFullPaymentCount: 0,
+        instantFullPaymentAmount: 0,
+        instantPoints: 0,
+        repaymentScore: 0,
+        onTimeClearedCount: 0,
+        earlyClearedCount: 0,
+        clearedCreditsCount: 0,
+        historicalLateClearedCount: 0,
+        totalBorrowed: 0,
+        totalRepaid: 0,
+        totalPending: 0,
+        overduePenalty: 0,
+        hasActiveOverdue: false,
+        maxOverdueDays: 0,
+        activeOverdueCount: 0,
+        consistencyScore: 0,
+      },
+    };
   }
 
-  purchaseScore = Math.min(35, purchaseScore);
+  // =========================================================================
+  // 1. PURCHASE SPENDING SCORE (Max 35 points)
+  // =========================================================================
+  // Baseline 10 points for any verified customer purchase
+  let volumePoints = 10;
 
-  // ==========================================
-  // 2. REPAYMENT & CREDIT REPUTATION (Max 45 points)
-  // ==========================================
-  let repaymentScore = 25; // Neutral baseline for customer who has never taken credit
+  if (purchaseAmount < 500) {
+    // ₹1 - ₹500: 10 to 15 pts
+    volumePoints += Math.round((purchaseAmount / 500) * 5);
+  } else if (purchaseAmount <= 2000) {
+    // ₹501 - ₹2,000: 15 to 23 pts
+    volumePoints += 5 + Math.round(((purchaseAmount - 500) / 1500) * 8);
+  } else if (purchaseAmount <= 10000) {
+    // ₹2,001 - ₹10,000: 23 to 31 pts
+    volumePoints += 13 + Math.round(((purchaseAmount - 2000) / 8000) * 8);
+  } else {
+    // ₹10,000+: 31 to 35 pts max
+    volumePoints += 21 + Math.min(4, Math.round(((purchaseAmount - 10000) / 10000) * 4));
+  }
+  const purchaseScore = Math.min(35, volumePoints);
+
+  // =========================================================================
+  // 2. ON-COUNTER INSTANT FULL PAYMENT (CASH / UPI) RELIABILITY (Max 25 points)
+  // =========================================================================
+  let instantFullPaymentCount = 0;
+  let instantFullPaymentAmount = 0;
+
+  salesList.forEach((s) => {
+    const saleTotal = Number(s.totalAmount || s.amount || 0);
+    const salePending = Number(s.pendingAmount || 0);
+    const pType = String(s.paymentType || "").toLowerCase();
+
+    if (
+      salePending === 0 ||
+      pType === "cash" ||
+      pType === "upi" ||
+      pType === "card"
+    ) {
+      instantFullPaymentCount += 1;
+      instantFullPaymentAmount += saleTotal;
+    }
+  });
+
+  const instantRatio =
+    purchaseAmount > 0
+      ? Math.min(1, instantFullPaymentAmount / purchaseAmount)
+      : 1;
+
+  // Instant ratio up to 18 points + instant transaction count up to 7 points
+  const instantRatioPoints = Math.round(instantRatio * 18);
+  const instantCountBonus = Math.min(7, instantFullPaymentCount * 2);
+  const instantPoints = Math.min(25, instantRatioPoints + instantCountBonus);
+
+  // =========================================================================
+  // 3. REPAYMENT DISCIPLINE & BORROWING REPUTATION (Max 30 points)
+  // =========================================================================
+  let repaymentScore = 0;
 
   const totalBorrowed = creditsList.reduce(
-    (sum, c) => sum + Math.max(0, Number(c.borrowedAmount || c.totalAmount || 0)),
+    (sum, c) =>
+      sum + Math.max(0, Number(c.borrowedAmount || c.totalAmount || 0)),
     0
   );
   const totalRepaid = creditsList.reduce(
@@ -70,32 +150,69 @@ export const calculateCustomerTrustScoreAndLimits = ({
     0
   );
 
-  const clearedCreditsCount = creditsList.filter(
-    (c) => Number(c.pendingAmount || 0) <= 0 || c.status === "paid"
-  ).length;
+  let onTimeClearedCount = 0;
+  let earlyClearedCount = 0;
+  let clearedCreditsCount = 0;
+  let historicalLateClearedCount = 0;
 
-  if (creditsList.length > 0) {
-    // If customer has borrowing history:
-    const repaymentRatio = totalBorrowed > 0 ? totalRepaid / totalBorrowed : 1;
+  if (creditsList.length === 0) {
+    // If customer has never borrowed: neutral baseline of 18 points
+    repaymentScore = 18;
+  } else {
+    // Customer has credit history
+    const repaymentRatio =
+      totalBorrowed > 0 ? Math.min(1, totalRepaid / totalBorrowed) : 1;
+    const ratioPoints = Math.round(repaymentRatio * 18);
 
-    // Scale 0-35 based on repayment percentage
-    const ratioPoints = Math.round(repaymentRatio * 35);
+    creditsList.forEach((c) => {
+      const pending = Number(c.pendingAmount || 0);
+      const isCleared = pending <= 0 || c.status === "paid";
 
-    // Bonus for cleared credit milestones
-    let clearedBonus = 0;
-    if (clearedCreditsCount >= 5) clearedBonus = 10;
-    else if (clearedCreditsCount >= 2) clearedBonus = 5;
-    else if (clearedCreditsCount === 1) clearedBonus = 2;
+      if (isCleared) {
+        clearedCreditsCount += 1;
+        const dueDate = c.dueDate ? new Date(c.dueDate) : null;
+        const settledDate = c.updatedAt ? new Date(c.updatedAt) : now;
 
-    repaymentScore = Math.min(45, ratioPoints + clearedBonus);
+        if (dueDate) {
+          if (settledDate <= dueDate) {
+            onTimeClearedCount += 1;
+            const daysBefore = Math.floor(
+              (dueDate.getTime() - settledDate.getTime()) / (1000 * 60 * 60 * 24)
+            );
+            if (daysBefore >= 3) {
+              earlyClearedCount += 1;
+            }
+          } else {
+            historicalLateClearedCount += 1;
+          }
+        } else {
+          onTimeClearedCount += 1;
+        }
+      }
+    });
+
+    const onTimeBonus = Math.min(8, onTimeClearedCount * 3);
+    const earlyBonus = Math.min(4, earlyClearedCount * 2);
+
+    repaymentScore = Math.min(30, ratioPoints + onTimeBonus + earlyBonus);
   }
 
-  // ==========================================
-  // 3. OVERDUE & DELAY PENALTIES (Deductions: 0 to -60 points)
-  // ==========================================
+  // =========================================================================
+  // 4. ORDER FREQUENCY & LOYALTY CONSISTENCY (Max 10 points)
+  // =========================================================================
+  let consistencyScore = 0;
+  if (salesList.length >= 8) consistencyScore = 10;
+  else if (salesList.length >= 4) consistencyScore = 7;
+  else if (salesList.length >= 2) consistencyScore = 4;
+  else if (salesList.length === 1) consistencyScore = 2;
+
+  // =========================================================================
+  // 5. OVERDUE & DELAY PENALTIES (Deductions: 0 to -80 points)
+  // =========================================================================
   let overduePenalty = 0;
   let hasActiveOverdue = false;
   let maxOverdueDays = 0;
+  let activeOverdueCount = 0;
 
   creditsList.forEach((c) => {
     const pending = Number(c.pendingAmount || 0);
@@ -103,67 +220,90 @@ export const calculateCustomerTrustScoreAndLimits = ({
       const dueDate = new Date(c.dueDate);
       if (dueDate < now) {
         hasActiveOverdue = true;
+        activeOverdueCount += 1;
+
         const diffTime = Math.abs(now.getTime() - dueDate.getTime());
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
         if (diffDays > maxOverdueDays) maxOverdueDays = diffDays;
 
         if (diffDays > 30) {
-          overduePenalty += 35; // Severe default
+          overduePenalty += 50; // Critical default (>30 days late)
         } else if (diffDays > 14) {
-          overduePenalty += 20; // Moderate overdue
+          overduePenalty += 30; // High delay (15-30 days late)
+        } else if (diffDays > 7) {
+          overduePenalty += 18; // Moderate delay (8-14 days late)
         } else if (diffDays > 0) {
-          overduePenalty += 10; // Mild overdue
+          overduePenalty += 10; // Mild delay (1-7 days late)
         }
       }
     }
   });
 
-  // Extra penalty if pending debt exceeds total purchase volume
-  if (purchaseAmount > 0 && totalPending > purchaseAmount) {
-    overduePenalty += 15;
+  if (historicalLateClearedCount > 0) {
+    overduePenalty += Math.min(10, historicalLateClearedCount * 3);
   }
 
-  overduePenalty = Math.min(60, overduePenalty);
+  if (purchaseAmount > 0 && totalPending > purchaseAmount) {
+    overduePenalty += 20;
+  }
 
-  // ==========================================
-  // 4. FINAL TRUST SCORE CALCULATION (0 - 100)
-  // ==========================================
-  const rawScore = purchaseScore + repaymentScore - overduePenalty;
+  overduePenalty = Math.min(80, overduePenalty);
+
+  // =========================================================================
+  // 6. FINAL TRUST SCORE (0 - 100)
+  // =========================================================================
+  const rawScore =
+    purchaseScore + instantPoints + repaymentScore + consistencyScore - overduePenalty;
   const trustScore = Math.min(100, Math.max(0, Math.round(rawScore)));
 
-  // Trust Tier classification
+  // Trust Tier Classification
   let trustTier = "Bronze";
   if (trustScore >= 85) trustTier = "Platinum";
   else if (trustScore >= 70) trustTier = "Gold";
   else if (trustScore >= 50) trustTier = "Silver";
 
-  // ==========================================
-  // 5. AUTO CREDIT LIMIT CALCULATION
-  // ==========================================
+  // =========================================================================
+  // 7. HARMONIOUS AUTO CREDIT LIMIT FORMULA (TrustScore × TotalPurchase)
+  // =========================================================================
   let autoCreditLimit = 0;
 
-  if (hasActiveOverdue || trustScore < 30) {
-    // If user has active overdue debt or poor trust score, auto credit limit is zero
+  if (maxOverdueDays > 14 || trustScore <= 0) {
+    // If critical overdue (>14 days) or zero trust score, auto credit is blocked
     autoCreditLimit = 0;
   } else {
-    // Percentage of total lifetime purchases allowed as auto credit
-    let purchasePercentage = 0;
-    if (trustScore >= 85) purchasePercentage = 0.50; // 50% for Platinum
-    else if (trustScore >= 70) purchasePercentage = 0.35; // 35% for Gold
-    else if (trustScore >= 50) purchasePercentage = 0.20; // 20% for Silver
-    else purchasePercentage = 0.10; // 10% for Bronze
+    // Dynamic Credit Ratio: up to 10% of total purchase, directly scaled by Trust Score (0-100)
+    // Formula: limit = purchaseAmount * (trustScore / 100) * 0.10
+    // Example: ₹5,000 spending with 100 Trust Score = ₹500 Auto Limit
+    // Example: ₹5,000 spending with 50 Trust Score = ₹250 Auto Limit
+    const trustMultiplier = (trustScore / 100);
+    const maxCreditRatio = 0.10; // Max 10% of lifetime purchase for 100 trust score
+    let calculatedLimit = purchaseAmount * trustMultiplier * maxCreditRatio;
 
-    let calculatedLimit = purchaseAmount * purchasePercentage;
-
-    // Minimum starter credit limit for trustworthy customers
-    if (trustScore >= 70 && calculatedLimit < 1000) {
-      calculatedLimit = 1000;
-    } else if (trustScore >= 50 && calculatedLimit < 500) {
-      calculatedLimit = 500;
+    // Repayment discipline booster (+10% if customer cleared 2+ credits with 100% on-time record)
+    if (clearedCreditsCount >= 2 && onTimeClearedCount === clearedCreditsCount) {
+      calculatedLimit *= 1.10;
     }
 
-    // Round to nearest ₹50
-    autoCreditLimit = Math.round(calculatedLimit / 50) * 50;
+    // Mild overdue penalty (1-14 days): dampen limit by 50%
+    if (hasActiveOverdue && maxOverdueDays <= 14) {
+      calculatedLimit *= 0.5;
+    }
+
+    // Hard safety ceiling: never exceed 10% of total purchase (or 11% with booster)
+    calculatedLimit = Math.min(calculatedLimit, purchaseAmount * 0.11);
+
+    // Clean rounding:
+    if (calculatedLimit >= 100) {
+      // Round to nearest ₹50
+      autoCreditLimit = Math.round(calculatedLimit / 50) * 50;
+    } else if (calculatedLimit >= 10) {
+      // Round to nearest ₹5 for micro limits (e.g. ₹15, ₹20, ₹25... ₹95)
+      autoCreditLimit = Math.round(calculatedLimit / 5) * 5;
+    } else if (calculatedLimit > 0) {
+      autoCreditLimit = 10; // Minimum fair ₹10 credit for any paying customer with positive trust
+    } else {
+      autoCreditLimit = 0;
+    }
   }
 
   return {
@@ -173,15 +313,22 @@ export const calculateCustomerTrustScoreAndLimits = ({
     breakdown: {
       purchaseScore,
       volumePoints,
-      salesCount,
+      instantFullPaymentCount,
+      instantFullPaymentAmount,
+      instantPoints,
       repaymentScore,
+      onTimeClearedCount,
+      earlyClearedCount,
       clearedCreditsCount,
+      historicalLateClearedCount,
       totalBorrowed,
       totalRepaid,
       totalPending,
       overduePenalty,
       hasActiveOverdue,
       maxOverdueDays,
+      activeOverdueCount,
+      consistencyScore,
     },
   };
 };
@@ -207,13 +354,15 @@ export const syncCustomerTrustAndLimits = async (customerId, session = null) => 
     Payment.find({ customerId: customer._id }),
   ]);
 
-  // Sum actual sales total purchase
   const realTotalPurchase = sales.reduce(
     (sum, s) => sum + Math.max(0, Number(s.totalAmount || s.amount || 0)),
     0
   );
 
-  customer.totalPurchase = Math.max(Number(customer.totalPurchase || 0), realTotalPurchase);
+  customer.totalPurchase = Math.max(
+    Number(customer.totalPurchase || 0),
+    realTotalPurchase
+  );
 
   const pendingAmount = credits.reduce(
     (sum, c) => sum + Math.max(0, Number(c.pendingAmount || 0)),
