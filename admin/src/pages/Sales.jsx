@@ -20,6 +20,7 @@ import {
   Smartphone,
   CreditCard,
   X,
+  Sparkles,
 } from "lucide-react";
 
 import {
@@ -197,6 +198,7 @@ const Sales = () => {
 
   const [products, setProducts] = useState([]);
   const [productSearch, setProductSearch] = useState("");
+  const [unknownRate, setUnknownRate] = useState("");
   const [cart, setCart] = useState([]);
   const [showProductList, setShowProductList] = useState(false);
 
@@ -326,7 +328,7 @@ const Sales = () => {
     }
 
     const existing = cart.find(
-      (item) => String(item.productId) === String(productId)
+      (item) => item.productId && String(item.productId) === String(productId)
     );
 
     if (existing) {
@@ -340,25 +342,32 @@ const Sales = () => {
 
       setCart((prev) =>
         prev.map((item) =>
-          String(item.productId) === String(productId)
+          item.cartItemId === existing.cartItemId
             ? {
                 ...item,
                 quantity: Number(item.quantity || 1) + 1,
+                total:
+                  item.price !== null && item.price !== undefined && item.price !== ""
+                    ? Number(item.price) * (Number(item.quantity || 1) + 1)
+                    : null,
               }
             : item
         )
       );
     } else {
+      const price = getProductPrice(product);
       setCart((prev) => [
         ...prev,
         {
+          cartItemId: `prod_${productId}_${Date.now()}`,
           productId,
           productName: getProductName(product),
           quantity: 1,
           unit: product?.unit || product?.sellingUnit || null,
-          price: getProductPrice(product),
-          total: getProductPrice(product),
+          price: price || "",
+          total: price || "",
           stock,
+          isCustom: false,
         },
       ]);
     }
@@ -367,10 +376,52 @@ const Sales = () => {
     setShowProductList(false);
   };
 
-  const updateQuantity = (productId, type) => {
+  // Add a custom / unknown item to the cart
+  const addCustomItem = (name = "Unknown item", initialPrice = "") => {
+    clearMessage();
+    const cleanName =
+      typeof name === "string" && name.trim() ? name.trim() : "Unknown item";
+    const numPrice =
+      initialPrice !== "" && Number.isFinite(Number(initialPrice))
+        ? Number(initialPrice)
+        : "";
+
+    const newItem = {
+      cartItemId: `custom_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      productId: null,
+      productName: cleanName,
+      quantity: 1,
+      unit: null,
+      price: numPrice,
+      total: numPrice,
+      stock: null,
+      isCustom: true,
+    };
+
+    setCart((prev) => [...prev, newItem]);
+    setProductSearch("");
+    setShowProductList(false);
+  };
+
+  // Quick add unknown item by entering rate only
+  const handleQuickAddUnknown = (e) => {
+    if (e) e.preventDefault();
+    const rate = Number(unknownRate);
+    if (!unknownRate || !Number.isFinite(rate) || rate <= 0) {
+      setMessage("Please enter a valid rate for the unknown item.");
+      setMessageType("error");
+      return;
+    }
+
+    addCustomItem("Unknown item", rate);
+    setUnknownRate("");
+    clearMessage();
+  };
+
+  const updateQuantity = (cartItemId, type) => {
     setCart((prev) =>
       prev.map((item) => {
-        if (String(item.productId) !== String(productId)) return item;
+        if (item.cartItemId !== cartItemId) return item;
 
         let quantity = Number(item.quantity || 1);
 
@@ -383,22 +434,23 @@ const Sales = () => {
           quantity = Math.max(1, quantity - 1);
         }
 
+        const price = Number(item.price);
         return {
           ...item,
           quantity,
           total:
-            item.price !== null && item.price !== undefined
-              ? Number(item.price) * quantity
-              : null,
+            item.price !== null && item.price !== undefined && item.price !== "" && Number.isFinite(price)
+              ? price * quantity
+              : item.total,
         };
       })
     );
   };
 
-  const updateItem = (productId, field, value) => {
+  const updateItem = (cartItemId, field, value) => {
     setCart((prev) =>
       prev.map((item) => {
-        if (String(item.productId) !== String(productId)) return item;
+        if (item.cartItemId !== cartItemId) return item;
 
         const updated = {
           ...item,
@@ -406,13 +458,23 @@ const Sales = () => {
         };
 
         if (field === "price" || field === "quantity") {
-          const price = Number(field === "price" ? value : item.price);
-          const quantity = Number(
-            field === "quantity" ? value : item.quantity
-          );
+          const priceStr = field === "price" ? value : item.price;
+          const qtyStr = field === "quantity" ? value : item.quantity;
 
-          if (Number.isFinite(price) && Number.isFinite(quantity)) {
+          const price = Number(priceStr);
+          const quantity = Number(qtyStr);
+
+          if (
+            priceStr !== "" &&
+            priceStr !== null &&
+            qtyStr !== "" &&
+            qtyStr !== null &&
+            Number.isFinite(price) &&
+            Number.isFinite(quantity)
+          ) {
             updated.total = price * quantity;
+          } else if (field === "price" && priceStr !== "" && Number.isFinite(price)) {
+            updated.total = price;
           }
         }
 
@@ -421,9 +483,9 @@ const Sales = () => {
     );
   };
 
-  const removeProduct = (productId) => {
+  const removeProduct = (cartItemId) => {
     setCart((prev) =>
-      prev.filter((item) => String(item.productId) !== String(productId))
+      prev.filter((item) => item.cartItemId !== cartItemId)
     );
   };
 
@@ -431,8 +493,23 @@ const Sales = () => {
     const price = Number(item.price);
     const quantity = Number(item.quantity);
 
-    if (!Number.isFinite(price) || !Number.isFinite(quantity)) return 0;
-    return price * quantity;
+    if (
+      item.price !== "" &&
+      item.price !== null &&
+      item.quantity !== "" &&
+      item.quantity !== null &&
+      Number.isFinite(price) &&
+      Number.isFinite(quantity)
+    ) {
+      return price * quantity;
+    }
+
+    if (item.total !== null && item.total !== undefined && item.total !== "") {
+      const totalNum = Number(item.total);
+      if (Number.isFinite(totalNum)) return totalNum;
+    }
+
+    return 0;
   };
 
   const calculatedItemsTotal = useMemo(() => {
@@ -442,6 +519,14 @@ const Sales = () => {
   const enteredTotal = Number(totalAmount);
   const hasEnteredTotal = totalAmount !== "" && Number.isFinite(enteredTotal);
   const total = hasEnteredTotal ? Math.max(0, enteredTotal) : calculatedItemsTotal;
+
+  // Auto-calculated extra unknown item difference when manually typing a higher total
+  const extraUnknownAmount = useMemo(() => {
+    if (hasEnteredTotal && enteredTotal > calculatedItemsTotal) {
+      return Math.round((enteredTotal - calculatedItemsTotal) * 100) / 100;
+    }
+    return 0;
+  }, [hasEnteredTotal, enteredTotal, calculatedItemsTotal]);
 
   const calculatedPaid =
     paymentType === "cash" || paymentType === "upi"
@@ -503,34 +588,52 @@ const Sales = () => {
     return "";
   };
 
-  const preparedItems = cart.map((item) => {
-    const quantity =
-      item.quantity === "" || item.quantity === null || item.quantity === undefined
-        ? null
-        : Number(item.quantity);
+  const preparedItems = useMemo(() => {
+    const items = cart.map((item) => {
+      const quantity =
+        item.quantity === "" || item.quantity === null || item.quantity === undefined
+          ? null
+          : Number(item.quantity);
 
-    const price =
-      item.price === "" || item.price === null || item.price === undefined
-        ? null
-        : Number(item.price);
+      const price =
+        item.price === "" || item.price === null || item.price === undefined
+          ? null
+          : Number(item.price);
 
-    const itemTotalValue =
-      quantity !== null &&
-      price !== null &&
-      Number.isFinite(quantity) &&
-      Number.isFinite(price)
-        ? quantity * price
-        : null;
+      const itemTotalValue =
+        quantity !== null &&
+        price !== null &&
+        Number.isFinite(quantity) &&
+        Number.isFinite(price)
+          ? quantity * price
+          : Number.isFinite(Number(item.total)) && item.total !== "" && item.total !== null
+          ? Number(item.total)
+          : null;
 
-    return {
-      productId: item.productId || null,
-      productName: item.productName?.trim() || "Unrecorded item",
-      quantity: Number.isFinite(quantity) ? quantity : null,
-      unit: item.unit || null,
-      price: Number.isFinite(price) ? price : null,
-      total: itemTotalValue !== null ? itemTotalValue : item.total ?? null,
-    };
-  });
+      return {
+        productId: item.productId || null,
+        productName: item.productName?.trim() || "Unknown item",
+        quantity: Number.isFinite(quantity) ? quantity : null,
+        unit: item.unit || null,
+        price: Number.isFinite(price) ? price : null,
+        total: itemTotalValue !== null ? itemTotalValue : item.total ?? null,
+      };
+    });
+
+    // If total entered by user is greater than cart items total, automatically add the difference as an unknown item!
+    if (extraUnknownAmount > 0) {
+      items.push({
+        productId: null,
+        productName: "Unknown item",
+        quantity: 1,
+        unit: null,
+        price: extraUnknownAmount,
+        total: extraUnknownAmount,
+      });
+    }
+
+    return items;
+  }, [cart, extraUnknownAmount]);
 
   // Submit sale payload to backend
   const handleCreateSale = async (e) => {
@@ -600,6 +703,7 @@ const Sales = () => {
     setSelectedCustomer(null);
     setCustomerSearch("");
     setProductSearch("");
+    setUnknownRate("");
     setCart([]);
     setTotalAmount("");
     setPaymentType("cash");
@@ -869,11 +973,11 @@ const Sales = () => {
                   backgroundColor: "var(--app-surface)",
                 }}
               >
-                <div className="mb-5 flex items-start justify-between">
+                <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <h2 className="text-base font-semibold text-white">Products</h2>
                     <p className="mt-1 text-xs text-zinc-500">
-                      Optional. You can create a sale without recording items.
+                      Select catalog products or quick-add unknown items by rate.
                     </p>
                   </div>
 
@@ -888,239 +992,464 @@ const Sales = () => {
                   </span>
                 </div>
 
-                <div ref={productSearchRef} className="relative">
-                  <div className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2">
-                    <Search className="h-4 w-4 text-zinc-600" />
-                  </div>
+                {/* Search catalog + Quick Add Unknown by Rate */}
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-12">
+                  {/* Product Search */}
+                  <div ref={productSearchRef} className="relative sm:col-span-7">
+                    <div className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2">
+                      <Search className="h-4 w-4 text-zinc-600" />
+                    </div>
 
-                  <input
-                    type="text"
-                    value={productSearch}
-                    onChange={(e) => {
-                      setProductSearch(e.target.value);
-                      setShowProductList(true);
-                      clearMessage();
-                    }}
-                    onFocus={() => setShowProductList(true)}
-                    placeholder="Search product..."
-                    className="w-full rounded-lg border py-3 pl-9 pr-4 text-sm text-white outline-none placeholder:text-zinc-600"
-                    style={{
-                      borderColor: "var(--app-border)",
-                      backgroundColor: "var(--app-surface-light)",
-                    }}
-                  />
-
-                  {showProductList && (
-                    <div
-                      className="absolute left-0 right-0 top-full z-40 mt-2 max-h-[60vh] overflow-y-auto overscroll-contain rounded-lg border shadow-2xl"
+                    <input
+                      type="text"
+                      value={productSearch}
+                      onChange={(e) => {
+                        setProductSearch(e.target.value);
+                        setShowProductList(true);
+                        clearMessage();
+                      }}
+                      onFocus={() => setShowProductList(true)}
+                      placeholder="Search catalog product..."
+                      className="w-full rounded-lg border py-2.5 pl-9 pr-4 text-sm text-white outline-none placeholder:text-zinc-600"
                       style={{
                         borderColor: "var(--app-border)",
                         backgroundColor: "var(--app-surface-light)",
                       }}
-                    >
-                      {filteredProducts.length > 0 ? (
-                        filteredProducts.map((product) => {
-                          const stock = getProductStock(product);
-                          const outOfStock = stock !== null && stock <= 0;
+                    />
 
-                          return (
-                            <button
-                              key={getId(product)}
-                              type="button"
-                              disabled={outOfStock}
-                              onClick={() => addProduct(product)}
-                              className="flex w-full items-center justify-between border-b px-4 py-3 text-left last:border-0 disabled:cursor-not-allowed disabled:opacity-40 hover:bg-white/[0.03]"
-                              style={{ borderColor: "var(--app-border)" }}
-                            >
-                              <div className="flex min-w-0 items-center gap-3">
-                                <div
-                                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
-                                  style={{
-                                    backgroundColor: "var(--app-accent-soft)",
-                                    color: "var(--app-accent)",
-                                  }}
-                                >
-                                  <Package className="h-4 w-4" />
-                                </div>
-
-                                <div className="min-w-0">
-                                  <p className="truncate text-sm font-medium text-zinc-200">
-                                    {getProductName(product)}
-                                  </p>
-                                  <p className="mt-1 text-xs text-zinc-600">
-                                    {stock === null ? "Stock not recorded" : `Stock ${stock}`}
-                                  </p>
-                                </div>
-                              </div>
-
-                              <div className="text-right">
-                                <p className="text-sm font-semibold text-white">
-                                  {money(getProductPrice(product))}
-                                </p>
-                                <p className="mt-1 text-xs" style={{ color: "var(--app-accent)" }}>
-                                  {outOfStock ? "Out of stock" : "Add +"}
-                                </p>
-                              </div>
-                            </button>
-                          );
-                        })
-                      ) : (
-                        <div className="px-4 py-6 text-center text-sm text-zinc-600">
-                          No product found
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                {cart.length > 0 ? (
-                  <div className="mt-5 space-y-3">
-                    {cart.map((item) => (
+                    {showProductList && (
                       <div
-                        key={item.productId}
-                        className="min-w-0 overflow-hidden rounded-xl border p-3 sm:p-4"
+                        className="absolute left-0 right-0 top-full z-40 mt-2 max-h-[60vh] overflow-y-auto overscroll-contain rounded-lg border shadow-2xl"
                         style={{
                           borderColor: "var(--app-border)",
                           backgroundColor: "var(--app-surface-light)",
                         }}
                       >
-                        <div className="flex flex-col gap-4">
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="min-w-0">
-                              <p className="truncate text-sm font-medium text-zinc-200">
-                                {item.productName}
-                              </p>
-                              <p className="mt-1 text-xs text-zinc-600">
-                                Product ID: {item.productId}
-                              </p>
-                            </div>
-
-                            <button
-                              type="button"
-                              onClick={() => removeProduct(item.productId)}
-                              className="shrink-0 text-zinc-600 transition hover:text-red-400"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
-                          </div>
-
-                          <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                            <div>
-                              <label className="mb-1.5 block text-[10px] uppercase tracking-wider text-zinc-600">
-                                Quantity
-                              </label>
-                              <div
-                                className="flex h-10 items-center rounded-lg border"
-                                style={{
-                                  borderColor: "var(--app-border)",
-                                  backgroundColor: "var(--app-surface)",
-                                }}
-                              >
-                                <button
-                                  type="button"
-                                  onClick={() => updateQuantity(item.productId, "decrease")}
-                                  className="flex h-full w-9 items-center justify-center text-zinc-500 hover:text-white"
-                                >
-                                  <Minus className="h-3.5 w-3.5" />
-                                </button>
-                                <input
-                                  type="number"
-                                  min="0.001"
-                                  step="any"
-                                  value={item.quantity ?? ""}
-                                  onChange={(e) =>
-                                    updateItem(item.productId, "quantity", e.target.value)
-                                  }
-                                  className="h-full min-w-0 flex-1 bg-transparent text-center text-sm text-white outline-none"
-                                />
-                                <button
-                                  type="button"
-                                  onClick={() => updateQuantity(item.productId, "increase")}
-                                  className="flex h-full w-9 items-center justify-center text-zinc-500 hover:text-white"
-                                >
-                                  <Plus className="h-3.5 w-3.5" />
-                                </button>
+                        {/* Quick Add Custom / Unknown Item option if search term entered */}
+                        {productSearch.trim() && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const num = Number(productSearch.trim());
+                              if (Number.isFinite(num) && num > 0) {
+                                addCustomItem("Unknown item", num);
+                              } else {
+                                addCustomItem(productSearch.trim(), "");
+                              }
+                            }}
+                            className="flex w-full items-center justify-between border-b px-4 py-3 text-left transition hover:bg-amber-500/10"
+                            style={{
+                              borderColor: "var(--app-border)",
+                              backgroundColor: "rgba(245, 158, 11, 0.04)",
+                            }}
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-500/20 text-amber-400">
+                                <Plus className="h-4 w-4" />
+                              </div>
+                              <div>
+                                <p className="text-sm font-medium text-amber-300">
+                                  {Number.isFinite(Number(productSearch.trim())) && Number(productSearch.trim()) > 0
+                                    ? `Add Unknown Item for ₹${productSearch.trim()}`
+                                    : `Add "${productSearch.trim()}" as Unknown Item`}
+                                </p>
+                                <p className="text-xs text-zinc-500">
+                                  Click to add directly to the cart
+                                </p>
                               </div>
                             </div>
+                            <span className="text-xs font-semibold text-amber-400">Add Item +</span>
+                          </button>
+                        )}
 
-                            <div>
-                              <label className="mb-1.5 block text-[10px] uppercase tracking-wider text-zinc-600">
-                                Unit
-                              </label>
-                              <select
-                                value={item.unit || ""}
-                                onChange={(e) =>
-                                  updateItem(item.productId, "unit", e.target.value || null)
-                                }
-                                className="h-10 w-full rounded-lg border px-3 text-sm text-zinc-300 outline-none"
-                                style={{
-                                  borderColor: "var(--app-border)",
-                                  backgroundColor: "var(--app-surface)",
-                                }}
+                        {filteredProducts.length > 0 ? (
+                          filteredProducts.map((product) => {
+                            const stock = getProductStock(product);
+                            const outOfStock = stock !== null && stock <= 0;
+
+                            return (
+                              <button
+                                key={getId(product)}
+                                type="button"
+                                disabled={outOfStock}
+                                onClick={() => addProduct(product)}
+                                className="flex w-full items-center justify-between border-b px-4 py-3 text-left last:border-0 disabled:cursor-not-allowed disabled:opacity-40 hover:bg-white/[0.03]"
+                                style={{ borderColor: "var(--app-border)" }}
                               >
-                                <option value="">Not specified</option>
-                                <option value="piece">Piece</option>
-                                <option value="kg">Kg</option>
-                                <option value="gram">Gram</option>
-                                <option value="liter">Liter</option>
-                                <option value="ml">Ml</option>
-                                <option value="meter">Meter</option>
-                                <option value="box">Box</option>
-                                <option value="packet">Packet</option>
-                                <option value="dozen">Dozen</option>
-                              </select>
-                            </div>
+                                <div className="flex min-w-0 items-center gap-3">
+                                  <div
+                                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
+                                    style={{
+                                      backgroundColor: "var(--app-accent-soft)",
+                                      color: "var(--app-accent)",
+                                    }}
+                                  >
+                                    <Package className="h-4 w-4" />
+                                  </div>
 
-                            <div>
-                              <label className="mb-1.5 block text-[10px] uppercase tracking-wider text-zinc-600">
-                                Price
-                              </label>
-                              <div className="relative">
-                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-zinc-600">
-                                  ₹
-                                </span>
-                                <input
-                                  type="number"
-                                  min="0"
-                                  step="any"
-                                  value={item.price ?? ""}
-                                  onChange={(e) =>
-                                    updateItem(item.productId, "price", e.target.value)
-                                  }
-                                  placeholder="Optional"
-                                  className="h-10 w-full rounded-lg border pl-7 pr-3 text-sm text-white outline-none placeholder:text-zinc-700"
-                                  style={{
-                                    borderColor: "var(--app-border)",
-                                    backgroundColor: "var(--app-surface)",
-                                  }}
-                                />
-                              </div>
-                            </div>
+                                  <div className="min-w-0">
+                                    <p className="truncate text-sm font-medium text-zinc-200">
+                                      {getProductName(product)}
+                                    </p>
+                                    <p className="mt-1 text-xs text-zinc-600">
+                                      {stock === null ? "Stock not recorded" : `Stock ${stock}`}
+                                    </p>
+                                  </div>
+                                </div>
 
-                            <div>
-                              <label className="mb-1.5 block text-[10px] uppercase tracking-wider text-zinc-600">
-                                Item Total
-                              </label>
-                              <div
-                                className="flex h-10 items-center rounded-lg border px-3 text-sm font-semibold text-white"
-                                style={{
-                                  borderColor: "var(--app-border)",
-                                  backgroundColor: "var(--app-surface)",
-                                }}
-                              >
-                                {itemTotal(item) > 0
-                                  ? money(itemTotal(item))
-                                  : "Not calculated"}
-                              </div>
+                                <div className="text-right">
+                                  <p className="text-sm font-semibold text-white">
+                                    {money(getProductPrice(product))}
+                                  </p>
+                                  <p className="mt-1 text-xs" style={{ color: "var(--app-accent)" }}>
+                                    {outOfStock ? "Out of stock" : "Add +"}
+                                  </p>
+                                </div>
+                              </button>
+                            );
+                          })
+                        ) : (
+                          !productSearch.trim() && (
+                            <div className="px-4 py-6 text-center text-sm text-zinc-600">
+                              No product found
                             </div>
-                          </div>
-
-                          <p className="text-[11px] text-zinc-600">
-                            Product details are optional. You can leave quantity/unit/price incomplete and enter the final sale amount below.
-                          </p>
-                        </div>
+                          )
+                        )}
                       </div>
-                    ))}
+                    )}
+                  </div>
+
+                  {/* Quick Add Unknown Item with Rate Only */}
+                  <div className="sm:col-span-5">
+                    <div className="flex items-center gap-2">
+                      <div className="relative flex-1">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold text-amber-400">
+                          ₹
+                        </span>
+                        <input
+                          type="number"
+                          min="0.01"
+                          step="any"
+                          value={unknownRate}
+                          onChange={(e) => setUnknownRate(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              handleQuickAddUnknown();
+                            }
+                          }}
+                          placeholder="Rate (e.g. 50)"
+                          className="h-10 w-full rounded-lg border border-amber-500/30 bg-amber-500/5 py-2 pl-7 pr-3 text-sm font-medium text-white placeholder:text-zinc-600 outline-none focus:border-amber-400 focus:bg-amber-500/10"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleQuickAddUnknown}
+                        className="inline-flex h-10 shrink-0 items-center justify-center gap-1.5 rounded-lg border px-3.5 text-xs font-semibold text-amber-300 transition hover:bg-amber-500/20 active:scale-95"
+                        style={{
+                          borderColor: "rgba(245, 158, 11, 0.4)",
+                          backgroundColor: "rgba(245, 158, 11, 0.12)",
+                        }}
+                      >
+                        <Plus className="h-4 w-4" />
+                        Add Unknown
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {cart.length > 0 ? (
+                  <div className="mt-5 space-y-3">
+                    {cart.map((item) => {
+                      const isCustom = !item.productId || item.isCustom;
+
+                      return (
+                        <div
+                          key={item.cartItemId}
+                          className="min-w-0 overflow-hidden rounded-xl border p-3 sm:p-4 transition-all"
+                          style={{
+                            borderColor: isCustom
+                              ? "rgba(245, 158, 11, 0.3)"
+                              : "var(--app-border)",
+                            backgroundColor: isCustom
+                              ? "rgba(245, 158, 11, 0.03)"
+                              : "var(--app-surface-light)",
+                          }}
+                        >
+                          <div className="flex flex-col gap-3">
+                            <div className="flex items-center justify-between gap-3">
+                              <div className="min-w-0 flex-1">
+                                {isCustom ? (
+                                  <div className="flex items-center gap-2">
+                                    <span className="rounded border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-xs font-semibold text-amber-400">
+                                      Unknown Item
+                                    </span>
+                                    <span className="text-sm font-semibold text-white">
+                                      Rate: {money(item.price || 0)}
+                                    </span>
+                                  </div>
+                                ) : (
+                                  <div>
+                                    <div className="flex items-center gap-2">
+                                      <span className="rounded border border-blue-500/20 bg-blue-500/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-blue-400">
+                                        Catalog Product
+                                      </span>
+                                    </div>
+                                    <p className="mt-1 truncate text-sm font-medium text-zinc-200">
+                                      {item.productName}
+                                    </p>
+                                    <p className="mt-0.5 text-xs text-zinc-600">
+                                      Product ID: {item.productId}
+                                    </p>
+                                  </div>
+                                )}
+                              </div>
+
+                              <button
+                                type="button"
+                                onClick={() => removeProduct(item.cartItemId)}
+                                className="shrink-0 rounded p-1 text-zinc-500 transition hover:bg-red-500/10 hover:text-red-400"
+                                title="Remove item"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            </div>
+
+                            {/* Simplified row for Unknown Items */}
+                            {isCustom ? (
+                              <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-3">
+                                <div>
+                                  <label className="mb-1 block text-[10px] font-medium uppercase tracking-wider text-amber-400/80">
+                                    Rate (₹)
+                                  </label>
+                                  <div className="relative">
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-amber-400">
+                                      ₹
+                                    </span>
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      step="any"
+                                      value={item.price ?? ""}
+                                      onChange={(e) =>
+                                        updateItem(
+                                          item.cartItemId,
+                                          "price",
+                                          e.target.value
+                                        )
+                                      }
+                                      placeholder="Rate"
+                                      className="h-9 w-full rounded-lg border border-amber-500/30 bg-zinc-900/80 pl-7 pr-3 text-sm font-semibold text-white outline-none focus:border-amber-400"
+                                    />
+                                  </div>
+                                </div>
+
+                                <div>
+                                  <label className="mb-1 block text-[10px] uppercase tracking-wider text-zinc-500">
+                                    Quantity
+                                  </label>
+                                  <div
+                                    className="flex h-9 items-center rounded-lg border"
+                                    style={{
+                                      borderColor: "var(--app-border)",
+                                      backgroundColor: "var(--app-surface)",
+                                    }}
+                                  >
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        updateQuantity(
+                                          item.cartItemId,
+                                          "decrease"
+                                        )
+                                      }
+                                      className="flex h-full w-8 items-center justify-center text-zinc-500 hover:text-white"
+                                    >
+                                      <Minus className="h-3.5 w-3.5" />
+                                    </button>
+                                    <input
+                                      type="number"
+                                      min="0.001"
+                                      step="any"
+                                      value={item.quantity ?? ""}
+                                      onChange={(e) =>
+                                        updateItem(
+                                          item.cartItemId,
+                                          "quantity",
+                                          e.target.value
+                                        )
+                                      }
+                                      className="h-full min-w-0 flex-1 bg-transparent text-center text-sm text-white outline-none"
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        updateQuantity(
+                                          item.cartItemId,
+                                          "increase"
+                                        )
+                                      }
+                                      className="flex h-full w-8 items-center justify-center text-zinc-500 hover:text-white"
+                                    >
+                                      <Plus className="h-3.5 w-3.5" />
+                                    </button>
+                                  </div>
+                                </div>
+
+                                <div>
+                                  <label className="mb-1 block text-[10px] uppercase tracking-wider text-zinc-500">
+                                    Item Total
+                                  </label>
+                                  <div
+                                    className="flex h-9 items-center rounded-lg border px-3 text-sm font-bold text-amber-300"
+                                    style={{
+                                      borderColor: "var(--app-border)",
+                                      backgroundColor: "var(--app-surface)",
+                                    }}
+                                  >
+                                    {money(itemTotal(item))}
+                                  </div>
+                                </div>
+                              </div>
+                            ) : (
+                              /* Detailed row for Catalog Products */
+                              <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                                <div>
+                                  <label className="mb-1.5 block text-[10px] uppercase tracking-wider text-zinc-600">
+                                    Quantity
+                                  </label>
+                                  <div
+                                    className="flex h-10 items-center rounded-lg border"
+                                    style={{
+                                      borderColor: "var(--app-border)",
+                                      backgroundColor: "var(--app-surface)",
+                                    }}
+                                  >
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        updateQuantity(
+                                          item.cartItemId,
+                                          "decrease"
+                                        )
+                                      }
+                                      className="flex h-full w-9 items-center justify-center text-zinc-500 hover:text-white"
+                                    >
+                                      <Minus className="h-3.5 w-3.5" />
+                                    </button>
+                                    <input
+                                      type="number"
+                                      min="0.001"
+                                      step="any"
+                                      value={item.quantity ?? ""}
+                                      onChange={(e) =>
+                                        updateItem(
+                                          item.cartItemId,
+                                          "quantity",
+                                          e.target.value
+                                        )
+                                      }
+                                      className="h-full min-w-0 flex-1 bg-transparent text-center text-sm text-white outline-none"
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        updateQuantity(
+                                          item.cartItemId,
+                                          "increase"
+                                        )
+                                      }
+                                      className="flex h-full w-9 items-center justify-center text-zinc-500 hover:text-white"
+                                    >
+                                      <Plus className="h-3.5 w-3.5" />
+                                    </button>
+                                  </div>
+                                </div>
+
+                                <div>
+                                  <label className="mb-1.5 block text-[10px] uppercase tracking-wider text-zinc-600">
+                                    Unit
+                                  </label>
+                                  <select
+                                    value={item.unit || ""}
+                                    onChange={(e) =>
+                                      updateItem(
+                                        item.cartItemId,
+                                        "unit",
+                                        e.target.value || null
+                                      )
+                                    }
+                                    className="h-10 w-full rounded-lg border px-3 text-sm text-zinc-300 outline-none"
+                                    style={{
+                                      borderColor: "var(--app-border)",
+                                      backgroundColor: "var(--app-surface)",
+                                    }}
+                                  >
+                                    <option value="">Not specified</option>
+                                    <option value="piece">Piece</option>
+                                    <option value="kg">Kg</option>
+                                    <option value="gram">Gram</option>
+                                    <option value="liter">Liter</option>
+                                    <option value="ml">Ml</option>
+                                    <option value="meter">Meter</option>
+                                    <option value="box">Box</option>
+                                    <option value="packet">Packet</option>
+                                    <option value="dozen">Dozen</option>
+                                  </select>
+                                </div>
+
+                                <div>
+                                  <label className="mb-1.5 block text-[10px] uppercase tracking-wider text-zinc-600">
+                                    Price
+                                  </label>
+                                  <div className="relative">
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-zinc-600">
+                                      ₹
+                                    </span>
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      step="any"
+                                      value={item.price ?? ""}
+                                      onChange={(e) =>
+                                        updateItem(
+                                          item.cartItemId,
+                                          "price",
+                                          e.target.value
+                                        )
+                                      }
+                                      placeholder="Optional"
+                                      className="h-10 w-full rounded-lg border pl-7 pr-3 text-sm text-white outline-none placeholder:text-zinc-700"
+                                      style={{
+                                        borderColor: "var(--app-border)",
+                                        backgroundColor: "var(--app-surface)",
+                                      }}
+                                    />
+                                  </div>
+                                </div>
+
+                                <div>
+                                  <label className="mb-1.5 block text-[10px] uppercase tracking-wider text-zinc-600">
+                                    Item Total
+                                  </label>
+                                  <div
+                                    className="flex h-10 items-center rounded-lg border px-3 text-sm font-semibold text-white"
+                                    style={{
+                                      borderColor: "var(--app-border)",
+                                      backgroundColor: "var(--app-surface)",
+                                    }}
+                                  >
+                                    {itemTotal(item) > 0
+                                      ? money(itemTotal(item))
+                                      : "₹0"}
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 ) : (
                   <div
@@ -1140,7 +1469,7 @@ const Sales = () => {
                       No products added
                     </p>
                     <p className="mt-1 text-xs text-zinc-600">
-                      That's okay. A sale can be recorded using only the total amount.
+                      You can select catalog items, enter a rate in <strong>"Add Unknown"</strong>, or simply enter the total sale amount below.
                     </p>
                   </div>
                 )}
@@ -1158,18 +1487,30 @@ const Sales = () => {
                         Total Sale Amount
                       </h3>
                       <p className="mt-1 text-xs text-zinc-600">
-                        Required. This is the final amount recorded by the backend.
+                        Final billing amount recorded by the backend.
                       </p>
                     </div>
 
                     {calculatedItemsTotal > 0 && (
-                      <div className="text-right">
-                        <p className="text-[10px] uppercase tracking-wider text-zinc-600">
-                          Product Total
-                        </p>
-                        <p className="mt-1 text-sm font-semibold text-zinc-400">
-                          {money(calculatedItemsTotal)}
-                        </p>
+                      <div className="flex items-center gap-3 text-right">
+                        <div>
+                          <p className="text-[10px] uppercase tracking-wider text-zinc-600">
+                            Cart Items Total
+                          </p>
+                          <p className="mt-0.5 text-sm font-semibold text-zinc-300">
+                            {money(calculatedItemsTotal)}
+                          </p>
+                        </div>
+
+                        {hasEnteredTotal && enteredTotal !== calculatedItemsTotal && (
+                          <button
+                            type="button"
+                            onClick={() => setTotalAmount("")}
+                            className="rounded border border-zinc-700 px-2 py-1 text-[11px] text-zinc-400 hover:border-zinc-500 hover:text-white"
+                          >
+                            Reset to {money(calculatedItemsTotal)}
+                          </button>
+                        )}
                       </div>
                     )}
                   </div>
@@ -1203,9 +1544,24 @@ const Sales = () => {
                     />
                   </div>
 
+                  {/* Auto-detected Unknown item notification when total is higher */}
+                  {extraUnknownAmount > 0 && (
+                    <div className="mt-3 flex items-start gap-2.5 rounded-lg border border-amber-500/20 bg-amber-500/5 px-3.5 py-2.5 text-xs text-amber-300">
+                      <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" />
+                      <div>
+                        <p className="font-medium text-amber-200">
+                          Automatic Unknown Item Detection (+{money(extraUnknownAmount)})
+                        </p>
+                        <p className="mt-0.5 text-amber-400/90">
+                          Total amount is {money(extraUnknownAmount)} higher than listed cart items ({money(calculatedItemsTotal)}). This extra ₹{extraUnknownAmount} will be automatically added as an <strong>"Unknown item"</strong> in the receipt.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
                   {totalAmount === "" && calculatedItemsTotal > 0 && (
                     <p className="mt-2 text-xs text-zinc-600">
-                      If left blank, the calculated product total will be used.
+                      If left blank, the calculated product total ({money(calculatedItemsTotal)}) will be used automatically.
                     </p>
                   )}
                 </div>
@@ -1451,7 +1807,14 @@ const Sales = () => {
 
                     <div className="flex justify-between gap-4">
                       <span className="text-zinc-600">Items</span>
-                      <span className="text-zinc-300">{cart.length}</span>
+                      <span className="text-right text-zinc-300">
+                        {preparedItems.length} items
+                        {extraUnknownAmount > 0 && (
+                          <span className="block text-[10px] text-amber-400">
+                            (+{money(extraUnknownAmount)} Unknown)
+                          </span>
+                        )}
+                      </span>
                     </div>
 
                     <div className="flex justify-between gap-4">

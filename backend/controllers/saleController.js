@@ -80,25 +80,35 @@ export const createSale = async (req, res) => {
             for (const item of items) {
                 // Handling unrecorded custom item
                 if (!item.productId) {
+                    const q =
+                        item.quantity === "" || item.quantity === undefined || item.quantity === null
+                            ? null
+                            : Number(item.quantity);
+                    let p =
+                        item.price === "" || item.price === undefined || item.price === null
+                            ? null
+                            : Number(item.price);
+                    let t =
+                        item.total === "" || item.total === undefined || item.total === null
+                            ? null
+                            : Number(item.total);
+
+                    if (t === null && Number.isFinite(p) && Number.isFinite(q)) {
+                        t = p * q;
+                    } else if (p === null && Number.isFinite(t) && (!q || q === 1)) {
+                        p = t;
+                    }
+
                     processedItems.push({
                         productId: null,
                         productName:
                             typeof item.productName === "string" && item.productName.trim()
                                 ? item.productName.trim()
                                 : "Unrecorded item",
-                        quantity:
-                            item.quantity === "" || item.quantity === undefined || item.quantity === null
-                                ? null
-                                : Number(item.quantity),
+                        quantity: Number.isFinite(q) ? q : null,
                         unit: item.unit || null,
-                        price:
-                            item.price === "" || item.price === undefined || item.price === null
-                                ? null
-                                : Number(item.price),
-                        total:
-                            item.total === "" || item.total === undefined || item.total === null
-                                ? null
-                                : Number(item.total)
+                        price: Number.isFinite(p) ? p : null,
+                        total: Number.isFinite(t) ? t : null
                     });
                     continue;
                 }
