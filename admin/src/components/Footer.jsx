@@ -46,12 +46,14 @@ const Footer = () => {
           >
             <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-3">
               <Link
-                to="/about"
+                to="/about-smartshop"
                 className="text-xs font-medium"
                 style={{ color: "var(--app-accent)" }}
               >
                 About SmartShop
               </Link>
+              <span className="text-zinc-700">•</span>
+              <Link to="/about-developer" className={linkClass}>About Developer</Link>
               <span className="text-zinc-700">•</span>
               <Link to="/help-support" className={linkClass}>Help & Support</Link>
               <span className="text-zinc-700">•</span>
@@ -92,19 +94,22 @@ const Footer = () => {
               </div>
             </div>
 
-            <Link
-              to="/about"
-              className="shrink-0 whitespace-nowrap text-xs font-medium"
-              style={{ color: "var(--app-accent)" }}
-            >
-              About SmartShop →
-            </Link>
+            <div className="flex shrink-0 items-center gap-4">
+              <Link
+                to="/about-smartshop"
+                className="whitespace-nowrap text-xs font-medium"
+                style={{ color: "var(--app-accent)" }}
+              >
+                About SmartShop →
+              </Link>
+            </div>
           </div>
 
           <div
-            className="mt-5 flex items-center justify-center gap-6 border-y py-3"
+            className="mt-5 flex flex-wrap items-center justify-center gap-6 border-y py-3"
             style={{ borderColor: "var(--app-border)" }}
           >
+            <Link to="/about-developer" className={linkClass}>About Developer</Link>
             <Link to="/help-support" className={linkClass}>Help & Support</Link>
             <Link to="/privacy" className={linkClass}>Privacy Policy</Link>
             <Link to="/terms" className={linkClass}>Terms & Conditions</Link>
@@ -142,12 +147,13 @@ const Footer = () => {
 
           <div className="flex shrink-0 items-center gap-6">
             <Link
-              to="/about"
+              to="/about-smartshop"
               className="whitespace-nowrap text-xs font-medium"
               style={{ color: "var(--app-accent)" }}
             >
               About SmartShop →
             </Link>
+            <Link to="/about-developer" className={linkClass}>About Developer</Link>
             <Link to="/help-support" className={linkClass}>Help & Support</Link>
             <Link to="/privacy" className={linkClass}>Privacy Policy</Link>
             <Link to="/terms" className={linkClass}>Terms & Conditions</Link>

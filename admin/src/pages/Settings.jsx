@@ -219,7 +219,7 @@ const Settings = () => {
               </div>
 
               <Link
-                to="/about"
+                to="/about-smartshop"
                 className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg border px-4 py-2.5 text-xs font-semibold transition-all duration-200"
                 style={{
                   borderColor: "var(--app-border)",

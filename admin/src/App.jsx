@@ -160,6 +160,22 @@ const App = () => {
             path="/about"
             element={
               <ProtectedRoute>
+                <AboutSmartShop />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/about-developer"
+            element={
+              <ProtectedRoute>
+                <About />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/developer"
+            element={
+              <ProtectedRoute>
                 <About />
               </ProtectedRoute>
             }

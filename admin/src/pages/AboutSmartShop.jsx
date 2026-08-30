@@ -11,6 +11,14 @@ const AboutSmartShop = () => {
       }}
     >
       <div className="mx-auto max-w-7xl">
+        <Link
+          to="/settings"
+          className="mb-5 inline-flex items-center gap-2 text-xs font-medium transition-colors"
+          style={{ color: "var(--app-accent)" }}
+        >
+          ← Back to Settings
+        </Link>
+
         {/* Hero banner */}
         <section
           className="relative mb-6 overflow-hidden rounded-2xl border p-6 shadow-[0_10px_40px_rgba(0,0,0,0.35)] sm:p-8 lg:p-10"

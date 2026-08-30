@@ -4,25 +4,28 @@ import { Link } from "react-router-dom";
 const About = () => {
   // Lead developer profile details
   const developer = {
-    name: "Your Name",
-    role: "Lead Developer",
+    name: "Ajit Singh",
+    role: "Team Leader & Full Stack Developer",
     image: "/images/developer.jpg",
-    bio: "Passionate developer focused on building modern, scalable and user-friendly applications. I designed and developed the core architecture and major features of the SmartShop management system.",
+    bio: "Passionate Full Stack Developer and Team Leader focused on building modern, scalable, and user-friendly web applications. I designed and developed the core architecture, REST APIs, database models, and responsive interfaces for the SmartShop management system.",
     skills: [
       "React.js",
       "Node.js",
       "Express.js",
       "MongoDB",
+      "JavaScript",
+      "REST APIs",
+      "TailwindCSS",
+      "Git & GitHub",
       "Java",
       "C++",
-      "JavaScript",
       "DSA",
     ],
     links: {
-      github: "https://github.com/",
-      linkedin: "https://linkedin.com/",
-      portfolio: "#",
-      email: "mailto:your@email.com",
+      github: "https://github.com/Ajitsingh57",
+      linkedin: "https://www.linkedin.com/in/ajit-kumar-79b3b9402",
+      portfolio: "https://github.com/Ajitsingh57",
+      email: "mailto:ajitsingh.aks27@gmail.com",
     },
   };
 
@@ -200,7 +203,7 @@ const About = () => {
                   color: "var(--app-accent)",
                 }}
               >
-                Lead Developer
+                Lead Developer & Team Leader
               </div>
 
               <h3 className="text-2xl font-bold text-white sm:text-3xl">

@@ -254,7 +254,7 @@ const HelpSupport = () => {
         <div className="mt-6 text-center">
           <p className="text-xs text-zinc-600">Want to know more about SmartShop?</p>
           <Link
-            to="/about"
+            to="/about-smartshop"
             className="mt-1 inline-block text-xs font-medium transition"
             style={{ color: "var(--app-accent)" }}
             onMouseEnter={(e) => {
