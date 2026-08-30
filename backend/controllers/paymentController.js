@@ -6,6 +6,7 @@ import PaymentSetting from "../models/paymentSettingModel.js";
 import razorpay from "../config/razorpay.js";
 import cloudinary from "../config/cloudinary.js";
 import { runTransaction } from "../utils/helpers.js";
+import { syncCustomerTrustAndLimits } from "../utils/trustScoreEngine.js";
 
 const PAYMENT_METHODS = ["cash", "upi"];
 
@@ -615,6 +616,12 @@ export async function approvePayment(req, res) {
 
       await applyApprovedPayment(activeCredit, payment.amount, session);
     });
+
+    if (credit.customerId) {
+      syncCustomerTrustAndLimits(credit.customerId).catch((err) => {
+        console.warn("Background customer trust sync error after payment:", err);
+      });
+    }
 
     return res.status(200).json({
       success: true,

@@ -4,6 +4,7 @@ import Product from "../models/productModel.js";
 import Customer from "../models/customerModel.js";
 import Credit from "../models/creditModel.js";
 import { findCustomerByIdOrUser, runTransaction } from "../utils/helpers.js";
+import { syncCustomerTrustAndLimits } from "../utils/trustScoreEngine.js";
 
 // Record new sale with stock deduction and optional credit generation
 export const createSale = async (req, res) => {
@@ -188,10 +189,13 @@ export const createSale = async (req, res) => {
 
             if (paymentType === "credit" || paymentType === "partial") {
                 const currentPending = Number(customer.pendingAmount || 0);
-                const maxLimit = Number(customer.manualBorrowLimit || customer.maxBorrowAmount || 0);
+                const limitMode = customer.creditLimitMode || (customer.manualBorrowLimit > 0 ? "manual" : "auto");
+                const maxLimit = limitMode === "manual"
+                    ? Number(customer.manualBorrowLimit || 0)
+                    : Number(customer.maxBorrowAmount || 0);
 
                 if (maxLimit > 0 && currentPending + finalPendingAmount > maxLimit) {
-                    throw new Error(`Borrow limit exceeded. Max allowed limit: ${maxLimit}`);
+                    throw new Error(`Credit limit exceeded. Customer is on ${limitMode.toUpperCase()} limit (Max: ₹${maxLimit.toLocaleString("en-IN")}, Available: ₹${Math.max(0, maxLimit - currentPending).toLocaleString("en-IN")})`);
                 }
 
                 const defaultDueDate = new Date();
@@ -246,6 +250,12 @@ export const createSale = async (req, res) => {
             .populate("customerId")
             .populate("adminId", "name email role")
             .populate("creditId");
+
+        if (populatedSale?.customerId?._id || populatedSale?.customerId) {
+            syncCustomerTrustAndLimits(populatedSale.customerId._id || populatedSale.customerId).catch((err) => {
+                console.warn("Background customer trust sync error:", err);
+            });
+        }
 
         return res.status(201).json({
             success: true,

@@ -19,6 +19,7 @@ const customerSchema = new mongoose.Schema(
             min: 0,
             max: 100
         },
+        // Auto computed max credit limit from Trust Engine
         maxBorrowAmount: {
             type: Number,
             default: 0,
@@ -29,11 +30,17 @@ const customerSchema = new mongoose.Schema(
             default: 0,
             min: 0
         },
-        // 0 indicates automatic calculation is active
+        // Manual custom credit limit set by Admin (persists independently)
         manualBorrowLimit: {
             type: Number,
             default: 0,
             min: 0
+        },
+        // Active mode toggle: "auto" (Trust Engine limit) or "manual" (Admin set custom limit)
+        creditLimitMode: {
+            type: String,
+            enum: ["auto", "manual"],
+            default: "auto"
         }
     },
     {

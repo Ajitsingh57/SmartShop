@@ -254,6 +254,15 @@ export const customersApi = {
     const response = await api.patch(`/users/customers/${id}/status`, { isActive });
     return response.data;
   },
+  updateBorrowLimit: async (id, data) => {
+    const payload = typeof data === "object" && data !== null ? data : { manualBorrowLimit: data };
+    const response = await api.put(`/users/customers/${id}`, payload);
+    return response.data;
+  },
+  recalculateTrust: async (customerId) => {
+    const response = await api.post(`/customers/${customerId}/recalculate-trust`);
+    return response.data;
+  },
   delete: async (id) => {
     const response = await api.delete(`/users/customers/${id}`);
     return response.data;

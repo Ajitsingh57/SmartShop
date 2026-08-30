@@ -142,14 +142,41 @@ const getCustomerOutstanding = (customer) => {
 const getCustomerCreditLimit = (customer) => {
   if (!customer || typeof customer !== "object") return 0;
 
+  const profile = customer.profile || {};
+  const mode =
+    customer.creditLimitMode ||
+    profile.creditLimitMode ||
+    (Number(customer.manualBorrowLimit || profile.manualBorrowLimit || 0) > 0
+      ? "manual"
+      : "auto");
+
+  if (mode === "manual") {
+    return Number(
+      customer.manualBorrowLimit ??
+        profile.manualBorrowLimit ??
+        0
+    );
+  }
+
   return Number(
-    customer.manualBorrowLimit ??
-      customer.maxBorrowAmount ??
+    customer.maxBorrowAmount ??
+      customer.autoBorrowLimit ??
+      profile.maxBorrowAmount ??
+      profile.autoBorrowLimit ??
       customer.creditLimit ??
-      customer.profile?.manualBorrowLimit ??
-      customer.profile?.maxBorrowAmount ??
-      customer.profile?.creditLimit ??
       0
+  );
+};
+
+const getCustomerCreditMode = (customer) => {
+  if (!customer || typeof customer !== "object") return "auto";
+  const profile = customer.profile || {};
+  return (
+    customer.creditLimitMode ||
+    profile.creditLimitMode ||
+    (Number(customer.manualBorrowLimit || profile.manualBorrowLimit || 0) > 0
+      ? "manual"
+      : "auto")
   );
 };
 
@@ -1854,6 +1881,30 @@ const Sales = () => {
                           : paymentType}
                       </span>
                     </div>
+
+                    {selectedCustomer && (
+                      <div className="flex justify-between gap-4">
+                        <span className="text-zinc-600">Credit Limit</span>
+                        <span className="text-right text-zinc-300">
+                          {creditLimit > 0 ? (
+                            <span>
+                              {money(creditLimit)}{" "}
+                              <span
+                                className={`rounded px-1 py-0.5 text-[10px] font-bold ${
+                                  getCustomerCreditMode(selectedCustomer) === "manual"
+                                    ? "border border-blue-500/30 bg-blue-500/10 text-blue-400"
+                                    : "border border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
+                                }`}
+                              >
+                                {getCustomerCreditMode(selectedCustomer) === "manual" ? "Manual" : "Auto"}
+                              </span>
+                            </span>
+                          ) : (
+                            <span className="text-zinc-500">₹0 (No Limit)</span>
+                          )}
+                        </span>
+                      </div>
+                    )}
                   </div>
 
                   <button

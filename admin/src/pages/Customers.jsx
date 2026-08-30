@@ -1,5 +1,19 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import {
+  Users,
+  Search,
+  CheckCircle2,
+  XCircle,
+  Eye,
+  Trash2,
+  Power,
+  RefreshCw,
+  Award,
+  CreditCard,
+  Sliders,
+  Sparkles,
+} from "lucide-react";
 import { customersApi } from "../services/api";
 
 const Customers = () => {
@@ -80,6 +94,39 @@ const Customers = () => {
               0
           );
 
+          const trustScore = Number(
+            profile?.trustScore ?? item?.trustScore ?? 0
+          );
+
+          const autoLimit = Number(
+            profile?.autoBorrowLimit ??
+              profile?.maxBorrowAmount ??
+              item?.maxBorrowAmount ??
+              0
+          );
+
+          const manualLimit = Number(
+            profile?.manualBorrowLimit ?? item?.manualBorrowLimit ?? 0
+          );
+
+          const creditLimitMode =
+            profile?.creditLimitMode ??
+            item?.creditLimitMode ??
+            (manualLimit > 0 ? "manual" : "auto");
+
+          const effectiveLimit =
+            creditLimitMode === "manual" ? manualLimit : autoLimit;
+          const isManual = creditLimitMode === "manual";
+
+          const pendingDebt = Number(
+            profile?.pendingAmount ?? item?.pendingAmount ?? 0
+          );
+
+          let trustTier = "Bronze";
+          if (trustScore >= 85) trustTier = "Platinum";
+          else if (trustScore >= 70) trustTier = "Gold";
+          else if (trustScore >= 50) trustTier = "Silver";
+
           return {
             id: String(id),
             name: String(name),
@@ -89,6 +136,13 @@ const Customers = () => {
             status: isActive ? "Active" : "Inactive",
             purchases: sales.length,
             totalSpent,
+            trustScore,
+            trustTier,
+            autoLimit,
+            manualLimit,
+            effectiveLimit,
+            isManual,
+            pendingDebt,
             isActive,
           };
         })
@@ -120,42 +174,47 @@ const Customers = () => {
         customer.phone.toLowerCase().includes(value);
 
       const matchesStatus =
-        statusFilter === "All" || customer.status === statusFilter;
+        statusFilter === "All" ||
+        (statusFilter === "Active" && customer.isActive) ||
+        (statusFilter === "Inactive" && !customer.isActive);
 
       return matchesSearch && matchesStatus;
     });
   }, [customers, search, statusFilter]);
 
-  const activeCustomers = customers.filter((customer) => customer.status === "Active").length;
-  const inactiveCustomers = customers.filter((customer) => customer.status === "Inactive").length;
+  const activeCount = useMemo(
+    () => customers.filter((customer) => customer.isActive).length,
+    [customers]
+  );
 
-  const toggleStatus = async (customer) => {
-    if (!customer?.id) return;
-    const newIsActive = customer.status !== "Active";
+  const inactiveCount = useMemo(
+    () => customers.filter((customer) => !customer.isActive).length,
+    [customers]
+  );
+
+  const handleToggleStatus = async (customer) => {
+    const nextStatus = !customer.isActive;
+    const confirmed = window.confirm(
+      nextStatus
+        ? `Activate ${customer.name}?`
+        : `Deactivate ${customer.name}?`
+    );
+
+    if (!confirmed) return;
 
     try {
       setActionLoading(`status-${customer.id}`);
       setError("");
 
-      const response = await customersApi.updateStatus(customer.id, newIsActive);
-      const updatedCustomer =
-        response?.customer ||
-        response?.user ||
-        response?.data?.customer ||
-        response?.data?.user;
-
-      const actualIsActive =
-        typeof updatedCustomer?.isActive === "boolean"
-          ? updatedCustomer.isActive
-          : newIsActive;
+      await customersApi.updateStatus(customer.id, nextStatus);
 
       setCustomers((prev) =>
         prev.map((item) =>
           item.id === customer.id
             ? {
                 ...item,
-                isActive: actualIsActive,
-                status: actualIsActive ? "Active" : "Inactive",
+                isActive: nextStatus,
+                status: nextStatus ? "Active" : "Inactive",
               }
             : item
         )
@@ -169,12 +228,15 @@ const Customers = () => {
   };
 
   const handleDelete = async (customer) => {
-    if (!customer?.id) return;
-    if (customer.status !== "Inactive") return;
+    if (customer.isActive) {
+      window.alert("Please deactivate the customer before deleting the account.");
+      return;
+    }
 
     const confirmed = window.confirm(
-      `Are you sure you want to permanently delete ${customer.name}? This action cannot be undone.`
+      `Delete ${customer.name} permanently?\n\nThis will remove all transaction history and cannot be undone.`
     );
+
     if (!confirmed) return;
 
     try {
@@ -191,16 +253,13 @@ const Customers = () => {
     }
   };
 
-  const handleRetry = () => {
-    loadCustomers();
-  };
-
   return (
     <div
       className="min-h-[calc(100vh-73px)] w-full px-4 py-7 text-white transition-colors duration-500 sm:px-6 md:px-10 lg:px-12"
       style={{ backgroundColor: "var(--app-bg)" }}
     >
       <div className="mx-auto max-w-7xl">
+        {/* Header */}
         <div className="mb-8 flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <div className="mb-2 flex items-center gap-2 text-sm">
@@ -209,15 +268,15 @@ const Customers = () => {
                 style={{ backgroundColor: "var(--app-accent)" }}
               />
               <span className="font-medium" style={{ color: "var(--app-accent)" }}>
-                Customer Management
+                Customer Directory & Credit Limits
               </span>
             </div>
 
             <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
               Customers
             </h1>
-            <p className="mt-2 max-w-xl text-sm leading-6 text-zinc-500">
-              Manage customer accounts, check their activity, and keep your customer records organized.
+            <p className="mt-2 max-w-xl text-sm leading-6 text-zinc-400">
+              Manage accounts, trust scores, dual credit limits (Auto & Manual Override) and view financial history.
             </p>
           </div>
 
@@ -228,7 +287,7 @@ const Customers = () => {
               backgroundColor: "var(--app-surface)",
             }}
           >
-            <p className="text-xs font-medium uppercase tracking-wider text-zinc-600">
+            <p className="text-xs font-medium uppercase tracking-wider text-zinc-500">
               Total Customers
             </p>
             <p className="mt-1 text-2xl font-bold text-white">{customers.length}</p>
@@ -246,7 +305,7 @@ const Customers = () => {
             <p className="text-sm text-red-400">{error}</p>
             <button
               type="button"
-              onClick={handleRetry}
+              onClick={loadCustomers}
               className="rounded-lg border border-red-500/20 bg-red-500/5 px-3 py-2 text-xs font-medium text-red-400 transition hover:bg-red-500/10"
             >
               Retry
@@ -254,7 +313,7 @@ const Customers = () => {
           </div>
         )}
 
-        {/* Customer count metrics */}
+        {/* Customer Count Metrics */}
         <div className="mb-7 grid gap-4 sm:grid-cols-3">
           <div
             className="group rounded-xl border p-5 transition-all duration-300 hover:-translate-y-0.5"
@@ -262,16 +321,10 @@ const Customers = () => {
               borderColor: "var(--app-border)",
               backgroundColor: "var(--app-surface)",
             }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.borderColor = "var(--app-accent-border)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.borderColor = "var(--app-border)";
-            }}
           >
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-xs font-medium uppercase tracking-wider text-zinc-600">
+                <p className="text-xs font-medium uppercase tracking-wider text-zinc-500">
                   Total Customers
                 </p>
                 <p className="mt-3 text-3xl font-bold text-white">{customers.length}</p>
@@ -283,419 +336,275 @@ const Customers = () => {
                   color: "var(--app-accent)",
                 }}
               >
-                👥
+                <Users className="h-5 w-5" />
               </div>
             </div>
-            <div className="mt-4 h-px" style={{ backgroundColor: "var(--app-border)" }} />
-            <p className="mt-3 text-xs text-zinc-600">All registered customers</p>
+            <p className="mt-3 text-xs text-zinc-500">Registered store users</p>
           </div>
 
           <div
-            className="group rounded-xl border border-zinc-800 p-5 transition-all duration-300 hover:-translate-y-0.5 hover:border-emerald-500/20"
-            style={{ backgroundColor: "var(--app-surface)" }}
+            className="group rounded-xl border p-5 transition-all duration-300 hover:-translate-y-0.5"
+            style={{
+              borderColor: "var(--app-border)",
+              backgroundColor: "var(--app-surface)",
+            }}
           >
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-xs font-medium uppercase tracking-wider text-zinc-600">
-                  Active Customers
+                <p className="text-xs font-medium uppercase tracking-wider text-zinc-500">
+                  Active Accounts
                 </p>
-                <p className="mt-3 text-3xl font-bold text-white">{activeCustomers}</p>
+                <p className="mt-3 text-3xl font-bold text-emerald-400">{activeCount}</p>
               </div>
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-400">
-                ✓
+                <CheckCircle2 className="h-5 w-5" />
               </div>
             </div>
-            <div className="mt-4 h-px bg-zinc-800" />
-            <p className="mt-3 text-xs text-zinc-600">Currently active accounts</p>
+            <p className="mt-3 text-xs text-emerald-500">Authorized for shopping & credit</p>
           </div>
 
           <div
-            className="group rounded-xl border border-zinc-800 p-5 transition-all duration-300 hover:-translate-y-0.5 hover:border-red-500/20"
-            style={{ backgroundColor: "var(--app-surface)" }}
+            className="group rounded-xl border p-5 transition-all duration-300 hover:-translate-y-0.5"
+            style={{
+              borderColor: "var(--app-border)",
+              backgroundColor: "var(--app-surface)",
+            }}
           >
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-xs font-medium uppercase tracking-wider text-zinc-600">
-                  Inactive Customers
+                <p className="text-xs font-medium uppercase tracking-wider text-zinc-500">
+                  Inactive Accounts
                 </p>
-                <p className="mt-3 text-3xl font-bold text-white">{inactiveCustomers}</p>
+                <p className="mt-3 text-3xl font-bold text-red-400">{inactiveCount}</p>
               </div>
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-red-500/10 text-red-400">
-                !
+                <XCircle className="h-5 w-5" />
               </div>
             </div>
-            <div className="mt-4 h-px bg-zinc-800" />
-            <p className="mt-3 text-xs text-zinc-600">Deactivated accounts</p>
+            <p className="mt-3 text-xs text-red-500">Suspended or deactivated</p>
           </div>
         </div>
 
-        {/* Search and filters toolbar */}
-        <div
-          className="mb-5 rounded-xl border p-4 shadow-[0_8px_30px_rgba(0,0,0,0.2)]"
-          style={{
-            borderColor: "var(--app-border)",
-            backgroundColor: "var(--app-surface)",
-          }}
-        >
-          <div className="flex flex-col gap-3 lg:flex-row">
-            <div className="relative flex-1">
-              <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-lg text-zinc-600">
-                ⌕
-              </span>
-              <input
-                type="text"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search name, username, email or phone..."
-                className="w-full rounded-lg border bg-transparent py-3 pl-11 pr-4 text-sm text-white outline-none placeholder:text-zinc-600 transition"
-                style={{ borderColor: "var(--app-border)" }}
-                onFocus={(e) => {
-                  e.currentTarget.style.borderColor = "var(--app-accent)";
-                }}
-                onBlur={(e) => {
-                  e.currentTarget.style.borderColor = "var(--app-border)";
-                }}
-              />
-            </div>
+        {/* Search and Filters */}
+        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="relative w-full sm:w-80">
+            <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
+            <input
+              type="search"
+              placeholder="Search by name, phone, email..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full rounded-xl border border-white/10 bg-zinc-950 pl-9 pr-4 py-2.5 text-xs text-white outline-none focus:border-[var(--app-accent-border)]"
+            />
+          </div>
 
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="rounded-lg border bg-transparent px-4 py-3 text-sm text-zinc-300 outline-none transition lg:w-44"
-              style={{ borderColor: "var(--app-border)" }}
-            >
-              <option value="All">All Status</option>
-              <option value="Active">Active</option>
-              <option value="Inactive">Inactive</option>
-            </select>
+          <div className="flex gap-2">
+            {["All", "Active", "Inactive"].map((tab) => (
+              <button
+                key={tab}
+                type="button"
+                onClick={() => setStatusFilter(tab)}
+                className={`rounded-lg px-4 py-2 text-xs font-semibold transition ${
+                  statusFilter === tab
+                    ? "text-white shadow-sm"
+                    : "text-zinc-500 hover:text-zinc-300"
+                }`}
+                style={
+                  statusFilter === tab
+                    ? { backgroundColor: "var(--app-accent)", color: "#fff" }
+                    : {}
+                }
+              >
+                {tab}
+              </button>
+            ))}
           </div>
         </div>
 
-        {/* Customer records table */}
-        <div
-          className="overflow-hidden rounded-xl border shadow-[0_10px_40px_rgba(0,0,0,0.3)]"
-          style={{
-            borderColor: "var(--app-border)",
-            backgroundColor: "var(--app-surface)",
-          }}
-        >
+        {/* Table */}
+        {loading ? (
+          <div className="py-20 text-center text-zinc-500">
+            <RefreshCw className="mx-auto mb-2 h-8 w-8 animate-spin text-[var(--app-accent)]" />
+            <p>Loading customers...</p>
+          </div>
+        ) : filteredCustomers.length === 0 ? (
           <div
-            className="flex items-center justify-between border-b px-5 py-4"
-            style={{ borderColor: "var(--app-border)" }}
+            className="rounded-xl border p-12 text-center"
+            style={{
+              borderColor: "var(--app-border)",
+              backgroundColor: "var(--app-surface)",
+            }}
           >
-            <div>
-              <h2 className="text-sm font-semibold text-white">Customer List</h2>
-              <p className="mt-1 text-xs text-zinc-600">Manage registered customer accounts</p>
-            </div>
-            <span
-              className="rounded-full border px-3 py-1.5 text-xs"
-              style={{
-                borderColor: "var(--app-border)",
-                backgroundColor: "var(--app-bg)",
-                color: "#71717a",
-              }}
-            >
-              {filteredCustomers.length} Results
-            </span>
+            <p className="text-zinc-500">No customers match your criteria.</p>
           </div>
-
-          {loading ? (
-            <div className="flex min-h-[350px] flex-col items-center justify-center px-5 py-20">
-              <div className="h-8 w-8 animate-spin rounded-full border-2 border-zinc-800 border-t-white" />
-              <p className="mt-4 text-sm text-zinc-500">Loading customers...</p>
-            </div>
-          ) : (
-            <>
-              {/* Desktop Table View */}
-              <div className="hidden overflow-x-auto lg:block">
-                <table className="w-full min-w-[1000px]">
-                  <thead
-                    className="border-b"
-                    style={{
-                      borderColor: "var(--app-border)",
-                      backgroundColor: "var(--app-bg)",
-                    }}
+        ) : (
+          <div
+            className="overflow-hidden rounded-2xl border"
+            style={{
+              borderColor: "var(--app-border)",
+              backgroundColor: "var(--app-surface)",
+            }}
+          >
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[900px] text-left text-sm">
+                <thead>
+                  <tr
+                    className="border-b text-xs uppercase tracking-wider text-zinc-500"
+                    style={{ borderColor: "var(--app-border)" }}
                   >
-                    <tr>
-                      <th className="px-5 py-4 text-left text-[11px] font-semibold uppercase tracking-wider text-zinc-600">
-                        Customer
-                      </th>
-                      <th className="px-5 py-4 text-left text-[11px] font-semibold uppercase tracking-wider text-zinc-600">
-                        Contact
-                      </th>
-                      <th className="px-5 py-4 text-left text-[11px] font-semibold uppercase tracking-wider text-zinc-600">
-                        Purchases
-                      </th>
-                      <th className="px-5 py-4 text-left text-[11px] font-semibold uppercase tracking-wider text-zinc-600">
-                        Total Spent
-                      </th>
-                      <th className="px-5 py-4 text-left text-[11px] font-semibold uppercase tracking-wider text-zinc-600">
-                        Status
-                      </th>
-                      <th className="px-5 py-4 text-right text-[11px] font-semibold uppercase tracking-wider text-zinc-600">
-                        Actions
-                      </th>
-                    </tr>
-                  </thead>
-
-                  <tbody>
-                    {filteredCustomers.length > 0 ? (
-                      filteredCustomers.map((customer) => {
-                        const statusLoading = actionLoading === `status-${customer.id}`;
-                        const deleteLoading = actionLoading === `delete-${customer.id}`;
-
-                        return (
-                          <tr
-                            key={customer.id}
-                            className="group border-b transition-colors duration-200 hover:bg-white/[0.02]"
-                            style={{ borderColor: "rgba(39,39,42,0.7)" }}
+                    <th className="px-5 py-4">Customer</th>
+                    <th className="px-5 py-4">Contact</th>
+                    <th className="px-5 py-4">Purchases</th>
+                    <th className="px-5 py-4">Trust Score</th>
+                    <th className="px-5 py-4">Credit Limit</th>
+                    <th className="px-5 py-4">Pending Debt</th>
+                    <th className="px-5 py-4">Status</th>
+                    <th className="px-5 py-4 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredCustomers.map((customer) => (
+                    <tr
+                      key={customer.id}
+                      className="border-b transition hover:bg-white/[0.02]"
+                      style={{ borderColor: "var(--app-border)" }}
+                    >
+                      <td className="px-5 py-4">
+                        <div className="flex items-center gap-3">
+                          <div
+                            className="flex h-9 w-9 items-center justify-center rounded-full font-bold text-xs"
+                            style={{
+                              backgroundColor: "var(--app-accent-soft)",
+                              color: "var(--app-accent)",
+                            }}
                           >
-                            <td className="px-5 py-5">
-                              <div className="flex items-center gap-3">
-                                <div
-                                  className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full border text-sm font-bold"
-                                  style={{
-                                    borderColor: "var(--app-accent-border)",
-                                    backgroundColor: "var(--app-accent-soft)",
-                                    color: "var(--app-accent)",
-                                  }}
-                                >
-                                  {customer.name.charAt(0).toUpperCase()}
-                                  {customer.status === "Active" && (
-                                    <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-zinc-900 bg-emerald-400" />
-                                  )}
-                                </div>
-
-                                <div>
-                                  <p className="text-sm font-semibold text-zinc-200">
-                                    {customer.name}
-                                  </p>
-                                  <p className="mt-1 text-xs text-zinc-600">
-                                    @{customer.username || "no-username"}
-                                  </p>
-                                </div>
-                              </div>
-                            </td>
-
-                            <td className="px-5 py-5">
-                              <p className="text-sm text-zinc-300">{customer.email || "—"}</p>
-                              <p className="mt-1 text-xs text-zinc-600">
-                                {customer.phone ? `+91 ${customer.phone}` : "—"}
-                              </p>
-                            </td>
-
-                            <td className="px-5 py-5">
-                              <span
-                                className="rounded-md px-3 py-1.5 text-sm font-medium"
-                                style={{
-                                  backgroundColor: "var(--app-bg)",
-                                  color: "#d4d4d8",
-                                }}
-                              >
-                                {customer.purchases}
-                              </span>
-                            </td>
-
-                            <td className="px-5 py-5">
-                              <p className="text-sm font-semibold text-zinc-200">
-                                ₹{customer.totalSpent.toLocaleString("en-IN")}
-                              </p>
-                            </td>
-
-                            <td className="px-5 py-5">
-                              <span
-                                className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium ${
-                                  customer.status === "Active"
-                                    ? "border-emerald-500/10 bg-emerald-500/5 text-emerald-400"
-                                    : "border-red-500/10 bg-red-500/5 text-red-400"
-                                }`}
-                              >
-                                <span
-                                  className={`h-1.5 w-1.5 rounded-full ${
-                                    customer.status === "Active" ? "bg-emerald-400" : "bg-red-400"
-                                  }`}
-                                />
-                                {customer.status}
-                              </span>
-                            </td>
-
-                            <td className="px-5 py-5">
-                              <div className="flex items-center justify-end gap-2">
-                                <Link
-                                  to={`/customers/${customer.id}`}
-                                  className="rounded-lg border px-3 py-2 text-xs font-medium transition"
-                                  style={{
-                                    borderColor: "var(--app-border)",
-                                    backgroundColor: "var(--app-bg)",
-                                    color: "#a1a1aa",
-                                  }}
-                                >
-                                  View
-                                </Link>
-
-                                <button
-                                  type="button"
-                                  disabled={statusLoading || deleteLoading}
-                                  onClick={() => toggleStatus(customer)}
-                                  className={`rounded-lg border px-3 py-2 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-50 ${
-                                    customer.status === "Active"
-                                      ? "border-red-500/10 bg-red-500/5 text-red-400 hover:border-red-500/20 hover:bg-red-500/10"
-                                      : "border-emerald-500/10 bg-emerald-500/5 text-emerald-400 hover:border-emerald-500/20 hover:bg-emerald-500/10"
-                                  }`}
-                                >
-                                  {statusLoading
-                                    ? "Updating..."
-                                    : customer.status === "Active"
-                                    ? "Deactivate"
-                                    : "Activate"}
-                                </button>
-
-                                {customer.status === "Inactive" && (
-                                  <button
-                                    type="button"
-                                    disabled={deleteLoading || statusLoading}
-                                    onClick={() => handleDelete(customer)}
-                                    className="rounded-lg border border-red-500/10 bg-red-500/5 px-3 py-2 text-xs font-medium text-red-400 transition hover:border-red-500/30 hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-50"
-                                  >
-                                    {deleteLoading ? "Deleting..." : "Delete"}
-                                  </button>
-                                )}
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })
-                    ) : (
-                      <tr>
-                        <td colSpan="6" className="px-5 py-20 text-center">
-                          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-zinc-900 text-xl text-zinc-600">
-                            ⌕
+                            {customer.name.charAt(0).toUpperCase()}
                           </div>
-                          <p className="mt-4 text-sm font-medium text-zinc-400">
-                            No customers found
-                          </p>
-                          <p className="mt-1 text-xs text-zinc-600">
-                            Try a different search or status filter.
-                          </p>
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Mobile & Tablet Cards View */}
-              <div className="grid grid-cols-1 gap-3 p-3 sm:grid-cols-2 sm:p-4 lg:hidden">
-                {filteredCustomers.length > 0 ? (
-                  filteredCustomers.map((customer) => {
-                    const statusLoading = actionLoading === `status-${customer.id}`;
-                    const deleteLoading = actionLoading === `delete-${customer.id}`;
-
-                    return (
-                      <div
-                        key={customer.id}
-                        className="rounded-xl border p-4"
-                        style={{
-                          borderColor: "var(--app-border)",
-                          backgroundColor: "var(--app-surface-light)",
-                        }}
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="flex items-center gap-3 min-w-0">
-                            <div
-                              className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full border text-sm font-bold"
-                              style={{
-                                borderColor: "var(--app-accent-border)",
-                                backgroundColor: "var(--app-accent-soft)",
-                                color: "var(--app-accent)",
-                              }}
-                            >
-                              {customer.name.charAt(0).toUpperCase()}
-                              {customer.status === "Active" && (
-                                <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-zinc-900 bg-emerald-400" />
-                              )}
-                            </div>
-                            <div className="min-w-0">
-                              <p className="font-semibold text-white truncate text-base">{customer.name}</p>
-                              <p className="text-xs text-zinc-500 truncate">@{customer.username || "customer"}</p>
-                            </div>
+                          <div>
+                            <p className="font-semibold text-white">{customer.name}</p>
+                            {customer.username && (
+                              <p className="text-[11px] font-mono text-zinc-500">
+                                @{customer.username}
+                              </p>
+                            )}
                           </div>
+                        </div>
+                      </td>
 
+                      <td className="px-5 py-4 text-xs">
+                        <p className="text-zinc-300">{customer.phone || "—"}</p>
+                        <p className="text-zinc-500">{customer.email || ""}</p>
+                      </td>
+
+                      <td className="px-5 py-4">
+                        <p className="font-bold text-white">
+                          ₹{customer.totalSpent.toLocaleString("en-IN")}
+                        </p>
+                        <p className="text-[11px] text-zinc-500">
+                          {customer.purchases} order(s)
+                        </p>
+                      </td>
+
+                      {/* Trust Score */}
+                      <td className="px-5 py-4">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-white text-sm">
+                            {customer.trustScore}/100
+                          </span>
                           <span
-                            className={`shrink-0 rounded-full border px-2.5 py-0.5 text-[11px] font-medium ${
-                              customer.status === "Active"
-                                ? "border-emerald-500/10 bg-emerald-500/5 text-emerald-400"
-                                : "border-red-500/10 bg-red-500/5 text-red-400"
+                            className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${
+                              customer.trustTier === "Platinum"
+                                ? "bg-purple-500/20 text-purple-300"
+                                : customer.trustTier === "Gold"
+                                ? "bg-amber-500/20 text-amber-300"
+                                : customer.trustTier === "Silver"
+                                ? "bg-teal-500/20 text-teal-300"
+                                : "bg-rose-500/20 text-rose-300"
                             }`}
                           >
-                            {customer.status}
+                            {customer.trustTier}
                           </span>
                         </div>
+                      </td>
 
-                        <div className="mt-3 grid grid-cols-2 gap-2 border-t pt-3" style={{ borderColor: "var(--app-border)" }}>
-                          <div>
-                            <p className="text-[11px] text-zinc-500 uppercase">Contact</p>
-                            <p className="text-xs text-zinc-300 truncate">{customer.phone ? `+91 ${customer.phone}` : customer.email || "No contact"}</p>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-[11px] text-zinc-500 uppercase">Total Purchases</p>
-                            <p className="text-sm font-bold text-white">₹{customer.totalSpent.toLocaleString("en-IN")}</p>
-                          </div>
+                      {/* Dual Credit Limit */}
+                      <td className="px-5 py-4">
+                        <p className="font-bold text-white text-sm">
+                          ₹{customer.effectiveLimit.toLocaleString("en-IN")}
+                        </p>
+                        <div className="mt-0.5 flex flex-wrap items-center gap-1">
+                          {customer.isManual ? (
+                            <span className="rounded bg-blue-500/15 px-1.5 py-0.5 text-[10px] font-bold text-blue-400 border border-blue-500/30">
+                              Manual Mode
+                            </span>
+                          ) : (
+                            <span className="rounded bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-bold text-emerald-400 border border-emerald-500/30">
+                              Auto Mode
+                            </span>
+                          )}
+                          {customer.manualLimit > 0 && !customer.isManual && (
+                            <span className="text-[10px] text-zinc-500 font-mono">
+                              (Set: ₹{customer.manualLimit.toLocaleString("en-IN")})
+                            </span>
+                          )}
                         </div>
+                      </td>
 
-                        <div className="mt-3 flex gap-2 border-t pt-3" style={{ borderColor: "var(--app-border)" }}>
+                      {/* Pending Debt */}
+                      <td className="px-5 py-4">
+                        <span
+                          className={`font-bold ${
+                            customer.pendingDebt > 0 ? "text-rose-400" : "text-zinc-500"
+                          }`}
+                        >
+                          ₹{customer.pendingDebt.toLocaleString("en-IN")}
+                        </span>
+                      </td>
+
+                      <td className="px-5 py-4">
+                        <span
+                          className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                            customer.isActive
+                              ? "bg-emerald-500/10 text-emerald-400"
+                              : "bg-red-500/10 text-red-400"
+                          }`}
+                        >
+                          {customer.status}
+                        </span>
+                      </td>
+
+                      <td className="px-5 py-4 text-right">
+                        <div className="flex items-center justify-end gap-2">
                           <Link
                             to={`/customers/${customer.id}`}
-                            className="flex-1 rounded-lg border py-2 text-center text-xs font-semibold text-zinc-300 transition hover:bg-white/5"
-                            style={{ borderColor: "var(--app-border)" }}
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 px-3 py-1.5 text-xs font-semibold text-zinc-200 transition hover:border-[var(--app-accent-border)] hover:bg-[var(--app-accent-soft)] hover:text-[var(--app-accent)]"
                           >
-                            View Profile
+                            <Eye className="h-3.5 w-3.5" />
+                            <span>Profile & Limits</span>
                           </Link>
+
                           <button
                             type="button"
-                            disabled={statusLoading || deleteLoading}
-                            onClick={() => toggleStatus(customer)}
-                            className={`flex-1 rounded-lg border py-2 text-xs font-semibold transition disabled:opacity-50 ${
-                              customer.status === "Active"
-                                ? "border-red-500/20 bg-red-500/5 text-red-400 hover:bg-red-500/10"
-                                : "border-emerald-500/20 bg-emerald-500/5 text-emerald-400 hover:bg-emerald-500/10"
+                            onClick={() => handleToggleStatus(customer)}
+                            disabled={actionLoading === `status-${customer.id}`}
+                            className={`rounded-lg p-1.5 text-xs transition ${
+                              customer.isActive
+                                ? "text-yellow-400 hover:bg-yellow-500/10"
+                                : "text-emerald-400 hover:bg-emerald-500/10"
                             }`}
+                            title={customer.isActive ? "Deactivate" : "Activate"}
                           >
-                            {statusLoading
-                              ? "Updating..."
-                              : customer.status === "Active"
-                              ? "Deactivate"
-                              : "Activate"}
+                            <Power className="h-4 w-4" />
                           </button>
                         </div>
-                      </div>
-                    );
-                  })
-                ) : (
-                  <div className="p-8 text-center text-zinc-500 text-xs">
-                    No customers found matching search filter.
-                  </div>
-                )}
-              </div>
-            </>
-          )}
-
-          {!loading && (
-            <div
-              className="flex flex-col gap-2 border-t px-5 py-4 sm:flex-row sm:items-center sm:justify-between"
-              style={{
-                borderColor: "var(--app-border)",
-                backgroundColor: "var(--app-bg)",
-              }}
-            >
-              <p className="text-xs text-zinc-600">
-                Showing <span className="font-medium text-zinc-400">{filteredCustomers.length}</span> of{" "}
-                <span className="font-medium text-zinc-400">{customers.length}</span> customers
-              </p>
-              <p className="text-xs text-zinc-700">SmartShop Customer Management</p>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     </div>
   );

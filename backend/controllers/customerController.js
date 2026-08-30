@@ -4,6 +4,7 @@ import Credit from "../models/creditModel.js";
 import Payment from "../models/paymentModel.js";
 import Sale from "../models/saleModel.js";
 import Return from "../models/returnModel.js";
+import { calculateCustomerTrustScoreAndLimits, syncCustomerTrustAndLimits } from "../utils/trustScoreEngine.js";
 
 // Fetch customer profile for authenticated user
 export const getMyProfile = async (req, res) => {
@@ -230,6 +231,11 @@ export async function getAllCustomers(req, res) {
                 const sales = await Sale.find({ customerId: customer._id }).sort({ createdAt: -1 });
                 const returns = await Return.find({ customerId: customer._id }).sort({ createdAt: -1 });
 
+                const autoLimit = Number(customer.maxBorrowAmount || 0);
+                const manualLimit = Number(customer.manualBorrowLimit || 0);
+                const effectiveLimit = manualLimit > 0 ? manualLimit : autoLimit;
+                const isManualOverride = manualLimit > 0;
+
                 return {
                     user: {
                         _id: user._id,
@@ -248,9 +254,12 @@ export async function getAllCustomers(req, res) {
                         userId: customer.userId,
                         totalPurchase: Number(customer.totalPurchase || 0),
                         trustScore: Number(customer.trustScore || 0),
-                        maxBorrowAmount: Number(customer.maxBorrowAmount || 0),
+                        maxBorrowAmount: autoLimit,
+                        autoBorrowLimit: autoLimit,
+                        manualBorrowLimit: manualLimit,
+                        effectiveBorrowLimit: effectiveLimit,
+                        isManualOverride,
                         pendingAmount: Number(customer.pendingAmount || 0),
-                        manualBorrowLimit: Number(customer.manualBorrowLimit || 0),
                         createdAt: customer.createdAt,
                         updatedAt: customer.updatedAt
                     },
@@ -387,7 +396,7 @@ export const getCustomerHistory = async (req, res) => {
         const { customerId } = req.params;
         const customer = await Customer.findById(customerId).populate(
             "userId",
-            "name email phone role isActive"
+            "name username email phone role isActive createdAt updatedAt"
         );
 
         if (!customer) {
@@ -413,15 +422,34 @@ export const getCustomerHistory = async (req, res) => {
                 .sort({ returnedAt: -1 })
         ]);
 
+        const syncResult = await syncCustomerTrustAndLimits(customerId);
+        const latestCustomer = syncResult ? syncResult.customer : customer;
+        const calculated = syncResult ? syncResult.calculated : calculateCustomerTrustScoreAndLimits({
+            totalPurchase: latestCustomer.totalPurchase,
+            sales,
+            credits,
+            payments
+        });
+
+        const autoLimit = Number(latestCustomer.maxBorrowAmount || 0);
+        const manualLimit = Number(latestCustomer.manualBorrowLimit || 0);
+        const effectiveLimit = manualLimit > 0 ? manualLimit : autoLimit;
+        const isManualOverride = manualLimit > 0;
+
         return res.status(200).json({
             success: true,
-            customer,
-            trustScore: customer.trustScore,
+            customer: latestCustomer,
+            trustScore: latestCustomer.trustScore,
+            trustTier: calculated.trustTier,
+            trustBreakdown: calculated.breakdown,
             financialSummary: {
-                totalPurchase: customer.totalPurchase,
-                pendingAmount: customer.pendingAmount,
-                maxBorrowAmount: customer.maxBorrowAmount,
-                manualBorrowLimit: customer.manualBorrowLimit
+                totalPurchase: latestCustomer.totalPurchase,
+                pendingAmount: latestCustomer.pendingAmount,
+                autoCreditLimit: autoLimit,
+                manualBorrowLimit: manualLimit,
+                maxBorrowAmount: autoLimit,
+                effectiveBorrowLimit: effectiveLimit,
+                isManualOverride
             },
             history: {
                 credits,
@@ -439,19 +467,11 @@ export const getCustomerHistory = async (req, res) => {
     }
 };
 
-// Update customer manual borrow limit
+// Update customer credit limit configuration (toggle auto vs manual, set manual limit)
 export const updateBorrowLimit = async (req, res) => {
     try {
         const { customerId } = req.params;
-        const { manualBorrowLimit } = req.body;
-        const limit = Number(manualBorrowLimit);
-
-        if (!Number.isFinite(limit) || limit < 0) {
-            return res.status(400).json({
-                success: false,
-                message: "Borrow limit must be a valid non-negative number"
-            });
-        }
+        const { creditLimitMode, manualBorrowLimit } = req.body;
 
         const customer = await Customer.findById(customerId);
         if (!customer) {
@@ -461,16 +481,79 @@ export const updateBorrowLimit = async (req, res) => {
             });
         }
 
-        customer.manualBorrowLimit = limit;
+        if (creditLimitMode !== undefined) {
+            if (!["auto", "manual"].includes(creditLimitMode)) {
+                return res.status(400).json({
+                    success: false,
+                    message: "creditLimitMode must be either 'auto' or 'manual'"
+                });
+            }
+            customer.creditLimitMode = creditLimitMode;
+        }
+
+        if (manualBorrowLimit !== undefined) {
+            const limit = Number(manualBorrowLimit);
+            if (!Number.isFinite(limit) || limit < 0) {
+                return res.status(400).json({
+                    success: false,
+                    message: "Manual borrow limit must be a valid non-negative number"
+                });
+            }
+            customer.manualBorrowLimit = limit;
+        }
+
         await customer.save();
+
+        const syncResult = await syncCustomerTrustAndLimits(customerId);
+        const latestCustomer = syncResult ? syncResult.customer : customer;
+
+        const activeMode = latestCustomer.creditLimitMode || "auto";
+        const autoLimit = Number(latestCustomer.maxBorrowAmount || 0);
+        const manualLimit = Number(latestCustomer.manualBorrowLimit || 0);
+        const effectiveLimit = activeMode === "manual" ? manualLimit : autoLimit;
 
         return res.status(200).json({
             success: true,
-            message: "Borrow limit updated successfully",
-            customer
+            message: activeMode === "manual"
+                ? `Switched to Manual Limit Mode (Active: ₹${manualLimit.toLocaleString("en-IN")})`
+                : `Switched to Automatic Limit Mode (Active: ₹${autoLimit.toLocaleString("en-IN")})`,
+            customer: latestCustomer,
+            creditLimitMode: activeMode,
+            autoCreditLimit: autoLimit,
+            manualBorrowLimit: manualLimit,
+            effectiveBorrowLimit: effectiveLimit,
+            calculated: syncResult?.calculated
         });
     } catch (error) {
         console.error("Update borrow limit error:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Server error"
+        });
+    }
+};
+
+// Recalculate customer Trust Score and Auto Credit Limit on demand
+export const recalculateCustomerTrust = async (req, res) => {
+    try {
+        const { customerId } = req.params;
+        const result = await syncCustomerTrustAndLimits(customerId);
+
+        if (!result) {
+            return res.status(404).json({
+                success: false,
+                message: "Customer not found"
+            });
+        }
+
+        return res.status(200).json({
+            success: true,
+            message: `Trust Score updated to ${result.calculated.trustScore}/100 (Tier: ${result.calculated.trustTier})`,
+            customer: result.customer,
+            calculated: result.calculated
+        });
+    } catch (error) {
+        console.error("Recalculate customer trust error:", error);
         return res.status(500).json({
             success: false,
             message: "Server error"

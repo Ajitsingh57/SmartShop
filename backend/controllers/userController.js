@@ -8,6 +8,7 @@ import Credit from "../models/creditModel.js";
 import Payment from "../models/paymentModel.js";
 import Sale from "../models/saleModel.js";
 import Return from "../models/returnModel.js";
+import { calculateCustomerTrustScoreAndLimits, syncCustomerTrustAndLimits } from "../utils/trustScoreEngine.js";
 
 const TOKEN_EXPIRES_IN = "24h";
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -357,6 +358,25 @@ export async function getCustomerById(req, res) {
             .reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
         const totalReturnAmount = returns.reduce((sum, item) => sum + Number(item.returnAmount || 0), 0);
 
+        const calculated = calculateCustomerTrustScoreAndLimits({
+            totalPurchase: totalSaleAmount || customer.totalPurchase,
+            sales,
+            credits,
+            payments
+        });
+
+        customer.trustScore = calculated.trustScore;
+        customer.maxBorrowAmount = calculated.autoCreditLimit;
+        customer.pendingAmount = totalCreditPending;
+        customer.totalPurchase = Math.max(Number(customer.totalPurchase || 0), totalSaleAmount);
+        customer.save().catch(e => console.warn("Background customer update save err:", e));
+
+        const activeMode = customer.creditLimitMode || "auto";
+        const autoLimit = Number(customer.maxBorrowAmount || 0);
+        const manualLimit = Number(customer.manualBorrowLimit || 0);
+        const effectiveLimit = activeMode === "manual" ? manualLimit : autoLimit;
+        const isManualOverride = activeMode === "manual";
+
         return res.status(200).json({
             success: true,
             customer: {
@@ -374,11 +394,17 @@ export async function getCustomerById(req, res) {
                 },
                 summary: {
                     customerId: customer._id,
+                    creditLimitMode: activeMode,
                     totalPurchase: totalSaleAmount || customer.totalPurchase,
                     trustScore: customer.trustScore,
-                    maxBorrowAmount: customer.maxBorrowAmount,
+                    trustTier: calculated.trustTier,
+                    trustBreakdown: calculated.breakdown,
+                    maxBorrowAmount: autoLimit,
+                    autoBorrowLimit: autoLimit,
+                    manualBorrowLimit: manualLimit,
+                    effectiveBorrowLimit: effectiveLimit,
+                    isManualOverride,
                     pendingAmount: totalCreditPending || customer.pendingAmount,
-                    manualBorrowLimit: customer.manualBorrowLimit,
                     totalSaleAmount,
                     totalCreditBorrowed,
                     totalCreditPaid,
@@ -411,7 +437,7 @@ export async function getCustomerById(req, res) {
 export async function updateCustomer(req, res) {
     try {
         const { id } = req.params;
-        const { name, username, email, phone, password, manualBorrowLimit } = req.body;
+        const { name, username, email, phone, password, manualBorrowLimit, creditLimitMode } = req.body;
 
         let user = await User.findOne({ _id: id, role: "customer" });
         let customer;
@@ -450,7 +476,7 @@ export async function updateCustomer(req, res) {
                 });
             }
 
-            if (username) {
+            if (username && username.trim()) {
                 const normalizedUsername = username.trim();
                 const existingUsername = await User.findOne({
                     username: normalizedUsername,
@@ -464,8 +490,6 @@ export async function updateCustomer(req, res) {
                     });
                 }
                 user.username = normalizedUsername;
-            } else {
-                user.username = undefined;
             }
         }
 
@@ -474,7 +498,7 @@ export async function updateCustomer(req, res) {
             if (normalizedEmail && !validator.isEmail(normalizedEmail)) {
                 return res.status(400).json({
                     success: false,
-                    message: "Invalid email"
+                    message: "Invalid email address"
                 });
             }
 
@@ -531,12 +555,19 @@ export async function updateCustomer(req, res) {
 
         await user.save();
 
-        if (manualBorrowLimit !== undefined && customer) {
-            const limit = Number(manualBorrowLimit);
-            if (Number.isFinite(limit) && limit >= 0) {
-                customer.manualBorrowLimit = limit;
-                await customer.save();
+        if (customer) {
+            if (creditLimitMode !== undefined && ["auto", "manual"].includes(creditLimitMode)) {
+                customer.creditLimitMode = creditLimitMode;
             }
+
+            if (manualBorrowLimit !== undefined) {
+                const limit = Number(manualBorrowLimit);
+                if (Number.isFinite(limit) && limit >= 0) {
+                    customer.manualBorrowLimit = limit;
+                }
+            }
+
+            await customer.save();
         }
 
         return res.status(200).json({

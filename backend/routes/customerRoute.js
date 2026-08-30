@@ -9,7 +9,8 @@ import {
     getMySaleHistory,
     getMyReturnHistory,
     getCustomerHistory,
-    updateBorrowLimit
+    updateBorrowLimit,
+    recalculateCustomerTrust
 } from "../controllers/customerController.js";
 import authMiddleware from "../middleware/auth.js";
 import { adminOrSuperAdmin, customerOnly } from "../middleware/roleMiddleware.js";
@@ -29,5 +30,6 @@ customerRouter.get("/", authMiddleware, adminOrSuperAdmin, getAllCustomers);
 customerRouter.get("/:customerId", authMiddleware, adminOrSuperAdmin, getCustomerById);
 customerRouter.get("/:customerId/history", authMiddleware, adminOrSuperAdmin, getCustomerHistory);
 customerRouter.patch("/:customerId/borrow-limit", authMiddleware, adminOrSuperAdmin, updateBorrowLimit);
+customerRouter.post("/:customerId/recalculate-trust", authMiddleware, adminOrSuperAdmin, recalculateCustomerTrust);
 
 export default customerRouter;
