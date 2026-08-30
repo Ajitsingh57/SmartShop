@@ -192,39 +192,42 @@ const Home = () => {
 
       {/* Dynamic Categories Grid */}
       {loading ? (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 sm:gap-4">
           {[1, 2, 3, 4].map((n) => (
             <div
               key={n}
-              className="h-28 animate-pulse rounded-2xl border border-white/5 bg-zinc-900/60 p-5"
+              className="h-24 sm:h-28 animate-pulse rounded-xl sm:rounded-2xl border border-white/5 bg-zinc-900/60 p-3 sm:p-5"
             />
           ))}
         </div>
       ) : dynamicCategories.length > 0 ? (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 sm:gap-4.5">
           {dynamicCategories.map((category) => (
             <Link
               key={category.name}
               to={category.path}
-              className="group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-white/[0.08] bg-gradient-to-br from-zinc-900/80 via-zinc-900/50 to-zinc-950/90 p-5 backdrop-blur-xl transition-all duration-300 hover:-translate-y-1 hover:border-[var(--app-accent-border)] hover:bg-zinc-900 hover:shadow-[0_12px_30px_rgba(0,0,0,0.5),0_0_24px_var(--app-accent-soft)]"
+              className="group relative flex flex-col justify-between overflow-hidden rounded-xl sm:rounded-2xl border border-white/[0.08] bg-gradient-to-br from-zinc-900/80 via-zinc-900/50 to-zinc-950/90 p-3.5 sm:p-5 backdrop-blur-xl transition-all duration-300 hover:-translate-y-1 hover:border-[var(--app-accent-border)] hover:bg-zinc-900 hover:shadow-[0_12px_28px_rgba(0,0,0,0.5),0_0_20px_var(--app-accent-soft)]"
             >
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] text-2xl shadow-inner transition-transform duration-300 group-hover:scale-110 group-hover:border-[var(--app-accent-border)]">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex h-9 w-9 sm:h-11 sm:w-11 shrink-0 items-center justify-center rounded-lg sm:rounded-xl border border-white/10 bg-white/[0.04] text-lg sm:text-2xl shadow-inner transition-transform duration-300 group-hover:scale-110 group-hover:border-[var(--app-accent-border)]">
                   {category.icon}
                 </div>
 
-                <span className="rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-0.5 text-[11px] font-semibold text-zinc-400 transition-colors group-hover:border-[var(--app-accent-border)] group-hover:text-white">
-                  {category.count} {category.count === 1 ? "Product" : "Products"}
+                <span className="rounded-full border border-white/10 bg-white/[0.03] px-2 py-0.5 text-[10px] sm:text-[11px] font-semibold text-zinc-400 transition-colors group-hover:border-[var(--app-accent-border)] group-hover:text-white">
+                  {category.count} {category.count === 1 ? "Item" : "Items"}
                 </span>
               </div>
 
-              <div className="mt-4">
-                <h3 className="text-lg font-bold tracking-tight text-white transition-colors duration-200 group-hover:text-[var(--app-accent)]">
+              <div className="mt-3 sm:mt-4">
+                <h3
+                  className="truncate text-xs sm:text-base font-bold tracking-tight text-white transition-colors duration-200 group-hover:text-[var(--app-accent)]"
+                  title={category.name}
+                >
                   {category.name}
                 </h3>
-                <p className="mt-1 flex items-center gap-1 text-xs font-medium text-zinc-500 transition-colors group-hover:text-zinc-300">
-                  <span>View products</span>
-                  <ArrowRight className="h-3 w-3 transition-transform duration-200 group-hover:translate-x-1" />
+                <p className="mt-0.5 sm:mt-1 flex items-center gap-1 text-[10px] sm:text-xs font-medium text-zinc-500 transition-colors group-hover:text-zinc-300">
+                  <span>View items</span>
+                  <ArrowRight className="h-2.5 w-2.5 sm:h-3 sm:w-3 transition-transform duration-200 group-hover:translate-x-1" />
                 </p>
               </div>
             </Link>
