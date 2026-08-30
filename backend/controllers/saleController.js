@@ -287,6 +287,7 @@ export const getMySales = async (req, res) => {
             })
             .populate("adminId", "name email role")
             .populate("creditId")
+            .populate("items.productId", "name price category unit image")
             .sort({ createdAt: -1 });
 
         return res.status(200).json({
@@ -328,6 +329,7 @@ export const getCustomerSales = async (req, res) => {
             })
             .populate("adminId", "name email role")
             .populate("creditId")
+            .populate("items.productId", "name price category unit image")
             .sort({ createdAt: -1 });
 
         return res.status(200).json({
@@ -356,6 +358,7 @@ export const getAllSales = async (req, res) => {
             })
             .populate("adminId", "name email role")
             .populate("creditId")
+            .populate("items.productId", "name price category unit image")
             .sort({ createdAt: -1 });
 
         return res.status(200).json({
@@ -384,7 +387,8 @@ export const getSaleById = async (req, res) => {
                 }
             })
             .populate("adminId", "name email role")
-            .populate("creditId");
+            .populate("creditId")
+            .populate("items.productId", "name price category unit image");
 
         if (!sale) {
             return res.status(404).json({
