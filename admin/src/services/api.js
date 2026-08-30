@@ -132,6 +132,26 @@ export const productsApi = {
   },
 };
 
+// Categories service endpoints
+export const categoriesApi = {
+  getAll: async () => {
+    const response = await api.get("/categories");
+    return response.data;
+  },
+  create: async (categoryData) => {
+    const response = await api.post("/categories", categoryData);
+    return response.data;
+  },
+  update: async (id, categoryData) => {
+    const response = await api.put(`/categories/${id}`, categoryData);
+    return response.data;
+  },
+  delete: async (id, force = false) => {
+    const response = await api.delete(`/categories/${id}${force ? "?force=true" : ""}`);
+    return response.data;
+  },
+};
+
 // Credits service endpoints
 export const creditsApi = {
   getAll: async () => {

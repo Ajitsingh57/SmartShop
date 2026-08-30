@@ -1,11 +1,14 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
-import { productsApi } from "../services/api";
+import { Link, useSearchParams } from "react-router-dom";
+import { productsApi, categoriesApi } from "../services/api";
+import { FolderTree } from "lucide-react";
 
 const Products = () => {
+  const [searchParams] = useSearchParams();
   const [products, setProducts] = useState([]);
+  const [categoryList, setCategoryList] = useState([]);
   const [search, setSearch] = useState("");
-  const [category, setCategory] = useState("All");
+  const [category, setCategory] = useState(searchParams.get("category") || "All");
   const [stockFilter, setStockFilter] = useState("All");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -42,16 +45,36 @@ const Products = () => {
     }
   };
 
+  const fetchCategories = async () => {
+    try {
+      const res = await categoriesApi.getAll();
+      if (res?.success && Array.isArray(res.categories)) {
+        setCategoryList(res.categories);
+      }
+    } catch (err) {
+      console.error("Fetch categories list error:", err);
+    }
+  };
+
   useEffect(() => {
     fetchProducts();
+    fetchCategories();
   }, []);
 
+  // Sync category state from URL search params
+  useEffect(() => {
+    const urlCat = searchParams.get("category");
+    if (urlCat) {
+      setCategory(urlCat);
+    }
+  }, [searchParams]);
+
   const categories = useMemo(() => {
-    return [
-      "All",
-      ...new Set(products.map((product) => product.category).filter(Boolean)),
-    ];
-  }, [products]);
+    const fromApi = categoryList.map((c) => c.name).filter(Boolean);
+    const fromProducts = products.map((p) => p.category).filter(Boolean);
+    const combined = Array.from(new Set([...fromApi, ...fromProducts]));
+    return ["All", ...combined];
+  }, [categoryList, products]);
 
   const totalProducts = products.length;
   const activeProducts = products.filter((product) => {
@@ -204,17 +227,27 @@ const Products = () => {
             </p>
           </div>
 
-          <Link
-            to="/products/add"
-            className="inline-flex items-center justify-center gap-2 rounded-lg px-5 py-3 text-sm font-semibold text-white shadow-lg transition-all duration-300 hover:-translate-y-[1px]"
-            style={{
-              backgroundColor: "var(--app-accent)",
-              boxShadow: "0 10px 25px var(--app-accent-soft)",
-            }}
-          >
-            <span className="text-xl leading-none">＋</span>
-            Add Product
-          </Link>
+          <div className="flex flex-wrap items-center gap-3">
+            <Link
+              to="/categories"
+              className="inline-flex items-center justify-center gap-2 rounded-lg border border-zinc-700/80 bg-zinc-900/90 px-4 py-3 text-sm font-semibold text-zinc-200 shadow-md backdrop-blur-md transition-all duration-300 hover:border-orange-500/50 hover:bg-zinc-800 hover:text-white"
+            >
+              <FolderTree className="h-4 w-4 text-[var(--app-accent)]" />
+              <span>Category Management</span>
+            </Link>
+
+            <Link
+              to="/products/add"
+              className="inline-flex items-center justify-center gap-2 rounded-lg px-5 py-3 text-sm font-semibold text-white shadow-lg transition-all duration-300 hover:-translate-y-[1px]"
+              style={{
+                backgroundColor: "var(--app-accent)",
+                boxShadow: "0 10px 25px var(--app-accent-soft)",
+              }}
+            >
+              <span className="text-xl leading-none">＋</span>
+              Add Product
+            </Link>
+          </div>
         </div>
 
         {/* Stock metrics */}

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { productsApi } from "../services/api";
+import { productsApi, categoriesApi } from "../services/api";
+import { Plus, X, RefreshCw, AlertTriangle } from "lucide-react";
 
 const EditProduct = () => {
   const { id } = useParams();
@@ -9,6 +10,17 @@ const EditProduct = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+
+  // Dynamic categories list
+  const [categories, setCategories] = useState([]);
+  const [loadingCategories, setLoadingCategories] = useState(true);
+
+  // Inline category creation modal
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [newCatName, setNewCatName] = useState("");
+  const [newCatDesc, setNewCatDesc] = useState("");
+  const [creatingCat, setCreatingCat] = useState(false);
+  const [catModalError, setCatModalError] = useState("");
 
   const [form, setForm] = useState({
     name: "",
@@ -65,10 +77,65 @@ const EditProduct = () => {
       }
     };
 
+    const fetchCategories = async () => {
+      try {
+        setLoadingCategories(true);
+        const res = await categoriesApi.getAll();
+        if (res?.success && Array.isArray(res.categories)) {
+          const names = res.categories.map((c) => c.name).filter(Boolean);
+          setCategories(names);
+        }
+      } catch (err) {
+        console.error("Fetch categories error:", err);
+      } finally {
+        setLoadingCategories(false);
+      }
+    };
+
     if (id) {
       fetchProduct();
     }
+    fetchCategories();
   }, [id]);
+
+  const handleCreateCategory = async (e) => {
+    e.preventDefault();
+    if (!newCatName.trim()) {
+      setCatModalError("Please enter a category name");
+      return;
+    }
+
+    try {
+      setCreatingCat(true);
+      setCatModalError("");
+
+      const res = await categoriesApi.create({
+        name: newCatName.trim(),
+        description: newCatDesc.trim(),
+      });
+
+      if (res?.success) {
+        const createdName = res.category?.name || newCatName.trim();
+        setCategories((prev) => {
+          if (!prev.includes(createdName)) {
+            return [...prev, createdName].sort();
+          }
+          return prev;
+        });
+        setForm((prev) => ({ ...prev, category: createdName }));
+        setShowCategoryModal(false);
+        setNewCatName("");
+        setNewCatDesc("");
+      } else {
+        throw new Error(res?.message || "Failed to create category");
+      }
+    } catch (err) {
+      console.error("Inline category create error:", err);
+      setCatModalError(err?.message || "Failed to create category");
+    } finally {
+      setCreatingCat(false);
+    }
+  };
 
   // Handle inputs and dynamic availability on stock changes
   const handleChange = (e) => {
@@ -332,15 +399,44 @@ const EditProduct = () => {
                 />
               </FormField>
 
-              <FormField label="Category">
-                <Input
-                  type="text"
+              <div>
+                <div className="mb-1.5 flex items-center justify-between">
+                  <label className="block text-[11px] font-semibold text-zinc-400">
+                    Category <span className="text-red-400">*</span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCatModalError("");
+                      setNewCatName("");
+                      setNewCatDesc("");
+                      setShowCategoryModal(true);
+                    }}
+                    className="inline-flex items-center gap-1 text-[11px] font-semibold text-[var(--app-accent)] hover:underline"
+                  >
+                    <Plus className="h-3 w-3" />
+                    <span>New Category</span>
+                  </button>
+                </div>
+
+                <select
                   name="category"
                   value={form.category}
                   onChange={handleChange}
-                  placeholder="e.g. Grocery"
-                />
-              </FormField>
+                  disabled={saving || loadingCategories}
+                  className="h-10 w-full rounded-xl border bg-zinc-950/60 px-3 text-sm text-zinc-200 outline-none transition focus:border-[var(--app-accent)] focus:ring-1 focus:ring-[var(--app-accent)]"
+                  style={{ borderColor: "var(--app-border)" }}
+                >
+                  <option value="">
+                    {loadingCategories ? "Loading categories..." : "Select category"}
+                  </option>
+                  {Array.from(new Set([...(form.category ? [form.category] : []), ...categories])).map((item) => (
+                    <option key={item} value={item}>
+                      {item}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
               <FormField label="Price" required>
                 <div className="relative">
@@ -574,6 +670,110 @@ const EditProduct = () => {
           </div>
         </form>
       </div>
+
+      {/* Quick Add Category Modal */}
+      {showCategoryModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm animate-in fade-in">
+          <div
+            className="w-full max-w-md rounded-2xl border p-6 shadow-2xl"
+            style={{
+              borderColor: "var(--app-border)",
+              backgroundColor: "var(--app-surface)",
+            }}
+          >
+            <div className="flex items-center justify-between pb-4 border-b border-zinc-800">
+              <div className="flex items-center gap-2.5">
+                <div
+                  className="flex h-9 w-9 items-center justify-center rounded-lg"
+                  style={{
+                    backgroundColor: "var(--app-accent-soft)",
+                    color: "var(--app-accent)",
+                  }}
+                >
+                  <Plus className="h-5 w-5" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold text-white">Create New Category</h2>
+                  <p className="text-xs text-zinc-400">Instantly add and select this category</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowCategoryModal(false)}
+                className="text-zinc-400 hover:text-white text-lg"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {catModalError && (
+              <div className="mt-4 flex items-center gap-2 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-300">
+                <AlertTriangle className="h-4 w-4 shrink-0 text-red-400" />
+                <span>{catModalError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleCreateCategory} className="mt-4 space-y-4">
+              <div>
+                <label className="mb-1.5 block text-xs font-semibold text-zinc-300">
+                  Category Name <span className="text-red-400">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={newCatName}
+                  onChange={(e) => setNewCatName(e.target.value)}
+                  placeholder="e.g. Beverages, Dairy, Snacks"
+                  autoFocus
+                  disabled={creatingCat}
+                  className="w-full rounded-lg border px-3.5 py-2.5 text-sm text-white placeholder-zinc-600 outline-none transition focus:border-[var(--app-accent)] focus:ring-1 focus:ring-[var(--app-accent)] disabled:opacity-50"
+                  style={{
+                    borderColor: "var(--app-border)",
+                    backgroundColor: "var(--app-surface-light)",
+                  }}
+                />
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-xs font-semibold text-zinc-300">
+                  Description <span className="text-zinc-500 font-normal">(Optional)</span>
+                </label>
+                <textarea
+                  rows={2}
+                  value={newCatDesc}
+                  onChange={(e) => setNewCatDesc(e.target.value)}
+                  placeholder="Optional notes or details..."
+                  disabled={creatingCat}
+                  className="w-full resize-none rounded-lg border px-3.5 py-2 text-sm text-white placeholder-zinc-600 outline-none transition focus:border-[var(--app-accent)] focus:ring-1 focus:ring-[var(--app-accent)] disabled:opacity-50"
+                  style={{
+                    borderColor: "var(--app-border)",
+                    backgroundColor: "var(--app-surface-light)",
+                  }}
+                />
+              </div>
+
+              <div className="mt-6 flex items-center justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowCategoryModal(false)}
+                  disabled={creatingCat}
+                  className="rounded-lg border border-zinc-700 bg-zinc-800/60 px-4 py-2 text-xs font-semibold text-zinc-300 hover:bg-zinc-800 hover:text-white transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={creatingCat}
+                  className="inline-flex items-center gap-2 rounded-lg px-5 py-2 text-xs font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
+                  style={{ backgroundColor: "var(--app-accent)" }}
+                >
+                  {creatingCat && <RefreshCw className="h-3.5 w-3.5 animate-spin" />}
+                  <span>{creatingCat ? "Creating..." : "Create & Select"}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

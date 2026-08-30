@@ -25,6 +25,7 @@ import AddProduct from "./pages/AddProduct";
 import AdminActivity from "./pages/AdminActivity";
 import EditProduct from "./pages/EditProduct";
 import CustomerProfile from "./pages/CustomerProfile";
+import Categories from "./pages/Categories";
 
 const App = () => {
   return (
@@ -81,6 +82,22 @@ const App = () => {
             element={
               <ProtectedRoute>
                 <AddProduct />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/categories"
+            element={
+              <ProtectedRoute>
+                <Categories />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/products/categories"
+            element={
+              <ProtectedRoute>
+                <Categories />
               </ProtectedRoute>
             }
           />
