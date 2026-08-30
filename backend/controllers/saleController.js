@@ -222,14 +222,14 @@ export const createSale = async (req, res) => {
                 status: "completed"
             });
 
-            createdSale = await sale.save({ session });
+            const savedSale = await sale.save({ session });
 
             if (creditDoc) {
-                creditDoc.saleId = createdSale._id;
+                creditDoc.saleId = savedSale._id;
                 await creditDoc.save({ session });
             }
 
-            return createdSale;
+            return savedSale;
         });
 
         const populatedSale = await Sale.findById(createdSale._id)
