@@ -673,41 +673,41 @@ const EditProduct = () => {
 
       {/* Quick Add Category Modal */}
       {showCategoryModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm animate-in fade-in">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/75 p-0 sm:p-4 backdrop-blur-sm animate-in fade-in">
           <div
-            className="w-full max-w-md rounded-2xl border p-6 shadow-2xl"
+            className="w-full max-w-md rounded-t-2xl sm:rounded-2xl border p-5 sm:p-6 shadow-2xl max-h-[90vh] overflow-y-auto"
             style={{
               borderColor: "var(--app-border)",
               backgroundColor: "var(--app-surface)",
             }}
           >
-            <div className="flex items-center justify-between pb-4 border-b border-zinc-800">
-              <div className="flex items-center gap-2.5">
+            <div className="flex items-center justify-between pb-3.5 border-b border-zinc-800">
+              <div className="flex items-center gap-2.5 min-w-0">
                 <div
-                  className="flex h-9 w-9 items-center justify-center rounded-lg"
+                  className="flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-lg shrink-0"
                   style={{
                     backgroundColor: "var(--app-accent-soft)",
                     color: "var(--app-accent)",
                   }}
                 >
-                  <Plus className="h-5 w-5" />
+                  <Plus className="h-4 w-4 sm:h-5 sm:w-5" />
                 </div>
-                <div>
-                  <h2 className="text-lg font-bold text-white">Create New Category</h2>
-                  <p className="text-xs text-zinc-400">Instantly add and select this category</p>
+                <div className="min-w-0">
+                  <h2 className="text-base sm:text-lg font-bold text-white truncate">Create New Category</h2>
+                  <p className="text-[11px] sm:text-xs text-zinc-400 truncate">Instantly add and select this category</p>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => setShowCategoryModal(false)}
-                className="text-zinc-400 hover:text-white text-lg"
+                className="text-zinc-400 hover:text-white p-1 text-base shrink-0"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
 
             {catModalError && (
-              <div className="mt-4 flex items-center gap-2 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-300">
+              <div className="mt-3.5 flex items-center gap-2 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-300">
                 <AlertTriangle className="h-4 w-4 shrink-0 text-red-400" />
                 <span>{catModalError}</span>
               </div>
@@ -751,19 +751,19 @@ const EditProduct = () => {
                 />
               </div>
 
-              <div className="mt-6 flex items-center justify-end gap-3 pt-2">
+              <div className="mt-5 sm:mt-6 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2.5 sm:gap-3 pt-2">
                 <button
                   type="button"
                   onClick={() => setShowCategoryModal(false)}
                   disabled={creatingCat}
-                  className="rounded-lg border border-zinc-700 bg-zinc-800/60 px-4 py-2 text-xs font-semibold text-zinc-300 hover:bg-zinc-800 hover:text-white transition"
+                  className="w-full sm:w-auto rounded-lg border border-zinc-700 bg-zinc-800/60 px-4 py-2.5 sm:py-2 text-xs font-semibold text-zinc-300 hover:bg-zinc-800 hover:text-white transition text-center"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={creatingCat}
-                  className="inline-flex items-center gap-2 rounded-lg px-5 py-2 text-xs font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-lg px-5 py-2.5 sm:py-2 text-xs font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
                   style={{ backgroundColor: "var(--app-accent)" }}
                 >
                   {creatingCat && <RefreshCw className="h-3.5 w-3.5 animate-spin" />}
