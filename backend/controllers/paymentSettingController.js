@@ -12,11 +12,17 @@ export async function getPaymentSettings(req, res) {
       });
     }
 
+    const razorpayKeyId =
+      process.env.RAZORPAY_KEY_ID ||
+      process.env.VITE_RAZORPAY_KEY_ID ||
+      "";
+
     return res.status(200).json({
       success: true,
       settings: {
         razorpayEnabled: settings.razorpayEnabled,
         razorpayMessage: settings.razorpayMessage,
+        keyId: razorpayKeyId,
       },
     });
   } catch (err) {

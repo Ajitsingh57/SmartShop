@@ -49,17 +49,28 @@ const uploadPaymentProof = async (file) => {
   });
 };
 
-// Validate and retrieve credit record for payment
-const getCreditForPayment = async (creditId, session = null) => {
-  let query = Credit.findById(creditId);
-  if (session) query = query.session(session);
-  const credit = await query;
+// Validate and retrieve credit record for payment (supports specific ID or auto resolution)
+const getCreditForPayment = async (creditId, userId = null, session = null) => {
+  let credit = null;
+
+  if (!creditId || creditId === "general" || creditId === "all" || creditId === "auto") {
+    let query = Credit.findOne({
+      ...(userId ? { userId } : {}),
+      pendingAmount: { $gt: 0 },
+    }).sort({ dueDate: 1, createdAt: 1 });
+    if (session) query = query.session(session);
+    credit = await query;
+  } else {
+    let query = Credit.findById(creditId);
+    if (session) query = query.session(session);
+    credit = await query;
+  }
 
   if (!credit) {
     return {
       error: {
         status: 404,
-        message: "Credit record not found",
+        message: "No pending credit account found to apply payment towards",
       },
     };
   }
@@ -170,7 +181,10 @@ export async function createPayment(req, res) {
       });
     }
 
-    const { credit, pendingAmount, error } = await getCreditForPayment(creditId);
+    const { credit, pendingAmount, error } = await getCreditForPayment(
+      creditId,
+      isCustomer(req.user.role) ? req.user._id : null
+    );
     if (error) {
       return res.status(error.status).json({
         success: false,
@@ -229,30 +243,26 @@ export async function createPayment(req, res) {
 
     if (isCustomer(req.user.role)) {
       if (paymentMethod === "upi") {
-        if (!finalTransactionId) {
+        if (!finalTransactionId && !paymentProofFile) {
           return res.status(400).json({
             success: false,
-            message: "UPI transaction / UTR ID is required",
+            message: "Please provide either a UPI Transaction / UTR ID or payment screenshot",
           });
         }
 
-        if (!paymentProofFile) {
-          return res.status(400).json({
-            success: false,
-            message: "UPI payment screenshot is required",
-          });
+        if (paymentProofFile) {
+          try {
+            finalPaymentProof = await uploadPaymentProof(paymentProofFile);
+          } catch (uploadErr) {
+            console.warn("Screenshot upload warning:", uploadErr);
+          }
         }
-
-        finalPaymentProof = await uploadPaymentProof(paymentProofFile);
         finalClaimedReceiver = null;
       }
 
       if (paymentMethod === "cash") {
         if (!finalClaimedReceiver) {
-          return res.status(400).json({
-            success: false,
-            message: "Please specify who received the cash",
-          });
+          finalClaimedReceiver = "Store Counter / Staff";
         }
         finalTransactionId = null;
         finalPaymentProof = null;
@@ -336,7 +346,10 @@ export async function createRazorpayOrder(req, res) {
       });
     }
 
-    const { credit, pendingAmount, error } = await getCreditForPayment(creditId);
+    const { credit, pendingAmount, error } = await getCreditForPayment(
+      creditId,
+      req.user?._id
+    );
     if (error) {
       return res.status(error.status).json({
         success: false,
@@ -371,13 +384,20 @@ export async function createRazorpayOrder(req, res) {
       },
     });
 
+    const razorpayKeyId =
+      process.env.RAZORPAY_KEY_ID ||
+      process.env.VITE_RAZORPAY_KEY_ID ||
+      "";
+
     return res.status(201).json({
       success: true,
       message: "Razorpay order created successfully",
+      keyId: razorpayKeyId,
       order: {
         id: order.id,
         amount: order.amount,
         currency: order.currency,
+        key: razorpayKeyId,
       },
       credit: {
         id: credit._id,
