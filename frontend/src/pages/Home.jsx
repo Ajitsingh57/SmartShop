@@ -1,14 +1,84 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { Link } from "react-router-dom";
+import { ArrowRight, Sparkles, Layers, Package } from "lucide-react";
 import ProductCard from "../components/ProductCard";
 import { productsApi } from "../services/api";
 
+const getCategoryIcon = (categoryName) => {
+  const name = String(categoryName || "").toLowerCase();
+  if (name.includes("groc") || name.includes("kirana")) return "🛒";
+  if (
+    name.includes("bev") ||
+    name.includes("drink") ||
+    name.includes("juice") ||
+    name.includes("tea") ||
+    name.includes("coffee")
+  )
+    return "🥤";
+  if (
+    name.includes("snack") ||
+    name.includes("bisc") ||
+    name.includes("chip") ||
+    name.includes("namkeen")
+  )
+    return "🍪";
+  if (
+    name.includes("dairy") ||
+    name.includes("milk") ||
+    name.includes("paneer") ||
+    name.includes("cheese") ||
+    name.includes("butter")
+  )
+    return "🥛";
+  if (name.includes("bake") || name.includes("bread") || name.includes("cake"))
+    return "🍞";
+  if (name.includes("fruit") || name.includes("veg")) return "🍎";
+  if (
+    name.includes("person") ||
+    name.includes("care") ||
+    name.includes("soap") ||
+    name.includes("shampoo") ||
+    name.includes("beauty")
+  )
+    return "🧴";
+  if (
+    name.includes("house") ||
+    name.includes("clean") ||
+    name.includes("detergent")
+  )
+    return "🧹";
+  if (name.includes("kitch") || name.includes("cook")) return "🍳";
+  if (
+    name.includes("sweet") ||
+    name.includes("choc") ||
+    name.includes("candy") ||
+    name.includes("mithai")
+  )
+    return "🍬";
+  if (
+    name.includes("oil") ||
+    name.includes("ghee") ||
+    name.includes("masala") ||
+    name.includes("spice")
+  )
+    return "🧂";
+  if (
+    name.includes("grain") ||
+    name.includes("rice") ||
+    name.includes("flour") ||
+    name.includes("atta") ||
+    name.includes("dal")
+  )
+    return "🌾";
+  return "📦";
+};
+
 const Home = () => {
-  const [products, setProducts] = useState([]);
+  const [allProducts, setAllProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  // Load top featured products for homepage preview
+  // Load all products for live category extraction and featured preview
   useEffect(() => {
     const fetchProducts = async () => {
       try {
@@ -19,16 +89,16 @@ const Home = () => {
 
         const productList = Array.isArray(data)
           ? data
-          : Array.isArray(data.products)
+          : Array.isArray(data?.products)
           ? data.products
           : [];
 
-        setProducts(productList.slice(0, 4));
+        setAllProducts(productList);
       } catch (requestError) {
         console.error("Failed to fetch products:", requestError);
         setError(
-          requestError.message ||
-            "Featured products are unavailable right now. Please try again shortly."
+          requestError?.message ||
+            "Products are unavailable right now. Please try again shortly."
         );
       } finally {
         setLoading(false);
@@ -38,50 +108,36 @@ const Home = () => {
     fetchProducts();
   }, []);
 
-  const categories = [
-    {
-      name: "Groceries",
-      description: "Daily essentials & staples",
-      icon: "🛒",
-      path: "/products?category=Groceries",
-    },
-    {
-      name: "Beverages",
-      description: "Drinks, juices & refreshments",
-      icon: "🥤",
-      path: "/products?category=Beverages",
-    },
-    {
-      name: "Snacks",
-      description: "Biscuits, chips & namkeen",
-      icon: "🍪",
-      path: "/products?category=Snacks",
-    },
-    {
-      name: "Personal Care",
-      description: "Everyday personal essentials",
-      icon: "🧴",
-      path: "/products?category=Personal%20Care",
-    },
-    {
-      name: "Household",
-      description: "Cleaning & home essentials",
-      icon: "🧹",
-      path: "/products?category=Household",
-    },
-    {
-      name: "Kitchen",
-      description: "Kitchen essentials & utilities",
-      icon: "🍳",
-      path: "/products?category=Kitchen",
-    },
-  ];
+  // Dynamically extract only categories that actually have products
+  const dynamicCategories = useMemo(() => {
+    const counts = {};
+    allProducts.forEach((product) => {
+      const cat = String(product?.category || "").trim();
+      if (cat) {
+        counts[cat] = (counts[cat] || 0) + 1;
+      }
+    });
+
+    return Object.entries(counts)
+      .sort((a, b) => b[1] - a[1]) // Highest product count first
+      .map(([name, count]) => ({
+        name,
+        count,
+        icon: getCategoryIcon(name),
+        path: `/products?category=${encodeURIComponent(name)}`,
+      }));
+  }, [allProducts]);
+
+  // Featured products (top 8 items)
+  const featuredProducts = useMemo(() => {
+    return allProducts.slice(0, 8);
+  }, [allProducts]);
 
   return (
-    <div className="w-full px-4 sm:px-6 md:px-[50px]">
+    <div className="w-full px-4 sm:px-6 md:px-[50px] pb-16">
       {/* Hero greeting banner */}
       <div
-        className="relative mb-8 overflow-hidden rounded-xl border border-white/5 px-5 py-14 text-center text-white shadow-[0_10px_40px_rgba(0,0,0,0.5)] sm:mb-[50px] sm:rounded-[16px] sm:px-[30px] sm:py-[100px]"
+        className="relative mb-10 overflow-hidden rounded-2xl border border-white/5 px-6 py-12 text-center text-white shadow-[0_10px_40px_rgba(0,0,0,0.5)] sm:mb-14 sm:rounded-3xl sm:px-10 sm:py-20"
         style={{
           background:
             "radial-gradient(circle at top right, var(--app-accent-soft), transparent 60%), linear-gradient(135deg, var(--app-surface-light) 0%, var(--app-surface) 100%)",
@@ -90,93 +146,171 @@ const Home = () => {
         <div className="pointer-events-none absolute -right-16 -top-20 h-56 w-56 rounded-full bg-[var(--app-accent-soft)] blur-3xl" />
         <div className="pointer-events-none absolute -right-5 -top-9 h-36 w-36 rounded-full border border-[var(--app-accent-border)]" />
 
-        <h1 className="relative z-10 mb-4 text-3xl font-bold text-white sm:mb-5 sm:text-5xl md:text-[3.5rem]">
-          Welcome to SmartShop
-        </h1>
-        <p className="relative z-10 text-sm text-zinc-300 sm:text-lg">
-          Everything you need, all in one place.
-        </p>
-      </div>
-
-      <div className="mt-8 sm:mt-10">
-        <h2 className="text-2xl font-bold text-white">Shop by Category</h2>
-        <p className="mt-2 text-sm text-zinc-500 sm:text-base">
-          Find your everyday essentials quickly and easily.
-        </p>
-      </div>
-
-      {/* Categories browser cards */}
-      <div className="mt-5 grid grid-cols-1 gap-4 sm:mt-6 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3">
-        {categories.map((category) => (
-          <Link
-            key={category.name}
-            to={category.path}
-            className="group cursor-pointer rounded-xl border border-white/5 bg-gradient-to-br from-zinc-900 to-zinc-950 p-5 text-center shadow-[0_4px_20px_rgba(0,0,0,0.3)] transition-all duration-300 hover:-translate-y-1.5 hover:border-[var(--app-accent-border)] sm:rounded-[16px] sm:p-[30px]"
+        <div className="relative z-10 mx-auto max-w-3xl">
+          <span
+            className="mb-4 inline-flex items-center gap-1.5 rounded-full px-3.5 py-1 text-xs font-semibold uppercase tracking-wider backdrop-blur-md shadow-sm"
             style={{
-              boxShadow: "0 4px 20px rgba(0,0,0,0.3)",
+              backgroundColor: "var(--app-accent-soft)",
+              color: "var(--app-accent)",
+              border: "1px solid var(--app-accent-border)",
             }}
           >
-            <div className="mb-3 text-4xl transition-transform duration-300 group-hover:scale-110 sm:mb-4 sm:text-5xl">
-              {category.icon}
-            </div>
-            <h3 className="mb-2 text-xl font-semibold text-white transition-colors duration-300 group-hover:text-[var(--app-accent)] sm:text-[1.3rem]">
-              {category.name}
-            </h3>
-            <p className="text-sm text-zinc-400 sm:text-[0.95rem]">
-              {category.description}
-            </p>
-          </Link>
-        ))}
+            <Sparkles className="h-3.5 w-3.5" />
+            Smart Retail & Inventory
+          </span>
+
+          <h1 className="mb-4 text-3xl font-black tracking-tight text-white sm:text-5xl md:text-6xl">
+            Welcome to SmartShop<span style={{ color: "var(--app-accent)" }}>.</span>
+          </h1>
+
+          <p className="mx-auto max-w-xl text-sm leading-relaxed text-zinc-300 sm:text-base md:text-lg">
+            Explore fresh inventory, transparent pricing, and instant availability from your local favorite shop.
+          </p>
+        </div>
       </div>
 
-      {/* Featured product list */}
-      <h2 className="mt-10 text-2xl font-bold text-white sm:mt-[50px]">
-        Featured Products
-      </h2>
-
-      {loading && (
-        <p className="py-10 text-center text-zinc-400">Loading products...</p>
-      )}
-
-      {!loading && error && (
-        <div className="py-10 text-center">
-          <p className="mb-4 text-red-400" role="alert">
-            {error}
-          </p>
-          <button
-            type="button"
-            onClick={() => window.location.reload()}
-            className="rounded-md bg-[var(--app-accent)] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[var(--app-accent-hover)]"
-          >
-            Try Again
-          </button>
+      {/* Categories Header */}
+      <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2">
+            <span className="flex h-2 w-2 rounded-full" style={{ backgroundColor: "var(--app-accent)" }} />
+            <p className="text-xs font-bold uppercase tracking-widest text-zinc-400">
+              Active Departments
+            </p>
+          </div>
+          <h2 className="mt-1 text-2xl font-bold tracking-tight text-white sm:text-3xl">
+            Shop by Category
+          </h2>
         </div>
-      )}
 
-      {!loading && !error && products.length === 0 && (
-        <p className="py-10 text-center text-zinc-400">
-          No featured products are available yet.
-        </p>
-      )}
+        {dynamicCategories.length > 0 && (
+          <p className="text-xs font-medium text-zinc-500">
+            {dynamicCategories.length} {dynamicCategories.length === 1 ? "Category" : "Categories"} available
+          </p>
+        )}
+      </div>
 
-      {!loading && !error && products.length > 0 && (
-        <div className="mt-5 grid grid-cols-1 gap-5 sm:mt-[30px] sm:grid-cols-2 sm:gap-[30px] lg:grid-cols-3 xl:grid-cols-4">
-          {products.map((product) => (
-            <ProductCard key={product._id} product={product} />
+      {/* Dynamic Categories Grid */}
+      {loading ? (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {[1, 2, 3, 4].map((n) => (
+            <div
+              key={n}
+              className="h-28 animate-pulse rounded-2xl border border-white/5 bg-zinc-900/60 p-5"
+            />
           ))}
         </div>
-      )}
+      ) : dynamicCategories.length > 0 ? (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {dynamicCategories.map((category) => (
+            <Link
+              key={category.name}
+              to={category.path}
+              className="group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-white/[0.08] bg-gradient-to-br from-zinc-900/80 via-zinc-900/50 to-zinc-950/90 p-5 backdrop-blur-xl transition-all duration-300 hover:-translate-y-1 hover:border-[var(--app-accent-border)] hover:bg-zinc-900 hover:shadow-[0_12px_30px_rgba(0,0,0,0.5),0_0_24px_var(--app-accent-soft)]"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] text-2xl shadow-inner transition-transform duration-300 group-hover:scale-110 group-hover:border-[var(--app-accent-border)]">
+                  {category.icon}
+                </div>
 
-      {!loading && !error && products.length > 0 && (
-        <div className="mt-6 text-center sm:mt-7">
-          <Link
-            to="/products"
-            className="inline-block rounded-md bg-[var(--app-accent)] px-6 py-3 font-semibold text-white transition-all duration-300 hover:-translate-y-[1px] hover:bg-[var(--app-accent-hover)]"
-          >
-            View All Products
-          </Link>
+                <span className="rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-0.5 text-[11px] font-semibold text-zinc-400 transition-colors group-hover:border-[var(--app-accent-border)] group-hover:text-white">
+                  {category.count} {category.count === 1 ? "Product" : "Products"}
+                </span>
+              </div>
+
+              <div className="mt-4">
+                <h3 className="text-lg font-bold tracking-tight text-white transition-colors duration-200 group-hover:text-[var(--app-accent)]">
+                  {category.name}
+                </h3>
+                <p className="mt-1 flex items-center gap-1 text-xs font-medium text-zinc-500 transition-colors group-hover:text-zinc-300">
+                  <span>View products</span>
+                  <ArrowRight className="h-3 w-3 transition-transform duration-200 group-hover:translate-x-1" />
+                </p>
+              </div>
+            </Link>
+          ))}
+        </div>
+      ) : (
+        <div className="rounded-2xl border border-dashed border-zinc-800 p-8 text-center text-zinc-500">
+          <Layers className="mx-auto mb-2 h-8 w-8 text-zinc-600" />
+          <p className="text-sm font-medium text-zinc-400">No active categories found</p>
+          <p className="mt-1 text-xs text-zinc-600">Categories will appear automatically as products are added.</p>
         </div>
       )}
+
+      {/* Featured Products Section */}
+      <div className="mt-14 sm:mt-16">
+        <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="flex h-2 w-2 rounded-full" style={{ backgroundColor: "var(--app-accent)" }} />
+              <p className="text-xs font-bold uppercase tracking-widest text-zinc-400">
+                Fresh In Store
+              </p>
+            </div>
+            <h2 className="mt-1 text-2xl font-bold tracking-tight text-white sm:text-3xl">
+              Featured Products
+            </h2>
+          </div>
+
+          <Link
+            to="/products"
+            className="inline-flex items-center gap-1 text-xs font-bold transition-colors hover:underline"
+            style={{ color: "var(--app-accent)" }}
+          >
+            View All ({allProducts.length}) →
+          </Link>
+        </div>
+
+        {loading && (
+          <div className="py-12 text-center text-zinc-500">
+            <Package className="mx-auto mb-2 h-8 w-8 animate-spin text-[var(--app-accent)]" />
+            <p className="text-sm font-medium">Loading products...</p>
+          </div>
+        )}
+
+        {!loading && error && (
+          <div className="rounded-2xl border border-red-500/20 bg-red-500/5 py-10 text-center">
+            <p className="mb-3 text-sm text-red-400" role="alert">
+              {error}
+            </p>
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              className="rounded-lg bg-[var(--app-accent)] px-4 py-2 text-xs font-semibold text-white transition hover:opacity-90"
+            >
+              Try Again
+            </button>
+          </div>
+        )}
+
+        {!loading && !error && featuredProducts.length === 0 && (
+          <p className="py-12 text-center text-sm text-zinc-500">
+            No featured products are available yet.
+          </p>
+        )}
+
+        {!loading && !error && featuredProducts.length > 0 && (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 sm:gap-6">
+            {featuredProducts.map((product) => (
+              <ProductCard key={product._id} product={product} />
+            ))}
+          </div>
+        )}
+
+        {!loading && !error && allProducts.length > 8 && (
+          <div className="mt-10 text-center">
+            <Link
+              to="/products"
+              className="inline-flex items-center gap-2 rounded-xl px-7 py-3 text-sm font-bold text-white shadow-lg transition-all duration-300 hover:-translate-y-0.5"
+              style={{ backgroundColor: "var(--app-accent)" }}
+            >
+              Explore All {allProducts.length} Products
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          </div>
+        )}
+      </div>
     </div>
   );
 };
