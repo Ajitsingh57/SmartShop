@@ -1,6 +1,12 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
 import { adminsApi } from "../services/api";
+import {
+  isValidName,
+  isValidUsername,
+  sanitizeNameInput,
+  sanitizeUsernameInput,
+} from "../utils/validators";
 
 const Admins = () => {
   const [activeTab, setActiveTab] = useState("accounts");
@@ -136,7 +142,22 @@ const Admins = () => {
   const handleAddSubmit = async (e) => {
     e.preventDefault();
     if (!form.name.trim() || !form.username.trim() || !form.password) {
-      setError("Please fill in all fields.");
+      setError("Please fill in all required fields.");
+      return;
+    }
+
+    if (!isValidName(form.name)) {
+      setError("Please enter a valid full name (letters only, min 2 characters, no numbers).");
+      return;
+    }
+
+    if (!isValidUsername(form.username)) {
+      setError("Username must be 3-30 characters with letters and numbers (no special characters).");
+      return;
+    }
+
+    if (form.password.length < 6) {
+      setError("Password must be at least 6 characters long.");
       return;
     }
 
@@ -181,6 +202,21 @@ const Admins = () => {
   const handleEditSubmit = async (e) => {
     e.preventDefault();
     if (!selectedAdmin) return;
+
+    if (!editForm.name.trim() || !isValidName(editForm.name)) {
+      setError("Please enter a valid full name (letters only, min 2 characters, no numbers).");
+      return;
+    }
+
+    if (!editForm.username.trim() || !isValidUsername(editForm.username)) {
+      setError("Username must be 3-30 characters with letters and numbers (no special characters).");
+      return;
+    }
+
+    if (editForm.password && editForm.password.length < 6) {
+      setError("New password must be at least 6 characters long.");
+      return;
+    }
 
     try {
       setSubmitting(true);
@@ -691,9 +727,9 @@ const Admins = () => {
                   <input
                     type="text"
                     required
-                    placeholder="Admin name..."
+                    placeholder="Admin name (letters only)..."
                     value={form.name}
-                    onChange={(e) => setForm({ ...form, name: e.target.value })}
+                    onChange={(e) => setForm({ ...form, name: sanitizeNameInput(e.target.value) })}
                     className="w-full rounded-lg border p-3 text-sm text-white outline-none"
                     style={{ borderColor: "var(--app-border)", backgroundColor: "var(--app-surface-light)" }}
                   />
@@ -704,9 +740,9 @@ const Admins = () => {
                   <input
                     type="text"
                     required
-                    placeholder="e.g. rahul.admin"
+                    placeholder="e.g. rahul_admin"
                     value={form.username}
-                    onChange={(e) => setForm({ ...form, username: e.target.value })}
+                    onChange={(e) => setForm({ ...form, username: sanitizeUsernameInput(e.target.value) })}
                     className="w-full rounded-lg border p-3 text-sm text-white outline-none"
                     style={{ borderColor: "var(--app-border)", backgroundColor: "var(--app-surface-light)" }}
                   />
@@ -771,8 +807,9 @@ const Admins = () => {
                   <input
                     type="text"
                     required
+                    placeholder="Admin name (letters only)..."
                     value={editForm.name}
-                    onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                    onChange={(e) => setEditForm({ ...editForm, name: sanitizeNameInput(e.target.value) })}
                     className="w-full rounded-lg border p-3 text-sm text-white outline-none"
                     style={{ borderColor: "var(--app-border)", backgroundColor: "var(--app-surface-light)" }}
                   />
@@ -783,8 +820,9 @@ const Admins = () => {
                   <input
                     type="text"
                     required
+                    placeholder="e.g. rahul_admin"
                     value={editForm.username}
-                    onChange={(e) => setEditForm({ ...editForm, username: e.target.value })}
+                    onChange={(e) => setEditForm({ ...editForm, username: sanitizeUsernameInput(e.target.value) })}
                     className="w-full rounded-lg border p-3 text-sm text-white outline-none"
                     style={{ borderColor: "var(--app-border)", backgroundColor: "var(--app-surface-light)" }}
                   />

@@ -15,9 +15,14 @@ import {
   User,
   Mail,
   HelpCircle,
-  Trash2,
 } from "lucide-react";
 import { productRequestsApi, authApi } from "../services/api";
+import {
+  isValidName,
+  isValidPhone,
+  sanitizeNameInput,
+  sanitizePhoneInput,
+} from "../utils/validators";
 
 const UNIT_OPTIONS = [
   "kg",
@@ -168,8 +173,13 @@ const ProductRequestModal = ({ isOpen, onClose, initialProduct = null }) => {
       return;
     }
 
-    if (!customerName.trim() || !customerPhone.trim()) {
-      setError("Please provide your name and phone number so the shopkeeper can reach you.");
+    if (!customerName.trim() || !isValidName(customerName)) {
+      setError("Please provide a valid full name (letters only, no numbers).");
+      return;
+    }
+
+    if (!customerPhone.trim() || !isValidPhone(customerPhone)) {
+      setError("Please provide a valid 10-digit mobile number so the shopkeeper can reach you.");
       return;
     }
 
@@ -530,9 +540,9 @@ const ProductRequestModal = ({ isOpen, onClose, initialProduct = null }) => {
                   <input
                     type="text"
                     required
-                    placeholder="Your Name"
+                    placeholder="Your Name (letters only)"
                     value={customerName}
-                    onChange={(e) => setCustomerName(e.target.value)}
+                    onChange={(e) => setCustomerName(sanitizeNameInput(e.target.value))}
                     className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-1.5 text-xs text-white outline-none focus:border-amber-500"
                   />
                 </div>
@@ -543,10 +553,11 @@ const ProductRequestModal = ({ isOpen, onClose, initialProduct = null }) => {
                   </label>
                   <input
                     type="tel"
+                    maxLength={10}
                     required
                     placeholder="10-digit mobile number"
                     value={customerPhone}
-                    onChange={(e) => setCustomerPhone(e.target.value)}
+                    onChange={(e) => setCustomerPhone(sanitizePhoneInput(e.target.value))}
                     className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-1.5 text-xs text-white outline-none focus:border-amber-500"
                   />
                 </div>

@@ -6,6 +6,7 @@ import Return from "../models/returnModel.js";
 import Product from "../models/productModel.js";
 import Activity from "../models/activityModel.js";
 import { logAdminActivity } from "../utils/activityLogger.js";
+import { isValidName, isValidPhone, isValidUsername } from "../utils/helpers.js";
 
 // Fetch all admin accounts (superadmin only)
 export const getAllAdmins = async (req, res) => {
@@ -112,17 +113,24 @@ export const updateMyAdminProfile = async (req, res) => {
         }
 
         if (name !== undefined) {
-            if (!name.trim()) {
+            if (!isValidName(name)) {
                 return res.status(400).json({
                     success: false,
-                    message: "Name cannot be empty"
+                    message: "Please enter a valid full name (letters only, min 2 characters, no numbers)"
                 });
             }
             user.name = name.trim();
         }
 
         if (phone !== undefined) {
-            user.phone = phone ? phone.trim() : undefined;
+            const normalizedPhone = phone ? phone.trim().replace(/[\s\-()]/g, "") : "";
+            if (normalizedPhone && !isValidPhone(normalizedPhone)) {
+                return res.status(400).json({
+                    success: false,
+                    message: "Please enter a valid 10-digit mobile number (digits only)"
+                });
+            }
+            user.phone = normalizedPhone || undefined;
         }
 
         await user.save();
@@ -149,10 +157,24 @@ export const createAdmin = async (req, res) => {
     try {
         const { name, username, password } = req.body;
 
-        if (!name || !username || !password) {
+        if (!name || !isValidName(name)) {
             return res.status(400).json({
                 success: false,
-                message: "Name, username and password are required"
+                message: "Please enter a valid name (letters only, min 2 characters, no numbers)"
+            });
+        }
+
+        if (!username || !isValidUsername(username)) {
+            return res.status(400).json({
+                success: false,
+                message: "Username must be 3-30 characters with letters and numbers (no special characters)"
+            });
+        }
+
+        if (!password || password.length < 6) {
+            return res.status(400).json({
+                success: false,
+                message: "Password must be at least 6 characters long"
             });
         }
 
@@ -223,20 +245,20 @@ export const updateAdmin = async (req, res) => {
         }
 
         if (name !== undefined) {
-            if (!name.trim()) {
+            if (!isValidName(name)) {
                 return res.status(400).json({
                     success: false,
-                    message: "Name cannot be empty"
+                    message: "Please enter a valid name (letters only, min 2 characters, no numbers)"
                 });
             }
             admin.name = name.trim();
         }
 
         if (username !== undefined) {
-            if (!username.trim()) {
+            if (!isValidUsername(username)) {
                 return res.status(400).json({
                     success: false,
-                    message: "Username cannot be empty"
+                    message: "Username must be 3-30 characters with letters and numbers (no special characters)"
                 });
             }
 
@@ -255,11 +277,11 @@ export const updateAdmin = async (req, res) => {
             admin.username = username.trim();
         }
 
-        if (password !== undefined) {
-            if (!password.trim()) {
+        if (password !== undefined && password) {
+            if (password.length < 6) {
                 return res.status(400).json({
                     success: false,
-                    message: "Password cannot be empty"
+                    message: "Password must be at least 6 characters long"
                 });
             }
             admin.password = await bcrypt.hash(password, 10);

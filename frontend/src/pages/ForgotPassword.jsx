@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Eye, EyeOff, ArrowLeft, CheckCircle2 } from "lucide-react";
 import { authApi } from "../services/api";
+import { isValidEmail, isValidPhone } from "../utils/validators";
 
 const ForgotPassword = () => {
   const navigate = useNavigate();
@@ -27,8 +28,19 @@ const ForgotPassword = () => {
     setError("");
     setSuccess("");
 
-    if (!identifier.trim()) {
-      setError("Please enter your email or phone number.");
+    const trimmedId = identifier.trim();
+    if (!trimmedId) {
+      setError("Please enter your registered email or 10-digit phone number.");
+      return;
+    }
+
+    const isDigitsOnly = /^[\d+\-\s]+$/.test(trimmedId);
+    if (isDigitsOnly && !isValidPhone(trimmedId)) {
+      setError("Please enter a valid 10-digit mobile number.");
+      return;
+    }
+    if (trimmedId.includes("@") && !isValidEmail(trimmedId)) {
+      setError("Please enter a valid email address.");
       return;
     }
 

@@ -2,6 +2,13 @@ import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Eye, EyeOff } from "lucide-react";
 import { authApi, authStorage } from "../services/api";
+import {
+  isValidName,
+  isValidPhone,
+  isValidEmail,
+  sanitizeNameInput,
+  sanitizePhoneInput,
+} from "../utils/validators";
 
 const Signup = () => {
   const navigate = useNavigate();
@@ -23,13 +30,23 @@ const Signup = () => {
     e.preventDefault();
     setError("");
 
-    if (!name.trim()) {
-      setError("Please enter your full name.");
+    if (!name.trim() || !isValidName(name)) {
+      setError("Please enter a valid full name (letters only, min 2 characters, no numbers).");
       return;
     }
 
     if (!email.trim() && !phone.trim()) {
-      setError("Please enter at least one of email or phone number.");
+      setError("Please enter at least one of email or 10-digit phone number.");
+      return;
+    }
+
+    if (phone.trim() && !isValidPhone(phone)) {
+      setError("Please enter a valid 10-digit mobile number (numbers only).");
+      return;
+    }
+
+    if (email.trim() && !isValidEmail(email)) {
+      setError("Please enter a valid email address.");
       return;
     }
 
@@ -39,7 +56,7 @@ const Signup = () => {
     }
 
     if (password.length < 6) {
-      setError("Password must be at least 6 characters.");
+      setError("Password must be at least 6 characters long.");
       return;
     }
 
@@ -141,10 +158,10 @@ const Signup = () => {
             <input
               id="name"
               type="text"
-              placeholder="Enter your full name"
+              placeholder="Enter your full name (letters only)"
               value={name}
               onChange={(e) => {
-                setName(e.target.value);
+                setName(sanitizeNameInput(e.target.value));
                 if (error) setError("");
               }}
               required
@@ -173,17 +190,18 @@ const Signup = () => {
               className="mb-1.5 flex items-center justify-between text-sm font-medium"
               style={{ color: "var(--app-text-secondary)" }}
             >
-              <span>Phone Number</span>
+              <span>Phone Number (10 Digits)</span>
               <span className="text-[11px] text-zinc-500">Required if no email</span>
             </label>
 
             <input
               id="phone"
               type="tel"
-              placeholder="e.g. 9876543210"
+              maxLength={10}
+              placeholder="e.g. 9876543210 (10 digits)"
               value={phone}
               onChange={(e) => {
-                setPhone(e.target.value);
+                setPhone(sanitizePhoneInput(e.target.value));
                 if (error) setError("");
               }}
               autoComplete="tel"

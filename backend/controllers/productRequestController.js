@@ -2,6 +2,7 @@ import ProductRequest from "../models/productRequestModel.js";
 import Product from "../models/productModel.js";
 import cloudinary from "../config/cloudinary.js";
 import { logAdminActivity } from "../utils/activityLogger.js";
+import { isValidName, isValidPhone } from "../utils/helpers.js";
 
 // Customer submits a product request (restock or new product) with optional image
 export async function createProductRequest(req, res) {
@@ -22,20 +23,20 @@ export async function createProductRequest(req, res) {
 
     const loggedInUser = req.user || null;
     const finalName = customerName?.trim() || loggedInUser?.name || loggedInUser?.username || "";
-    const finalPhone = customerPhone?.trim() || loggedInUser?.phone || "";
+    const finalPhone = (customerPhone?.trim() || loggedInUser?.phone || "").replace(/[\s\-()]/g, "");
     const finalEmail = customerEmail?.trim() || loggedInUser?.email || "";
 
-    if (!finalName) {
+    if (!finalName || !isValidName(finalName)) {
       return res.status(400).json({
         success: false,
-        message: "Customer name is required",
+        message: "Please enter a valid customer name (letters only, min 2 characters, no numbers)",
       });
     }
 
-    if (!finalPhone) {
+    if (!finalPhone || !isValidPhone(finalPhone)) {
       return res.status(400).json({
         success: false,
-        message: "Customer phone number is required",
+        message: "Please enter a valid 10-digit customer mobile number",
       });
     }
 

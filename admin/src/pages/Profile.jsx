@@ -1,5 +1,11 @@
 import React, { useEffect, useState } from "react";
 import { adminsApi, authStorage } from "../services/api";
+import {
+  isValidName,
+  isValidPhone,
+  sanitizeNameInput,
+  sanitizePhoneInput,
+} from "../utils/validators";
 
 const Profile = () => {
   const [admin, setAdmin] = useState(null);
@@ -83,8 +89,13 @@ const Profile = () => {
 
   const handleUpdateProfile = async (e) => {
     e.preventDefault();
-    if (!form.name.trim()) {
-      setError("Name cannot be empty.");
+    if (!form.name.trim() || !isValidName(form.name)) {
+      setError("Please enter a valid full name (letters only, min 2 characters, no numbers).");
+      return;
+    }
+
+    if (form.phone.trim() && !isValidPhone(form.phone)) {
+      setError("Please enter a valid 10-digit mobile number (digits only).");
       return;
     }
 
@@ -95,7 +106,7 @@ const Profile = () => {
 
       const response = await adminsApi.updateMyProfile({
         name: form.name.trim(),
-        phone: form.phone.trim(),
+        phone: form.phone.trim() ? form.phone.trim().replace(/[\s\-()]/g, "") : "",
       });
 
       setMessage(response?.message || "Profile updated successfully.");
@@ -274,20 +285,22 @@ const Profile = () => {
                   <input
                     type="text"
                     required
+                    placeholder="Full name (letters only)..."
                     value={form.name}
-                    onChange={(e) => setForm({ ...form, name: e.target.value })}
+                    onChange={(e) => setForm({ ...form, name: sanitizeNameInput(e.target.value) })}
                     className="w-full rounded-lg border p-3 text-sm text-white outline-none"
                     style={{ borderColor: "var(--app-border)", backgroundColor: "var(--app-surface-light)" }}
                   />
                 </div>
 
                 <div>
-                  <label className="mb-1 block text-xs font-semibold text-zinc-400">Phone Number</label>
+                  <label className="mb-1 block text-xs font-semibold text-zinc-400">Phone Number (10 Digits)</label>
                   <input
-                    type="text"
-                    placeholder="Enter phone number..."
+                    type="tel"
+                    maxLength={10}
+                    placeholder="Enter 10-digit mobile number..."
                     value={form.phone}
-                    onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                    onChange={(e) => setForm({ ...form, phone: sanitizePhoneInput(e.target.value) })}
                     className="w-full rounded-lg border p-3 text-sm text-white outline-none"
                     style={{ borderColor: "var(--app-border)", backgroundColor: "var(--app-surface-light)" }}
                   />

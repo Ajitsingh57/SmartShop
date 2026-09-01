@@ -6,6 +6,12 @@ import {
   salesApi,
   creditsApi,
 } from "../services/api";
+import {
+  isValidName,
+  isValidPhone,
+  sanitizeNameInput,
+  sanitizePhoneInput,
+} from "../utils/validators";
 
 const Profile = () => {
   const [user, setUser] = useState(null);
@@ -116,8 +122,8 @@ const Profile = () => {
     setMessage("");
 
     const trimmedName = name.trim();
-    if (!trimmedName) {
-      setError("Name cannot be empty.");
+    if (!trimmedName || !isValidName(trimmedName)) {
+      setError("Please enter a valid full name (letters only, min 2 characters, no numbers).");
       return;
     }
 
@@ -188,14 +194,9 @@ const Profile = () => {
     setError("");
     setMessage("");
 
-    const trimmedPhone = phone.trim();
-    if (!trimmedPhone) {
-      setError("Phone number cannot be empty.");
-      return;
-    }
-
-    if (!/^[0-9+\-\s()]{7,20}$/.test(trimmedPhone)) {
-      setError("Please enter a valid phone number.");
+    const trimmedPhone = phone.trim().replace(/[\s\-()]/g, "");
+    if (!trimmedPhone || !isValidPhone(trimmedPhone)) {
+      setError("Please enter a valid 10-digit mobile number (digits only).");
       return;
     }
 
@@ -410,9 +411,10 @@ const Profile = () => {
                       <input
                         type="text"
                         value={name}
-                        onChange={(e) => setName(e.target.value)}
+                        onChange={(e) => setName(sanitizeNameInput(e.target.value))}
                         autoFocus
                         disabled={loading}
+                        placeholder="Enter full name (letters only)"
                         className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-4 py-3 text-sm text-white outline-none transition focus:border-[var(--app-accent-border)] focus:ring-1 focus:ring-[var(--app-accent-soft)]"
                       />
 
@@ -472,11 +474,12 @@ const Profile = () => {
                 <form onSubmit={handlePhoneUpdate} className="mt-3">
                   <input
                     type="tel"
+                    maxLength={10}
                     value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
+                    onChange={(e) => setPhone(sanitizePhoneInput(e.target.value))}
                     autoFocus
                     disabled={loading}
-                    placeholder="Enter phone number"
+                    placeholder="Enter 10-digit phone number"
                     className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-4 py-3 text-sm text-white placeholder:text-zinc-600 outline-none transition focus:border-[var(--app-accent-border)] focus:ring-1 focus:ring-[var(--app-accent-soft)]"
                   />
 

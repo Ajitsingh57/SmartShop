@@ -2,6 +2,7 @@ import React, { useEffect, useState, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { ArrowRight, Sparkles, Layers, Package } from "lucide-react";
 import ProductCard from "../components/ProductCard";
+import ProductRequestModal from "../components/ProductRequestModal";
 import { productsApi } from "../services/api";
 
 const getCategoryIcon = (categoryName) => {
@@ -77,6 +78,15 @@ const Home = () => {
   const [allProducts, setAllProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+
+  // Product request modal state
+  const [requestModalOpen, setRequestModalOpen] = useState(false);
+  const [selectedRequestProduct, setSelectedRequestProduct] = useState(null);
+
+  const handleRestockProduct = (product) => {
+    setSelectedRequestProduct(product);
+    setRequestModalOpen(true);
+  };
 
   // Load all products for live category extraction and featured preview
   useEffect(() => {
@@ -296,7 +306,11 @@ const Home = () => {
         {!loading && !error && featuredProducts.length > 0 && (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 sm:gap-6">
             {featuredProducts.map((product) => (
-              <ProductCard key={product._id} product={product} />
+              <ProductCard
+                key={product._id}
+                product={product}
+                onRequestRestock={handleRestockProduct}
+              />
             ))}
           </div>
         )}
@@ -314,6 +328,16 @@ const Home = () => {
           </div>
         )}
       </div>
+
+      {/* Product Request / Restock Modal */}
+      <ProductRequestModal
+        isOpen={requestModalOpen}
+        onClose={() => {
+          setRequestModalOpen(false);
+          setSelectedRequestProduct(null);
+        }}
+        initialProduct={selectedRequestProduct}
+      />
     </div>
   );
 };

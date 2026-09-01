@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Eye, EyeOff } from "lucide-react";
 import { authApi, authStorage } from "../services/api";
+import { isValidEmail, isValidPhone } from "../utils/validators";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -19,8 +20,22 @@ const Login = () => {
 
     const trimmedId = identifier.trim();
     if (!trimmedId) {
-      setError("Please enter your email or phone number.");
+      setError("Please enter your registered email or 10-digit mobile number.");
       return;
+    }
+
+    // If identifier contains letters without @, check if it's an invalid phone or email
+    const isDigitsOnly = /^[\d+\-\s]+$/.test(trimmedId);
+    if (isDigitsOnly) {
+      if (!isValidPhone(trimmedId)) {
+        setError("Please enter a valid 10-digit mobile number.");
+        return;
+      }
+    } else if (trimmedId.includes("@")) {
+      if (!isValidEmail(trimmedId)) {
+        setError("Please enter a valid email address.");
+        return;
+      }
     }
 
     if (!password) {

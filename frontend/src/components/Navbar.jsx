@@ -35,7 +35,6 @@ const Navbar = () => {
   const publicNavItems = [
     { name: "Home", path: "/" },
     { name: "Products", path: "/products" },
-    { name: "About", path: "/about" },
   ];
 
   // Protected customer items (ONLY visible when authenticated)

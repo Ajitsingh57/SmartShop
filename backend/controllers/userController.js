@@ -10,6 +10,7 @@ import Sale from "../models/saleModel.js";
 import Return from "../models/returnModel.js";
 import { calculateCustomerTrustScoreAndLimits, syncCustomerTrustAndLimits } from "../utils/trustScoreEngine.js";
 import { logAdminActivity } from "../utils/activityLogger.js";
+import { isValidName, isValidPhone, isValidUsername, isValidEmail } from "../utils/helpers.js";
 
 const TOKEN_EXPIRES_IN = "24h";
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -21,17 +22,17 @@ export async function register(req, res) {
     try {
         const { name, email, phone, password, username } = req.body;
 
-        if (!name || !password) {
+        if (!name || !isValidName(name)) {
             return res.status(400).json({
                 success: false,
-                message: "Name and password are required"
+                message: "Please enter a valid full name (letters only, min 2 characters, no numbers)"
             });
         }
 
-        if (!name.trim()) {
+        if (!password) {
             return res.status(400).json({
                 success: false,
-                message: "Name cannot be empty"
+                message: "Password is required"
             });
         }
 
@@ -43,22 +44,28 @@ export async function register(req, res) {
         }
 
         const normalizedEmail = email ? email.trim().toLowerCase() : undefined;
-        if (normalizedEmail && !validator.isEmail(normalizedEmail)) {
+        if (normalizedEmail && !isValidEmail(normalizedEmail)) {
             return res.status(400).json({
                 success: false,
-                message: "Invalid email"
+                message: "Please enter a valid email address"
             });
         }
 
-        const normalizedPhone = phone ? phone.trim() : undefined;
-        if (normalizedPhone && !validator.isMobilePhone(normalizedPhone, "any")) {
+        const normalizedPhone = phone ? phone.trim().replace(/[\s\-()]/g, "") : undefined;
+        if (normalizedPhone && !isValidPhone(normalizedPhone)) {
             return res.status(400).json({
                 success: false,
-                message: "Invalid phone number"
+                message: "Please enter a valid 10-digit mobile number (digits only)"
             });
         }
 
         const normalizedUsername = username ? username.trim() : undefined;
+        if (normalizedUsername && !isValidUsername(normalizedUsername)) {
+            return res.status(400).json({
+                success: false,
+                message: "Username must be 3-30 characters with letters and numbers (no special symbols)"
+            });
+        }
 
         if (password.length < 6) {
             return res.status(400).json({
@@ -460,25 +467,25 @@ export async function updateCustomer(req, res) {
         }
 
         if (name !== undefined) {
-            if (!name.trim()) {
+            if (!isValidName(name)) {
                 return res.status(400).json({
                     success: false,
-                    message: "Name cannot be empty"
+                    message: "Please enter a valid full name (letters only, min 2 characters, no numbers)"
                 });
             }
             user.name = name.trim();
         }
 
         if (username !== undefined) {
-            if (username !== null && !username.trim()) {
-                return res.status(400).json({
-                    success: false,
-                    message: "Username cannot be empty"
-                });
-            }
-
-            if (username && username.trim()) {
+            if (username !== null && username !== "") {
                 const normalizedUsername = username.trim();
+                if (!isValidUsername(normalizedUsername)) {
+                    return res.status(400).json({
+                        success: false,
+                        message: "Username must be 3-30 characters with letters and numbers (no special symbols)"
+                    });
+                }
+
                 const existingUsername = await User.findOne({
                     username: normalizedUsername,
                     _id: { $ne: user._id }
@@ -496,7 +503,7 @@ export async function updateCustomer(req, res) {
 
         if (email !== undefined) {
             const normalizedEmail = email ? email.trim().toLowerCase() : undefined;
-            if (normalizedEmail && !validator.isEmail(normalizedEmail)) {
+            if (normalizedEmail && !isValidEmail(normalizedEmail)) {
                 return res.status(400).json({
                     success: false,
                     message: "Invalid email address"
@@ -520,11 +527,11 @@ export async function updateCustomer(req, res) {
         }
 
         if (phone !== undefined) {
-            const normalizedPhone = phone ? phone.trim() : undefined;
-            if (normalizedPhone && !validator.isMobilePhone(normalizedPhone, "any")) {
+            const normalizedPhone = phone ? phone.trim().replace(/[\s\-()]/g, "") : undefined;
+            if (normalizedPhone && !isValidPhone(normalizedPhone)) {
                 return res.status(400).json({
                     success: false,
-                    message: "Invalid phone number"
+                    message: "Please enter a valid 10-digit mobile number (digits only)"
                 });
             }
 
@@ -739,28 +746,21 @@ export async function updateMyProfile(req, res) {
         }
 
         if (name !== undefined) {
-            if (!name.trim()) {
+            if (!isValidName(name)) {
                 return res.status(400).json({
                     success: false,
-                    message: "Name cannot be empty"
+                    message: "Please enter a valid full name (letters only, min 2 characters, no numbers)"
                 });
             }
             user.name = name.trim();
         }
 
         if (phone !== undefined) {
-            if (!phone.trim()) {
+            const normalizedPhone = phone ? phone.trim().replace(/[\s\-()]/g, "") : "";
+            if (!normalizedPhone || !isValidPhone(normalizedPhone)) {
                 return res.status(400).json({
                     success: false,
-                    message: "Phone number cannot be empty"
-                });
-            }
-
-            const normalizedPhone = phone.trim();
-            if (!validator.isMobilePhone(normalizedPhone, "any")) {
-                return res.status(400).json({
-                    success: false,
-                    message: "Invalid phone number"
+                    message: "Please enter a valid 10-digit mobile number (digits only)"
                 });
             }
 
