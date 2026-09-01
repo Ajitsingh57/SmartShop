@@ -432,4 +432,22 @@ export const authRequest = async (endpoint, options = {}) => {
   return response.data;
 };
 
+// Admin product requests management API
+export const productRequestsApi = {
+  getAll: async (params = {}) => {
+    const response = await api.get("/product-requests", { params });
+    return response.data;
+  },
+
+  updateStatus: async (id, payload) => {
+    const response = await api.patch(`/product-requests/${id}/status`, payload);
+    return response.data;
+  },
+
+  delete: async (id) => {
+    const response = await api.delete(`/product-requests/${id}`);
+    return response.data;
+  },
+};
+
 export default api;

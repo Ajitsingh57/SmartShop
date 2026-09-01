@@ -26,6 +26,7 @@ import AdminActivity from "./pages/AdminActivity";
 import EditProduct from "./pages/EditProduct";
 import CustomerProfile from "./pages/CustomerProfile";
 import Categories from "./pages/Categories";
+import ProductRequests from "./pages/ProductRequests";
 
 const App = () => {
   return (
@@ -82,6 +83,14 @@ const App = () => {
             element={
               <ProtectedRoute>
                 <AddProduct />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/product-requests"
+            element={
+              <ProtectedRoute>
+                <ProductRequests />
               </ProtectedRoute>
             }
           />

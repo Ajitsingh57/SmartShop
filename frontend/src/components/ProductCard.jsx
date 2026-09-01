@@ -1,11 +1,21 @@
 import React, { useState } from "react";
-import { Package, Tag, CheckCircle2, AlertCircle, XCircle } from "lucide-react";
+import {
+  Package,
+  Tag,
+  CheckCircle2,
+  AlertCircle,
+  XCircle,
+  Layers,
+  RotateCcw,
+  Sparkles,
+} from "lucide-react";
 
-const ProductCard = ({ product }) => {
+const ProductCard = ({ product, onRequestRestock }) => {
   const [imageError, setImageError] = useState(false);
 
   const stock = Number(product?.stock ?? 0);
   const lowLimit = Number(product?.lowStockLimit ?? 5);
+  const unit = product?.unit || "unit";
   const isAvailable = product?.available !== false && stock > 0;
   const isLowStock = isAvailable && stock <= lowLimit;
   const imageSrc = product?.imageUrl || product?.image;
@@ -43,10 +53,10 @@ const ProductCard = ({ product }) => {
           </div>
         )}
 
-        {/* Top Badges (Category & Stock) */}
+        {/* Top Badges (Category & Available Stock) */}
         <div className="absolute left-3 right-3 top-3 flex items-center justify-between gap-2">
           {product?.category ? (
-            <span className="inline-flex max-w-[130px] items-center gap-1 truncate rounded-full border border-white/10 bg-zinc-950/75 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-zinc-300 shadow-sm backdrop-blur-md">
+            <span className="inline-flex max-w-[120px] items-center gap-1 truncate rounded-full border border-white/10 bg-zinc-950/80 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-zinc-300 shadow-sm backdrop-blur-md">
               <Tag className="h-2.5 w-2.5 shrink-0 opacity-70" />
               <span className="truncate">{product.category}</span>
             </span>
@@ -54,14 +64,14 @@ const ProductCard = ({ product }) => {
             <span />
           )}
 
-          {/* Quick status pill */}
+          {/* Quick stock pill with exact quantity */}
           <span
-            className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-semibold backdrop-blur-md shadow-sm ${
+            className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-bold backdrop-blur-md shadow-sm ${
               !isAvailable
-                ? "border-rose-500/30 bg-rose-950/70 text-rose-300"
+                ? "border-rose-500/30 bg-rose-950/80 text-rose-300"
                 : isLowStock
-                ? "border-amber-500/30 bg-amber-950/70 text-amber-300"
-                : "border-emerald-500/30 bg-emerald-950/70 text-emerald-300"
+                ? "border-amber-500/30 bg-amber-950/80 text-amber-300"
+                : "border-emerald-500/30 bg-emerald-950/80 text-emerald-300"
             }`}
           >
             <span
@@ -75,9 +85,9 @@ const ProductCard = ({ product }) => {
             />
             {isAvailable
               ? isLowStock
-                ? `Only ${stock} left`
-                : "In Stock"
-              : "Out of Stock"}
+                ? `Only ${stock} ${unit} left`
+                : `${stock} ${unit} available`
+              : `0 ${unit} (Out of Stock)`}
           </span>
         </div>
       </div>
@@ -93,23 +103,55 @@ const ProductCard = ({ product }) => {
             {product?.name || "Unnamed Product"}
           </h3>
 
-          {/* Unit / Short description */}
-          <div className="mt-1.5 flex items-center gap-2">
-            {product?.unit && (
-              <span className="rounded-md border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[11px] font-medium text-zinc-400">
-                Unit: {product.unit}
+          {/* Short description */}
+          {product?.description && (
+            <p className="mt-1 truncate text-xs text-zinc-400" title={product.description}>
+              {product.description}
+            </p>
+          )}
+
+          {/* Available Quantity Progress & Metric Card */}
+          <div className="mt-3 rounded-xl border border-white/5 bg-zinc-950/70 p-2.5">
+            <div className="flex items-center justify-between text-xs">
+              <span className="flex items-center gap-1.5 text-zinc-400 font-medium">
+                <Layers className="h-3.5 w-3.5 text-zinc-500" />
+                Available in Shop:
               </span>
-            )}
-            {product?.description && (
-              <p className="truncate text-xs text-zinc-400" title={product.description}>
-                {product.description}
-              </p>
-            )}
+              <span
+                className={`font-extrabold ${
+                  !isAvailable
+                    ? "text-rose-400"
+                    : isLowStock
+                    ? "text-amber-400"
+                    : "text-emerald-400"
+                }`}
+              >
+                {stock} {unit}
+              </span>
+            </div>
+
+            {/* Visual stock capacity bar */}
+            <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-zinc-800">
+              <div
+                className={`h-full rounded-full transition-all duration-500 ${
+                  !isAvailable
+                    ? "w-0 bg-rose-500"
+                    : isLowStock
+                    ? "bg-amber-400"
+                    : "bg-emerald-400"
+                }`}
+                style={{
+                  width: !isAvailable
+                    ? "0%"
+                    : `${Math.min(100, Math.max(12, (stock / Math.max(stock, 30)) * 100))}%`,
+                }}
+              />
+            </div>
           </div>
         </div>
 
-        {/* Pricing and Store Availability Footer */}
-        <div className="mt-4 border-t border-white/5 pt-3.5">
+        {/* Pricing and Action Footer */}
+        <div className="mt-4 border-t border-white/5 pt-3">
           <div className="flex items-end justify-between gap-2">
             <div>
               <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">
@@ -125,17 +167,17 @@ const ProductCard = ({ product }) => {
                 <span className="text-xl sm:text-2xl font-extrabold tracking-tight text-white">
                   {Number(product?.price || 0).toLocaleString("en-IN")}
                 </span>
-                {product?.unit && (
+                {unit && (
                   <span className="ml-1 text-[11px] font-normal text-zinc-400">
-                    /{product.unit}
+                    /{unit}
                   </span>
                 )}
               </div>
             </div>
 
-            {/* Availability indicator */}
+            {/* Availability status badge */}
             <div
-              className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-semibold ${
+              className={`inline-flex items-center gap-1 rounded-lg border px-2.5 py-1 text-xs font-semibold ${
                 isAvailable
                   ? isLowStock
                     ? "border-amber-500/20 bg-amber-500/10 text-amber-300"
@@ -152,17 +194,29 @@ const ProductCard = ({ product }) => {
                 ) : (
                   <>
                     <CheckCircle2 className="h-3.5 w-3.5" />
-                    <span>Available</span>
+                    <span>In Stock</span>
                   </>
                 )
               ) : (
                 <>
                   <XCircle className="h-3.5 w-3.5" />
-                  <span>Unavailable</span>
+                  <span>Out of Stock</span>
                 </>
               )}
             </div>
           </div>
+
+          {/* Request Restock Button for Out of Stock or Low Stock Products */}
+          {(!isAvailable || isLowStock) && (
+            <button
+              type="button"
+              onClick={() => onRequestRestock?.(product)}
+              className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs font-bold text-amber-300 transition-all duration-200 hover:border-amber-500/50 hover:bg-amber-500/20 active:scale-[0.98]"
+            >
+              <RotateCcw className="h-3.5 w-3.5 shrink-0 text-amber-400" />
+              <span>Request Restock / Bulk Order</span>
+            </button>
+          )}
         </div>
       </div>
     </div>

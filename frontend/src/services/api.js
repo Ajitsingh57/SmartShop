@@ -274,4 +274,21 @@ export const aboutApi = {
   },
 };
 
+// Customer product request endpoints
+export const productRequestsApi = {
+  create: async (formData) => {
+    const response = await api.post("/product-requests", formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    });
+    return response.data;
+  },
+
+  getMyRequests: async () => {
+    const response = await api.get("/product-requests/my");
+    return response.data;
+  },
+};
+
 export default api;

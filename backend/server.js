@@ -13,6 +13,7 @@ import paymentRouter from "./routes/paymentRoute.js";
 import saleRouter from "./routes/saleRoute.js";
 import returnRouter from "./routes/returnRoute.js";
 import categoryRouter from "./routes/categoryRoute.js";
+import productRequestRouter from "./routes/productRequestRoute.js";
 
 dns.setServers([
   "8.8.8.8",
@@ -75,6 +76,7 @@ app.use("/api/payments", paymentRouter);
 app.use("/api/sales", saleRouter);
 app.use("/api/returns", returnRouter);
 app.use("/api/categories", categoryRouter);
+app.use("/api/product-requests", productRequestRouter);
 
 // Root and health check endpoints
 app.get("/", (req, res) => {

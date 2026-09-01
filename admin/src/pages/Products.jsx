@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { productsApi, categoriesApi } from "../services/api";
-import { FolderTree } from "lucide-react";
+import { FolderTree, Sparkles } from "lucide-react";
 
 const Products = () => {
   const [searchParams] = useSearchParams();
@@ -228,6 +228,14 @@ const Products = () => {
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
+            <Link
+              to="/product-requests"
+              className="inline-flex items-center justify-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm font-semibold text-amber-300 shadow-md backdrop-blur-md transition-all duration-300 hover:border-amber-500/50 hover:bg-amber-500/20"
+            >
+              <Sparkles className="h-4 w-4 text-amber-400" />
+              <span>Customer Requests</span>
+            </Link>
+
             <Link
               to="/categories"
               className="inline-flex items-center justify-center gap-2 rounded-lg border border-zinc-700/80 bg-zinc-900/90 px-4 py-3 text-sm font-semibold text-zinc-200 shadow-md backdrop-blur-md transition-all duration-300 hover:border-orange-500/50 hover:bg-zinc-800 hover:text-white"
