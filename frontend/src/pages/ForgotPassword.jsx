@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Eye, EyeOff, ShieldCheck, ArrowLeft } from "lucide-react";
+import { Eye, EyeOff, ArrowLeft, CheckCircle2 } from "lucide-react";
 import { authApi } from "../services/api";
 
 const ForgotPassword = () => {
@@ -43,17 +43,17 @@ const ForgotPassword = () => {
         setResetToken(response.resetToken);
         setUserPreview(response.user);
         setStep(2);
-        setSuccess("Account verified. Please choose a new password.");
+        setSuccess("Account verified. Please enter your new password.");
       } else {
         setSuccess(
           response.message ||
-            "If an account exists with this credential, a reset link will be sent."
+            "If an account exists with this credential, instructions have been prepared."
         );
       }
     } catch (err) {
       console.error("Forgot password error:", err);
       setError(
-        err?.message || "Unable to process your request. Please try again."
+        err?.message || "Unable to find your account. Please check your credentials."
       );
     } finally {
       setLoading(false);
@@ -91,11 +91,11 @@ const ForgotPassword = () => {
 
       setSuccess(
         response?.message ||
-          "Password has been reset successfully! Redirecting to login..."
+          "Password updated successfully! Redirecting to login..."
       );
 
       setTimeout(() => {
-        navigate("/login");
+        navigate("/login", { replace: true });
       }, 1500);
     } catch (err) {
       console.error("Reset password error:", err);
@@ -106,28 +106,53 @@ const ForgotPassword = () => {
   };
 
   return (
-    <div className="w-full px-4 sm:px-6 md:px-[50px] pb-16">
+    <div
+      className="flex min-h-[calc(100vh-73px)] w-full items-center justify-center px-4 py-10 sm:px-6"
+      style={{
+        backgroundColor: "var(--app-bg)",
+        color: "var(--app-text)",
+      }}
+    >
       <div
-        className="relative mx-auto mt-8 max-w-2xl overflow-hidden rounded-2xl border border-white/5 px-5 py-10 text-white shadow-[0_10px_40px_rgba(0,0,0,0.5)] sm:mt-10 sm:rounded-3xl sm:px-[50px] sm:py-[55px]"
+        className="w-full max-w-md rounded-2xl border p-6 shadow-[0_10px_40px_rgba(0,0,0,0.5)] sm:p-8"
         style={{
-          background:
-            "radial-gradient(circle at top right, var(--app-accent-soft), transparent 60%), linear-gradient(135deg, var(--app-surface-light) 0%, var(--app-surface) 100%)",
+          borderColor: "var(--app-accent-border)",
+          background: `radial-gradient(circle at top right, var(--app-accent-soft), transparent 60%), linear-gradient(135deg, var(--app-surface-light) 0%, var(--app-surface) 100%)`,
         }}
       >
         <div className="mb-8 text-center">
-          <h1 className="text-3xl font-bold text-white sm:text-4xl">
-            {step === 1 ? "Forgot Password" : "Create New Password"}
+          <div
+            className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full text-2xl font-bold text-white shadow-lg transition-all duration-300"
+            style={{
+              backgroundColor: "var(--app-accent)",
+              boxShadow: "0 10px 25px var(--app-accent-soft)",
+            }}
+          >
+            S
+          </div>
+
+          <h1
+            className="text-3xl font-bold tracking-tight sm:text-4xl"
+            style={{ color: "var(--app-text)" }}
+          >
+            {step === 1 ? "Forgot Password" : "Reset Password"}
           </h1>
-          <p className="mt-2 text-sm text-zinc-400 sm:text-base">
+
+          <p className="mt-2 text-sm" style={{ color: "var(--app-text-muted)" }}>
             {step === 1
-              ? "Recover your SmartShop account using your registered credentials"
-              : `Setting new password for ${userPreview?.name || "your account"}`}
+              ? "Recover access to your SmartShop account"
+              : `Set a new password for ${userPreview?.name || "your account"}`}
           </p>
         </div>
 
         {error && (
           <div
-            className="mb-5 rounded-lg border border-red-500/20 bg-red-500/5 px-4 py-3 text-sm leading-5 text-red-400"
+            className="mb-5 rounded-lg border px-4 py-3 text-sm leading-5"
+            style={{
+              borderColor: "rgba(239,68,68,0.20)",
+              backgroundColor: "rgba(239,68,68,0.05)",
+              color: "#f87171",
+            }}
             role="alert"
           >
             {error}
@@ -136,61 +161,89 @@ const ForgotPassword = () => {
 
         {success && (
           <div
-            className="mb-5 rounded-lg border border-green-500/20 bg-green-500/5 px-4 py-3 text-sm leading-5 text-green-400"
+            className="mb-5 rounded-lg border px-4 py-3 text-sm leading-5"
+            style={{
+              borderColor: "rgba(34,197,94,0.20)",
+              backgroundColor: "rgba(34,197,94,0.05)",
+              color: "#4ade80",
+            }}
             role="status"
           >
             {success}
           </div>
         )}
 
-        {/* Step 1 Form */}
+        {/* Step 1: Identifier Entry */}
         {step === 1 && (
           <form onSubmit={handleRequestToken} className="space-y-5">
             <div>
               <label
                 htmlFor="identifier"
-                className="mb-2 block text-sm font-medium text-zinc-300"
+                className="mb-2 block text-sm font-medium"
+                style={{ color: "var(--app-text-secondary)" }}
               >
-                Email or Phone Number
+                Registered Email or Phone
               </label>
 
               <input
                 id="identifier"
                 type="text"
-                placeholder="Enter your email or phone"
+                placeholder="Enter email or phone number"
                 value={identifier}
                 onChange={(e) => {
                   setIdentifier(e.target.value);
-                  setError("");
-                  setSuccess("");
+                  if (error) setError("");
                 }}
                 required
-                className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-3 text-sm text-white placeholder:text-zinc-600 outline-none transition focus:border-[var(--app-accent-border)] focus:ring-1 focus:ring-[var(--app-accent-soft)]"
+                autoComplete="username"
+                disabled={loading}
+                className="w-full rounded-lg border px-4 py-3 text-sm outline-none transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-60"
+                style={{
+                  borderColor: "var(--app-border)",
+                  backgroundColor: "var(--app-surface-light)",
+                  color: "var(--app-text)",
+                }}
+                onFocus={(e) => {
+                  e.currentTarget.style.borderColor = "var(--app-accent-border)";
+                  e.currentTarget.style.boxShadow = "0 0 0 1px var(--app-accent-soft)";
+                }}
+                onBlur={(e) => {
+                  e.currentTarget.style.borderColor = "var(--app-border)";
+                  e.currentTarget.style.boxShadow = "none";
+                }}
               />
-
-              <p className="mt-2 text-xs text-zinc-600">
-                Enter the email address or phone associated with your account.
-              </p>
             </div>
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full rounded-lg bg-[var(--app-accent)] px-5 py-3 font-semibold text-white shadow-lg transition-all duration-300 hover:-translate-y-[1px] hover:bg-[var(--app-accent-hover)] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
-              style={{ boxShadow: "0 10px 25px var(--app-accent-soft)" }}
+              className="w-full rounded-lg px-5 py-3 text-sm font-semibold text-white transition-all duration-300 hover:-translate-y-[1px] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
+              style={{
+                backgroundColor: "var(--app-accent)",
+                boxShadow: "0 10px 25px var(--app-accent-soft)",
+              }}
+              onMouseEnter={(e) => {
+                if (!loading) {
+                  e.currentTarget.style.backgroundColor = "var(--app-accent-hover)";
+                }
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = "var(--app-accent)";
+              }}
             >
-              {loading ? "Verifying Account..." : "Continue"}
+              {loading ? "Verifying..." : "Verify Account"}
             </button>
           </form>
         )}
 
-        {/* Step 2 Form */}
+        {/* Step 2: Set New Password */}
         {step === 2 && (
-          <form onSubmit={handleResetPassword} className="space-y-5">
+          <form onSubmit={handleResetPassword} className="space-y-4">
             <div>
               <label
                 htmlFor="newPassword"
-                className="mb-2 block text-sm font-medium text-zinc-300"
+                className="mb-1.5 block text-sm font-medium"
+                style={{ color: "var(--app-text-secondary)" }}
               >
                 New Password
               </label>
@@ -199,19 +252,37 @@ const ForgotPassword = () => {
                 <input
                   id="newPassword"
                   type={showNewPassword ? "text" : "password"}
-                  placeholder="Create new password"
+                  placeholder="At least 6 characters"
                   value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
+                  onChange={(e) => {
+                    setNewPassword(e.target.value);
+                    if (error) setError("");
+                  }}
                   required
-                  minLength={6}
-                  className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-3 pr-11 text-sm text-white placeholder:text-zinc-600 outline-none transition focus:border-[var(--app-accent-border)] focus:ring-1 focus:ring-[var(--app-accent-soft)]"
+                  autoComplete="new-password"
+                  disabled={loading}
+                  className="w-full rounded-lg border px-4 py-2.5 pr-20 text-sm outline-none transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-60"
+                  style={{
+                    borderColor: "var(--app-border)",
+                    backgroundColor: "var(--app-surface-light)",
+                    color: "var(--app-text)",
+                  }}
+                  onFocus={(e) => {
+                    e.currentTarget.style.borderColor = "var(--app-accent-border)";
+                    e.currentTarget.style.boxShadow = "0 0 0 1px var(--app-accent-soft)";
+                  }}
+                  onBlur={(e) => {
+                    e.currentTarget.style.borderColor = "var(--app-border)";
+                    e.currentTarget.style.boxShadow = "none";
+                  }}
                 />
 
                 <button
                   type="button"
                   onClick={() => setShowNewPassword((prev) => !prev)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 rounded p-1 text-zinc-400 hover:text-white"
+                  disabled={loading}
                   aria-label={showNewPassword ? "Hide password" : "Show password"}
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 rounded-md p-1 text-zinc-400 transition-colors hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {showNewPassword ? (
                     <EyeOff className="h-4 w-4" />
@@ -220,16 +291,13 @@ const ForgotPassword = () => {
                   )}
                 </button>
               </div>
-
-              <p className="mt-2 text-xs text-zinc-600">
-                Password must be at least 6 characters.
-              </p>
             </div>
 
             <div>
               <label
                 htmlFor="confirmPassword"
-                className="mb-2 block text-sm font-medium text-zinc-300"
+                className="mb-1.5 block text-sm font-medium"
+                style={{ color: "var(--app-text-secondary)" }}
               >
                 Confirm New Password
               </label>
@@ -240,17 +308,35 @@ const ForgotPassword = () => {
                   type={showConfirmPassword ? "text" : "password"}
                   placeholder="Re-enter new password"
                   value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  onChange={(e) => {
+                    setConfirmPassword(e.target.value);
+                    if (error) setError("");
+                  }}
                   required
-                  minLength={6}
-                  className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-3 pr-11 text-sm text-white placeholder:text-zinc-600 outline-none transition focus:border-[var(--app-accent-border)] focus:ring-1 focus:ring-[var(--app-accent-soft)]"
+                  autoComplete="new-password"
+                  disabled={loading}
+                  className="w-full rounded-lg border px-4 py-2.5 pr-20 text-sm outline-none transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-60"
+                  style={{
+                    borderColor: "var(--app-border)",
+                    backgroundColor: "var(--app-surface-light)",
+                    color: "var(--app-text)",
+                  }}
+                  onFocus={(e) => {
+                    e.currentTarget.style.borderColor = "var(--app-accent-border)";
+                    e.currentTarget.style.boxShadow = "0 0 0 1px var(--app-accent-soft)";
+                  }}
+                  onBlur={(e) => {
+                    e.currentTarget.style.borderColor = "var(--app-border)";
+                    e.currentTarget.style.boxShadow = "none";
+                  }}
                 />
 
                 <button
                   type="button"
                   onClick={() => setShowConfirmPassword((prev) => !prev)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 rounded p-1 text-zinc-400 hover:text-white"
-                  aria-label={showConfirmPassword ? "Hide confirm password" : "Show confirm password"}
+                  disabled={loading}
+                  aria-label={showConfirmPassword ? "Hide password" : "Show password"}
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 rounded-md p-1 text-zinc-400 transition-colors hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {showConfirmPassword ? (
                     <EyeOff className="h-4 w-4" />
@@ -264,24 +350,41 @@ const ForgotPassword = () => {
             <button
               type="submit"
               disabled={loading}
-              className="w-full rounded-lg bg-[var(--app-accent)] px-5 py-3 font-semibold text-white shadow-lg transition-all duration-300 hover:-translate-y-[1px] hover:bg-[var(--app-accent-hover)] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
-              style={{ boxShadow: "0 10px 25px var(--app-accent-soft)" }}
+              className="w-full rounded-lg px-5 py-3 text-sm font-semibold text-white transition-all duration-300 hover:-translate-y-[1px] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0 mt-2"
+              style={{
+                backgroundColor: "var(--app-accent)",
+                boxShadow: "0 10px 25px var(--app-accent-soft)",
+              }}
+              onMouseEnter={(e) => {
+                if (!loading) {
+                  e.currentTarget.style.backgroundColor = "var(--app-accent-hover)";
+                }
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = "var(--app-accent)";
+              }}
             >
-              {loading ? "Resetting Password..." : "Set New Password"}
+              {loading ? "Saving Password..." : "Update Password"}
             </button>
           </form>
         )}
 
-        <div className="mt-7 text-center">
-          <p className="text-sm text-zinc-500">
-            Remember your password?{" "}
-            <Link
-              to="/login"
-              className="font-medium text-[var(--app-accent)] transition-colors hover:text-[var(--app-accent-hover)]"
-            >
-              Back to Login
-            </Link>
-          </p>
+        {/* Back to Login link */}
+        <div
+          className="mt-6 rounded-lg border p-4 text-center"
+          style={{
+            borderColor: "var(--app-accent-border)",
+            backgroundColor: "var(--app-accent-soft)",
+          }}
+        >
+          <Link
+            to="/login"
+            className="inline-flex items-center gap-1.5 text-xs font-semibold transition hover:underline"
+            style={{ color: "var(--app-accent)" }}
+          >
+            <ArrowLeft className="h-3.5 w-3.5" />
+            <span>Back to Login</span>
+          </Link>
         </div>
       </div>
     </div>

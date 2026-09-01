@@ -8,21 +8,26 @@ import { authStorage } from "../services/api";
 
 const Navbar = () => {
   const [menuOpen, setMenuOpen] = useState(false);
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState(() => authStorage.getUser());
 
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Load authenticated admin user
+  // Synchronize authenticated user state with token expiration checks
   useEffect(() => {
-    const currentUser = authStorage.getUser();
-    const token = authStorage.getToken();
+    const syncUser = () => {
+      const currentUser = authStorage.getUser();
+      setUser(currentUser);
+    };
 
-    if (token) {
-      setUser(currentUser || { name: "Admin" });
-    } else {
-      setUser(null);
-    }
+    syncUser();
+    window.addEventListener("auth-changed", syncUser);
+    window.addEventListener("storage", syncUser);
+
+    return () => {
+      window.removeEventListener("auth-changed", syncUser);
+      window.removeEventListener("storage", syncUser);
+    };
   }, [location.pathname]);
 
   // Close mobile drawer on route navigation
@@ -65,7 +70,7 @@ const Navbar = () => {
     >
       <div className="flex items-center justify-between">
         {/* Brand logo */}
-        <NavLink to="/dashboard" className="flex items-center gap-2">
+        <NavLink to={user ? "/dashboard" : "/login"} className="flex items-center gap-2">
           <div
             className="flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-full bg-[var(--app-accent)] text-base sm:text-lg font-bold text-white shadow-lg"
             style={{ boxShadow: "0 10px 25px var(--app-accent-soft)" }}
@@ -77,44 +82,46 @@ const Navbar = () => {
           </span>
         </NavLink>
 
-        {/* Desktop navigation items (xl and above for 10+ nav items) */}
+        {/* Desktop navigation items (Shown ONLY when admin is logged in) */}
         <div className="hidden items-center gap-5 2xl:gap-7 xl:flex">
-          {navItems.map((item) => (
-            <NavLink key={item.path} to={item.path} className={linkClass}>
-              {item.name}
-            </NavLink>
-          ))}
-
-          {isSuperAdmin && (
-            <NavLink to="/admins" className={linkClass}>
-              Admins
-            </NavLink>
-          )}
-
           {user ? (
-            <div className="ml-2 flex items-center gap-3">
-              <NavLink
-                to="/profile"
-                className="max-w-[130px] truncate text-xs font-medium text-zinc-300 transition-colors hover:text-[var(--app-accent)]"
-                title="View Profile"
-              >
-                {user.name}
-              </NavLink>
+            <>
+              {navItems.map((item) => (
+                <NavLink key={item.path} to={item.path} className={linkClass}>
+                  {item.name}
+                </NavLink>
+              ))}
 
-              <button
-                type="button"
-                onClick={handleLogout}
-                className="rounded-lg border border-zinc-800 bg-zinc-900/80 px-3 py-1.5 text-xs font-semibold text-zinc-300 transition-all hover:border-red-500/40 hover:bg-red-500/10 hover:text-red-400"
-              >
-                Logout
-              </button>
-            </div>
+              {isSuperAdmin && (
+                <NavLink to="/admins" className={linkClass}>
+                  Admins
+                </NavLink>
+              )}
+
+              <div className="ml-2 flex items-center gap-3">
+                <NavLink
+                  to="/profile"
+                  className="max-w-[130px] truncate text-xs font-medium text-zinc-300 transition-colors hover:text-[var(--app-accent)]"
+                  title="View Profile"
+                >
+                  {user.name || user.username || "Admin"}
+                </NavLink>
+
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  className="rounded-lg border border-zinc-800 bg-zinc-900/80 px-3 py-1.5 text-xs font-semibold text-zinc-300 transition-all hover:border-red-500/40 hover:bg-red-500/10 hover:text-red-400"
+                >
+                  Logout
+                </button>
+              </div>
+            </>
           ) : (
             <NavLink
               to="/login"
-              className="rounded-lg bg-[var(--app-accent)] px-4 py-2 text-xs font-semibold text-white transition hover:opacity-90"
+              className="rounded-lg bg-[var(--app-accent)] px-4 py-2 text-xs font-bold text-white transition hover:opacity-90"
             >
-              Login
+              Admin Login
             </NavLink>
           )}
         </div>
@@ -130,7 +137,7 @@ const Navbar = () => {
         </button>
       </div>
 
-      {/* Mobile & Tablet Drawer Menu with half transparent blur background */}
+      {/* Mobile & Tablet Drawer Menu */}
       <div
         className={`overflow-hidden transition-all duration-300 xl:hidden ${
           menuOpen ? "max-h-[85vh] pt-4 opacity-100" : "max-h-0 pt-0 opacity-0"
@@ -138,71 +145,67 @@ const Navbar = () => {
       >
         <div className="rounded-2xl border border-white/10 bg-zinc-950/65 p-4 shadow-[0_12px_40px_rgba(0,0,0,0.6)] backdrop-blur-2xl max-h-[80vh] overflow-y-auto">
           <div className="flex flex-col items-center gap-1.5">
-            {navItems.map((item) => (
-              <NavLink
-                key={item.path}
-                to={item.path}
-                onClick={() => setMenuOpen(false)}
-                className={({ isActive }) =>
-                  `w-full max-w-[280px] rounded-lg px-4 py-2.5 text-center text-sm font-medium transition-all duration-200 ${
-                    isActive
-                      ? "bg-[var(--app-accent-soft)] text-[var(--app-accent)] font-semibold border border-[var(--app-accent-border)] backdrop-blur-sm"
-                      : "text-zinc-300 hover:bg-white/10 hover:text-white"
-                  }`
-                }
-              >
-                {item.name}
-              </NavLink>
-            ))}
-
-            {isSuperAdmin && (
-              <NavLink
-                to="/admins"
-                onClick={() => setMenuOpen(false)}
-                className={({ isActive }) =>
-                  `w-full max-w-[280px] rounded-lg px-4 py-2.5 text-center text-sm font-medium transition-all duration-200 ${
-                    isActive
-                      ? "bg-[var(--app-accent-soft)] text-[var(--app-accent)] font-semibold border border-[var(--app-accent-border)] backdrop-blur-sm"
-                      : "text-zinc-300 hover:bg-white/10 hover:text-white"
-                  }`
-                }
-              >
-                Admins Management
-              </NavLink>
-            )}
-
             {user ? (
-              <div className="mt-3 w-full max-w-[280px] border-t border-white/10 pt-3">
-                <NavLink
-                  to="/profile"
-                  onClick={() => setMenuOpen(false)}
-                  className="mb-2 block rounded-lg bg-white/[0.05] border border-white/5 px-4 py-2.5 text-center text-sm font-medium text-zinc-300 backdrop-blur-md transition-colors hover:bg-[var(--app-accent-soft)] hover:text-[var(--app-accent)]"
-                >
-                  My Profile ({user.name})
-                </NavLink>
+              <>
+                {navItems.map((item) => (
+                  <NavLink
+                    key={item.path}
+                    to={item.path}
+                    onClick={() => setMenuOpen(false)}
+                    className={({ isActive }) =>
+                      `w-full max-w-[280px] rounded-lg px-4 py-2.5 text-center text-sm font-medium transition-all duration-200 ${
+                        isActive
+                          ? "bg-[var(--app-accent-soft)] text-[var(--app-accent)] font-semibold border border-[var(--app-accent-border)] backdrop-blur-sm"
+                          : "text-zinc-300 hover:bg-white/10 hover:text-white"
+                      }`
+                    }
+                  >
+                    {item.name}
+                  </NavLink>
+                ))}
 
-                <button
-                  type="button"
-                  onClick={handleLogout}
-                  className="w-full rounded-lg border border-zinc-700/60 bg-zinc-900/60 px-4 py-2.5 text-center text-sm font-medium text-zinc-300 backdrop-blur-md transition-all hover:border-red-500/40 hover:bg-red-500/10 hover:text-red-400"
-                >
-                  Logout
-                </button>
-              </div>
+                {isSuperAdmin && (
+                  <NavLink
+                    to="/admins"
+                    onClick={() => setMenuOpen(false)}
+                    className={({ isActive }) =>
+                      `w-full max-w-[280px] rounded-lg px-4 py-2.5 text-center text-sm font-medium transition-all duration-200 ${
+                        isActive
+                          ? "bg-[var(--app-accent-soft)] text-[var(--app-accent)] font-semibold border border-[var(--app-accent-border)] backdrop-blur-sm"
+                          : "text-zinc-300 hover:bg-white/10 hover:text-white"
+                      }`
+                    }
+                  >
+                    Admins Management
+                  </NavLink>
+                )}
+
+                <div className="mt-3 w-full max-w-[280px] border-t border-white/10 pt-3">
+                  <NavLink
+                    to="/profile"
+                    onClick={() => setMenuOpen(false)}
+                    className="mb-2 block rounded-lg bg-white/[0.05] border border-white/5 px-4 py-2.5 text-center text-sm font-medium text-zinc-300 backdrop-blur-md transition-colors hover:bg-[var(--app-accent-soft)] hover:text-[var(--app-accent)]"
+                  >
+                    My Profile ({user.name || user.username || "Admin"})
+                  </NavLink>
+
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    className="w-full rounded-lg border border-zinc-700/60 bg-zinc-900/60 px-4 py-2.5 text-center text-sm font-medium text-zinc-300 backdrop-blur-md transition-all hover:border-red-500/40 hover:bg-red-500/10 hover:text-red-400"
+                  >
+                    Logout
+                  </button>
+                </div>
+              </>
             ) : (
-              <div className="mt-3 w-full max-w-[280px] border-t border-white/10 pt-3">
+              <div className="w-full max-w-[280px] pt-1">
                 <NavLink
                   to="/login"
                   onClick={() => setMenuOpen(false)}
-                  className={({ isActive }) =>
-                    `block w-full rounded-lg px-4 py-2.5 text-center text-sm font-medium transition-all ${
-                      isActive
-                        ? "bg-[var(--app-accent-soft)] text-[var(--app-accent)]"
-                        : "text-zinc-400 hover:bg-white/10 hover:text-white"
-                    }`
-                  }
+                  className="block w-full rounded-xl bg-[var(--app-accent)] px-4 py-3 text-center text-sm font-bold text-white shadow-lg"
                 >
-                  Login
+                  Admin Login
                 </NavLink>
               </div>
             )}

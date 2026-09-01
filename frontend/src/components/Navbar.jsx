@@ -4,21 +4,26 @@ import { authStorage } from "../services/api";
 
 const Navbar = () => {
   const [menuOpen, setMenuOpen] = useState(false);
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState(() => authStorage.getUser());
 
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Load current authenticated user from local storage
+  // Synchronize authenticated customer state with token expiration checks
   useEffect(() => {
-    const currentUser = authStorage.getUser();
-    const token = authStorage.getToken();
-
-    if (token && currentUser) {
+    const syncUser = () => {
+      const currentUser = authStorage.getUser();
       setUser(currentUser);
-    } else {
-      setUser(null);
-    }
+    };
+
+    syncUser();
+    window.addEventListener("auth-changed", syncUser);
+    window.addEventListener("storage", syncUser);
+
+    return () => {
+      window.removeEventListener("auth-changed", syncUser);
+      window.removeEventListener("storage", syncUser);
+    };
   }, [location.pathname]);
 
   // Close mobile drawer on route navigation
@@ -26,13 +31,23 @@ const Navbar = () => {
     setMenuOpen(false);
   }, [location.pathname]);
 
-  const navItems = [
+  // Public items (always visible to everyone)
+  const publicNavItems = [
     { name: "Home", path: "/" },
     { name: "Products", path: "/products" },
+    { name: "About", path: "/about" },
+  ];
+
+  // Protected customer items (ONLY visible when authenticated)
+  const protectedNavItems = [
     { name: "Transactions", path: "/transactions" },
     { name: "Payments", path: "/payments" },
     { name: "Settings", path: "/settings" },
   ];
+
+  const visibleNavItems = user
+    ? [...publicNavItems, ...protectedNavItems]
+    : publicNavItems;
 
   const handleLogout = () => {
     authStorage.clear();
@@ -66,7 +81,7 @@ const Navbar = () => {
 
         {/* Desktop navigation (lg and above) */}
         <div className="hidden items-center gap-6 lg:flex xl:gap-8">
-          {navItems.map((item) => (
+          {visibleNavItems.map((item) => (
             <NavLink key={item.path} to={item.path} className={linkClass}>
               {item.name}
             </NavLink>
@@ -79,7 +94,7 @@ const Navbar = () => {
                 className="max-w-[150px] truncate text-sm font-medium text-zinc-300 transition-colors hover:text-[var(--app-accent)]"
                 title="View Profile"
               >
-                {user.name}
+                {user.name || user.username || "Customer"}
               </NavLink>
 
               <button
@@ -120,7 +135,7 @@ const Navbar = () => {
         </button>
       </div>
 
-      {/* Mobile & Tablet drawer with half transparent blur background */}
+      {/* Mobile & Tablet drawer */}
       <div
         className={`overflow-hidden transition-all duration-300 lg:hidden ${
           menuOpen ? "mt-4 max-h-[85vh] opacity-100" : "max-h-0 opacity-0"
@@ -128,7 +143,7 @@ const Navbar = () => {
       >
         <div className="rounded-2xl border border-white/10 bg-zinc-950/65 p-4 shadow-[0_12px_40px_rgba(0,0,0,0.6)] backdrop-blur-2xl max-h-[80vh] overflow-y-auto">
           <div className="flex flex-col items-center gap-1.5">
-            {navItems.map((item) => (
+            {visibleNavItems.map((item) => (
               <NavLink
                 key={item.path}
                 to={item.path}
@@ -152,7 +167,7 @@ const Navbar = () => {
                   onClick={() => setMenuOpen(false)}
                   className="mb-2 block rounded-lg bg-white/[0.05] border border-white/5 px-4 py-2.5 text-center text-sm font-medium text-zinc-300 backdrop-blur-md transition-colors hover:bg-[var(--app-accent-soft)] hover:text-[var(--app-accent)]"
                 >
-                  My Profile ({user.name})
+                  My Profile ({user.name || user.username || "Customer"})
                 </NavLink>
 
                 <button

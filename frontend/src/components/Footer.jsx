@@ -2,47 +2,198 @@ import React from "react";
 import { Link } from "react-router-dom";
 
 const Footer = () => {
+  const currentYear = new Date().getFullYear();
+  const linkClass =
+    "text-xs text-zinc-500 transition hover:text-[var(--app-accent)] whitespace-nowrap";
+
   return (
-    <footer className="mt-16 border-t border-white/5 bg-zinc-950">
-      <div className="mx-auto flex max-w-7xl flex-col items-center gap-8 px-5 py-10 text-center md:flex-row md:justify-between md:text-left">
-        {/* Brand */}
-        <div>
-          <h3 className="mb-2.5 text-xl font-bold text-[var(--app-accent)]">
-            SmartShop
-          </h3>
+    <footer
+      className="mt-auto border-t"
+      style={{
+        borderColor: "var(--app-border)",
+        backgroundColor: "var(--app-surface)",
+        color: "var(--app-text)",
+      }}
+    >
+      <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 md:px-10 lg:px-12">
+        {/* Mobile footer layout */}
+        <div className="sm:hidden">
+          <div className="flex items-start gap-3">
+            <div
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-sm font-bold"
+              style={{
+                backgroundColor: "var(--app-accent-soft)",
+                color: "var(--app-accent)",
+              }}
+            >
+              S
+            </div>
 
-          <p className="text-sm text-zinc-400">
-            Digital Shop Management & Customer Credit Ledger.
-          </p>
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-x-2">
+                <h2 className="text-sm font-bold text-white">SmartShop</h2>
+                <span className="text-xs text-zinc-700">|</span>
+                <span className="text-xs text-zinc-500">Customer & Credit Portal</span>
+              </div>
+              <p className="mt-1 text-[11px] leading-5 text-zinc-600">
+                Track live inventory availability, your purchase transactions, credit ledgers and repayments easily.
+              </p>
+            </div>
+          </div>
+
+          <div
+            className="mt-5 border-y py-4"
+            style={{ borderColor: "var(--app-border)" }}
+          >
+            <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-3">
+              <Link
+                to="/about-smartshop"
+                className="text-xs font-medium"
+                style={{ color: "var(--app-accent)" }}
+              >
+                About SmartShop
+              </Link>
+              <span className="text-zinc-700">•</span>
+              <Link to="/about" className={linkClass}>
+                About Developer
+              </Link>
+              <span className="text-zinc-700">•</span>
+              <Link to="/settings/help-support" className={linkClass}>
+                Help & Support
+              </Link>
+              <span className="text-zinc-700">•</span>
+              <Link to="/products" className={linkClass}>
+                Products Catalog
+              </Link>
+            </div>
+          </div>
+
+          <div className="mt-4 text-center">
+            <p className="text-[10px] text-zinc-600">
+              © {currentYear} SmartShop. All rights reserved.
+            </p>
+            <p className="mt-1 text-[10px] text-zinc-700">
+              Built for seamless shopping and credit management.
+            </p>
+          </div>
         </div>
 
-        {/* Footer Links */}
-        <div className="flex flex-wrap items-center justify-center gap-6">
-          <Link
-            to="/about-smartshop"
-            className="text-sm text-zinc-400 transition-colors duration-300 hover:text-white"
-          >
-            About Platform
-          </Link>
+        {/* Tablet footer layout */}
+        <div className="hidden sm:block lg:hidden">
+          <div className="flex items-center justify-between gap-8">
+            <div className="flex min-w-0 items-center gap-3">
+              <div
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-sm font-bold"
+                style={{
+                  backgroundColor: "var(--app-accent-soft)",
+                  color: "var(--app-accent)",
+                }}
+              >
+                S
+              </div>
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <h2 className="text-sm font-bold text-white">SmartShop</h2>
+                  <span className="text-xs text-zinc-700">|</span>
+                  <span className="text-xs text-zinc-500">Customer & Credit Portal</span>
+                </div>
+                <p className="mt-1 text-[11px] text-zinc-600">
+                  Track live inventory availability, your purchase transactions, credit ledgers and repayments easily.
+                </p>
+              </div>
+            </div>
 
-          <Link
-            to="/settings/help-support"
-            className="text-sm text-zinc-400 transition-colors duration-300 hover:text-white"
-          >
-            Help & Support
-          </Link>
+            <div className="flex shrink-0 items-center gap-4">
+              <Link
+                to="/about-smartshop"
+                className="whitespace-nowrap text-xs font-medium"
+                style={{ color: "var(--app-accent)" }}
+              >
+                About SmartShop →
+              </Link>
+            </div>
+          </div>
 
-          <Link
-            to="/about"
-            className="text-sm text-zinc-400 transition-colors duration-300 hover:text-white"
+          <div
+            className="mt-5 flex flex-wrap items-center justify-center gap-6 border-y py-3"
+            style={{ borderColor: "var(--app-border)" }}
           >
-            Meet the Team
-          </Link>
+            <Link to="/about" className={linkClass}>
+              About Developer
+            </Link>
+            <Link to="/settings/help-support" className={linkClass}>
+              Help & Support
+            </Link>
+            <Link to="/products" className={linkClass}>
+              Products Catalog
+            </Link>
+            <Link to="/settings" className={linkClass}>
+              Account Settings
+            </Link>
+          </div>
+
+          <div className="mt-4 flex items-center justify-between">
+            <p className="text-[10px] text-zinc-600">
+              © {currentYear} SmartShop. All rights reserved.
+            </p>
+            <p className="text-[10px] text-zinc-700">
+              Built for seamless shopping and credit management.
+            </p>
+          </div>
         </div>
 
-        {/* Copyright */}
-        <div className="text-sm text-zinc-400">
-          &copy; {new Date().getFullYear()} SmartShop. All rights reserved.
+        {/* Desktop footer layout */}
+        <div className="hidden lg:flex lg:items-center lg:justify-between lg:gap-8">
+          <div className="flex min-w-0 items-center gap-3">
+            <div
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-sm font-bold"
+              style={{
+                backgroundColor: "var(--app-accent-soft)",
+                color: "var(--app-accent)",
+              }}
+            >
+              S
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <h2 className="text-sm font-bold text-white">SmartShop</h2>
+                <span className="text-xs text-zinc-700">|</span>
+                <span className="text-xs text-zinc-500">Customer & Credit Portal</span>
+              </div>
+              <p className="mt-1 text-[11px] text-zinc-600">
+                Track live inventory availability, purchase transactions, credit ledgers and repayments easily.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex shrink-0 items-center gap-6">
+            <Link
+              to="/about-smartshop"
+              className="whitespace-nowrap text-xs font-medium"
+              style={{ color: "var(--app-accent)" }}
+            >
+              About SmartShop →
+            </Link>
+            <Link to="/about" className={linkClass}>
+              About Developer
+            </Link>
+            <Link to="/settings/help-support" className={linkClass}>
+              Help & Support
+            </Link>
+            <Link to="/products" className={linkClass}>
+              Products Catalog
+            </Link>
+            <Link to="/settings" className={linkClass}>
+              Account Settings
+            </Link>
+          </div>
+
+          <div className="shrink-0 text-right">
+            <p className="text-[10px] text-zinc-600">© {currentYear} SmartShop</p>
+            <p className="mt-0.5 text-[10px] text-zinc-700">
+              Built for seamless shopping and credit management.
+            </p>
+          </div>
         </div>
       </div>
     </footer>

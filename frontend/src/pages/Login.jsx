@@ -12,13 +12,14 @@ const Login = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // Submit customer login credentials and handle session tokens
+  // Submit customer login credentials and establish session
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
 
-    if (!identifier.trim()) {
-      setError("Please enter your email, phone or username.");
+    const trimmedId = identifier.trim();
+    if (!trimmedId) {
+      setError("Please enter your email or phone number.");
       return;
     }
 
@@ -31,49 +32,77 @@ const Login = () => {
 
     try {
       const data = await authApi.login({
-        identifier: identifier.trim(),
+        identifier: trimmedId,
         password,
       });
 
-      authStorage.setToken(data.token);
-      authStorage.setUser(data.user);
+      const token = data?.token;
+      const loggedInUser = data?.user;
 
-      if (data.user.role === "superadmin") {
-        navigate("/superadmin");
-      } else if (data.user.role === "admin") {
-        navigate("/admin");
-      } else {
-        navigate("/");
+      if (!token) {
+        throw new Error("Login could not be completed. Please try again.");
       }
-    } catch (error) {
-      console.error("Login failed:", error);
-      setError(error.message || "Login failed. Please try again.");
+
+      authStorage.setToken(token);
+      if (loggedInUser) {
+        authStorage.setUser(loggedInUser);
+      }
+
+      navigate("/", { replace: true });
+    } catch (err) {
+      console.error("Login failed:", err);
+      setError(err?.message || "Unable to login. Please check your credentials.");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="w-full px-4 sm:px-6 md:px-[50px]">
+    <div
+      className="flex min-h-[calc(100vh-73px)] w-full items-center justify-center px-4 py-10 sm:px-6"
+      style={{
+        backgroundColor: "var(--app-bg)",
+        color: "var(--app-text)",
+      }}
+    >
       <div
-        className="relative mx-auto mt-8 max-w-2xl overflow-hidden rounded-2xl border border-white/5 px-5 py-10 text-white shadow-[0_10px_40px_rgba(0,0,0,0.5)] sm:mt-10 sm:rounded-3xl sm:px-[50px] sm:py-[55px]"
+        className="w-full max-w-md rounded-2xl border p-6 shadow-[0_10px_40px_rgba(0,0,0,0.5)] sm:p-8"
         style={{
-          background:
-            "radial-gradient(circle at top right, var(--app-accent-soft), transparent 60%), linear-gradient(135deg, var(--app-surface-light) 0%, var(--app-surface) 100%)",
+          borderColor: "var(--app-accent-border)",
+          background: `radial-gradient(circle at top right, var(--app-accent-soft), transparent 60%), linear-gradient(135deg, var(--app-surface-light) 0%, var(--app-surface) 100%)`,
         }}
       >
         <div className="mb-8 text-center">
-          <h1 className="text-3xl font-bold text-white sm:text-4xl">
-            Welcome Back
+          <div
+            className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full text-2xl font-bold text-white shadow-lg transition-all duration-300"
+            style={{
+              backgroundColor: "var(--app-accent)",
+              boxShadow: "0 10px 25px var(--app-accent-soft)",
+            }}
+          >
+            S
+          </div>
+
+          <h1
+            className="text-3xl font-bold tracking-tight sm:text-4xl"
+            style={{ color: "var(--app-text)" }}
+          >
+            Customer Login
           </h1>
-          <p className="mt-2 text-sm text-zinc-400 sm:text-base">
-            Login to your SmartShop account
+
+          <p className="mt-2 text-sm" style={{ color: "var(--app-text-muted)" }}>
+            Sign in to your SmartShop customer account
           </p>
         </div>
 
         {error && (
           <div
-            className="mb-5 rounded-lg border border-red-500/20 bg-red-500/5 px-4 py-3 text-sm leading-5 text-red-400"
+            className="mb-5 rounded-lg border px-4 py-3 text-sm leading-5"
+            style={{
+              borderColor: "rgba(239,68,68,0.20)",
+              backgroundColor: "rgba(239,68,68,0.05)",
+              color: "#f87171",
+            }}
             role="alert"
           >
             {error}
@@ -85,39 +114,55 @@ const Login = () => {
           <div>
             <label
               htmlFor="identifier"
-              className="mb-2 block text-sm font-medium text-zinc-300"
+              className="mb-2 block text-sm font-medium"
+              style={{ color: "var(--app-text-secondary)" }}
             >
-              Email or Phone
+              Email or Phone Number
             </label>
 
             <input
               id="identifier"
               type="text"
-              placeholder="Enter email or Phone"
+              placeholder="Enter email or phone number"
               value={identifier}
-              onChange={(e) => setIdentifier(e.target.value)}
+              onChange={(e) => {
+                setIdentifier(e.target.value);
+                if (error) setError("");
+              }}
               required
               autoComplete="username"
-              className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-3 text-sm text-white placeholder:text-zinc-600 outline-none transition focus:border-[var(--app-accent-border)] focus:ring-1 focus:ring-[var(--app-accent-soft)]"
+              disabled={loading}
+              className="w-full rounded-lg border px-4 py-3 text-sm outline-none transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-60"
+              style={{
+                borderColor: "var(--app-border)",
+                backgroundColor: "var(--app-surface-light)",
+                color: "var(--app-text)",
+              }}
+              onFocus={(e) => {
+                e.currentTarget.style.borderColor = "var(--app-accent-border)";
+                e.currentTarget.style.boxShadow = "0 0 0 1px var(--app-accent-soft)";
+              }}
+              onBlur={(e) => {
+                e.currentTarget.style.borderColor = "var(--app-border)";
+                e.currentTarget.style.boxShadow = "none";
+              }}
             />
-
-            <p className="mt-2 text-xs text-zinc-600">
-              Customers can use email or phone
-            </p>
           </div>
 
           <div>
             <div className="mb-2 flex items-center justify-between">
               <label
                 htmlFor="password"
-                className="text-sm font-medium text-zinc-300"
+                className="text-sm font-medium"
+                style={{ color: "var(--app-text-secondary)" }}
               >
                 Password
               </label>
 
               <Link
                 to="/forgot-password"
-                className="text-xs text-[var(--app-accent)] transition-colors hover:text-[var(--app-accent-hover)]"
+                className="text-xs transition-colors hover:underline"
+                style={{ color: "var(--app-accent)" }}
               >
                 Forgot Password?
               </Link>
@@ -129,17 +174,35 @@ const Login = () => {
                 type={showPassword ? "text" : "password"}
                 placeholder="Enter your password"
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  if (error) setError("");
+                }}
                 required
                 autoComplete="current-password"
-                className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-3 pr-11 text-sm text-white placeholder:text-zinc-600 outline-none transition focus:border-[var(--app-accent-border)] focus:ring-1 focus:ring-[var(--app-accent-soft)]"
+                disabled={loading}
+                className="w-full rounded-lg border px-4 py-3 pr-20 text-sm outline-none transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-60"
+                style={{
+                  borderColor: "var(--app-border)",
+                  backgroundColor: "var(--app-surface-light)",
+                  color: "var(--app-text)",
+                }}
+                onFocus={(e) => {
+                  e.currentTarget.style.borderColor = "var(--app-accent-border)";
+                  e.currentTarget.style.boxShadow = "0 0 0 1px var(--app-accent-soft)";
+                }}
+                onBlur={(e) => {
+                  e.currentTarget.style.borderColor = "var(--app-border)";
+                  e.currentTarget.style.boxShadow = "none";
+                }}
               />
 
               <button
                 type="button"
                 onClick={() => setShowPassword((prev) => !prev)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 rounded p-1 text-zinc-400 hover:text-white"
+                disabled={loading}
                 aria-label={showPassword ? "Hide password" : "Show password"}
+                className="absolute right-3.5 top-1/2 -translate-y-1/2 rounded-md p-1 text-zinc-400 transition-colors hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {showPassword ? (
                   <EyeOff className="h-4 w-4" />
@@ -153,19 +216,38 @@ const Login = () => {
           <button
             type="submit"
             disabled={loading}
-            className="w-full rounded-lg bg-[var(--app-accent)] px-5 py-3 font-semibold text-white shadow-lg transition-all duration-300 hover:-translate-y-[1px] hover:bg-[var(--app-accent-hover)] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
-            style={{ boxShadow: "0 10px 25px var(--app-accent-soft)" }}
+            className="w-full rounded-lg px-5 py-3 text-sm font-semibold text-white transition-all duration-300 hover:-translate-y-[1px] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
+            style={{
+              backgroundColor: "var(--app-accent)",
+              boxShadow: "0 10px 25px var(--app-accent-soft)",
+            }}
+            onMouseEnter={(e) => {
+              if (!loading) {
+                e.currentTarget.style.backgroundColor = "var(--app-accent-hover)";
+              }
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = "var(--app-accent)";
+            }}
           >
-            {loading ? "Logging in..." : "Login"}
+            {loading ? "Signing In..." : "Login"}
           </button>
         </form>
 
-        <div className="mt-7 text-center">
-          <p className="text-sm text-zinc-500">
-            Don't have an account?{" "}
+        {/* Switch to Signup */}
+        <div
+          className="mt-6 rounded-lg border p-4 text-center"
+          style={{
+            borderColor: "var(--app-accent-border)",
+            backgroundColor: "var(--app-accent-soft)",
+          }}
+        >
+          <p className="text-xs leading-5" style={{ color: "var(--app-text-muted)" }}>
+            Don't have a customer account?{" "}
             <Link
               to="/signup"
-              className="font-medium text-[var(--app-accent)] transition-colors hover:text-[var(--app-accent-hover)]"
+              className="font-semibold transition hover:underline"
+              style={{ color: "var(--app-accent)" }}
             >
               Create Account
             </Link>

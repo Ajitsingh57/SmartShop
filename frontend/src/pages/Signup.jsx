@@ -24,7 +24,7 @@ const Signup = () => {
     setError("");
 
     if (!name.trim()) {
-      setError("Please enter your name.");
+      setError("Please enter your full name.");
       return;
     }
 
@@ -59,39 +59,68 @@ const Signup = () => {
         role: "customer",
       });
 
-      authStorage.setToken(data.token);
-      authStorage.setUser(data.user);
+      if (data?.token) {
+        authStorage.setToken(data.token);
+      }
+      if (data?.user) {
+        authStorage.setUser(data.user);
+      }
 
-      navigate("/");
-    } catch (error) {
-      console.error("Signup failed:", error);
-      setError(error.message || "Registration failed. Please try again.");
+      navigate("/", { replace: true });
+    } catch (err) {
+      console.error("Signup failed:", err);
+      setError(err?.message || "Registration failed. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="w-full px-4 sm:px-6 md:px-[50px] pb-16">
+    <div
+      className="flex min-h-[calc(100vh-73px)] w-full items-center justify-center px-4 py-10 sm:px-6"
+      style={{
+        backgroundColor: "var(--app-bg)",
+        color: "var(--app-text)",
+      }}
+    >
       <div
-        className="relative mx-auto mt-8 max-w-2xl overflow-hidden rounded-2xl border border-white/5 px-5 py-10 text-white shadow-[0_10px_40px_rgba(0,0,0,0.5)] sm:mt-10 sm:rounded-3xl sm:px-[50px] sm:py-[55px]"
+        className="w-full max-w-md rounded-2xl border p-6 shadow-[0_10px_40px_rgba(0,0,0,0.5)] sm:p-8"
         style={{
-          background:
-            "radial-gradient(circle at top right, var(--app-accent-soft), transparent 60%), linear-gradient(135deg, var(--app-surface-light) 0%, var(--app-surface) 100%)",
+          borderColor: "var(--app-accent-border)",
+          background: `radial-gradient(circle at top right, var(--app-accent-soft), transparent 60%), linear-gradient(135deg, var(--app-surface-light) 0%, var(--app-surface) 100%)`,
         }}
       >
         <div className="mb-8 text-center">
-          <h1 className="text-3xl font-bold text-white sm:text-4xl">
+          <div
+            className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full text-2xl font-bold text-white shadow-lg transition-all duration-300"
+            style={{
+              backgroundColor: "var(--app-accent)",
+              boxShadow: "0 10px 25px var(--app-accent-soft)",
+            }}
+          >
+            S
+          </div>
+
+          <h1
+            className="text-3xl font-bold tracking-tight sm:text-4xl"
+            style={{ color: "var(--app-text)" }}
+          >
             Create Account
           </h1>
-          <p className="mt-2 text-sm text-zinc-400 sm:text-base">
-            Join SmartShop to track your purchases, credit ledger and payments
+
+          <p className="mt-2 text-sm" style={{ color: "var(--app-text-muted)" }}>
+            Join SmartShop to track orders & credit ledger
           </p>
         </div>
 
         {error && (
           <div
-            className="mb-5 rounded-lg border border-red-500/20 bg-red-500/5 px-4 py-3 text-sm leading-5 text-red-400"
+            className="mb-5 rounded-lg border px-4 py-3 text-sm leading-5"
+            style={{
+              borderColor: "rgba(239,68,68,0.20)",
+              backgroundColor: "rgba(239,68,68,0.05)",
+              color: "#f87171",
+            }}
             role="alert"
           >
             {error}
@@ -99,11 +128,12 @@ const Signup = () => {
         )}
 
         {/* Customer registration form */}
-        <form onSubmit={handleSubmit} className="space-y-5">
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label
               htmlFor="name"
-              className="mb-2 block text-sm font-medium text-zinc-300"
+              className="mb-1.5 block text-sm font-medium"
+              style={{ color: "var(--app-text-secondary)" }}
             >
               Full Name
             </label>
@@ -113,64 +143,111 @@ const Signup = () => {
               type="text"
               placeholder="Enter your full name"
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(e) => {
+                setName(e.target.value);
+                if (error) setError("");
+              }}
               required
               autoComplete="name"
-              className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-3 text-sm text-white placeholder:text-zinc-600 outline-none transition focus:border-[var(--app-accent-border)] focus:ring-1 focus:ring-[var(--app-accent-soft)]"
-            />
-          </div>
-
-          <div>
-            <label
-              htmlFor="email"
-              className="mb-2 block text-sm font-medium text-zinc-300"
-            >
-              Email Address
-              <span className="ml-2 text-xs text-zinc-500">Optional</span>
-            </label>
-
-            <input
-              id="email"
-              type="email"
-              placeholder="Enter your email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              autoComplete="email"
-              className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-3 text-sm text-white placeholder:text-zinc-600 outline-none transition focus:border-[var(--app-accent-border)] focus:ring-1 focus:ring-[var(--app-accent-soft)]"
+              disabled={loading}
+              className="w-full rounded-lg border px-4 py-2.5 text-sm outline-none transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-60"
+              style={{
+                borderColor: "var(--app-border)",
+                backgroundColor: "var(--app-surface-light)",
+                color: "var(--app-text)",
+              }}
+              onFocus={(e) => {
+                e.currentTarget.style.borderColor = "var(--app-accent-border)";
+                e.currentTarget.style.boxShadow = "0 0 0 1px var(--app-accent-soft)";
+              }}
+              onBlur={(e) => {
+                e.currentTarget.style.borderColor = "var(--app-border)";
+                e.currentTarget.style.boxShadow = "none";
+              }}
             />
           </div>
 
           <div>
             <label
               htmlFor="phone"
-              className="mb-2 block text-sm font-medium text-zinc-300"
+              className="mb-1.5 flex items-center justify-between text-sm font-medium"
+              style={{ color: "var(--app-text-secondary)" }}
             >
-              Phone Number
-              <span className="ml-2 text-xs text-zinc-500">Optional</span>
+              <span>Phone Number</span>
+              <span className="text-[11px] text-zinc-500">Required if no email</span>
             </label>
 
             <input
               id="phone"
               type="tel"
-              placeholder="Enter your phone number"
+              placeholder="e.g. 9876543210"
               value={phone}
-              onChange={(e) => setPhone(e.target.value)}
+              onChange={(e) => {
+                setPhone(e.target.value);
+                if (error) setError("");
+              }}
               autoComplete="tel"
-              className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-3 text-sm text-white placeholder:text-zinc-600 outline-none transition focus:border-[var(--app-accent-border)] focus:ring-1 focus:ring-[var(--app-accent-soft)]"
+              disabled={loading}
+              className="w-full rounded-lg border px-4 py-2.5 text-sm outline-none transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-60"
+              style={{
+                borderColor: "var(--app-border)",
+                backgroundColor: "var(--app-surface-light)",
+                color: "var(--app-text)",
+              }}
+              onFocus={(e) => {
+                e.currentTarget.style.borderColor = "var(--app-accent-border)";
+                e.currentTarget.style.boxShadow = "0 0 0 1px var(--app-accent-soft)";
+              }}
+              onBlur={(e) => {
+                e.currentTarget.style.borderColor = "var(--app-border)";
+                e.currentTarget.style.boxShadow = "none";
+              }}
             />
           </div>
 
-          <div className="rounded-lg border border-[var(--app-accent-border)] bg-[var(--app-accent-soft)] px-4 py-3">
-            <p className="text-xs leading-5 text-zinc-400">
-              Provide at least{" "}
-              <span className="font-semibold text-[var(--app-accent)]">one</span> of email or phone number.
-            </p>
+          <div>
+            <label
+              htmlFor="email"
+              className="mb-1.5 flex items-center justify-between text-sm font-medium"
+              style={{ color: "var(--app-text-secondary)" }}
+            >
+              <span>Email Address</span>
+              <span className="text-[11px] text-zinc-500">Optional</span>
+            </label>
+
+            <input
+              id="email"
+              type="email"
+              placeholder="e.g. user@example.com"
+              value={email}
+              onChange={(e) => {
+                setEmail(e.target.value);
+                if (error) setError("");
+              }}
+              autoComplete="email"
+              disabled={loading}
+              className="w-full rounded-lg border px-4 py-2.5 text-sm outline-none transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-60"
+              style={{
+                borderColor: "var(--app-border)",
+                backgroundColor: "var(--app-surface-light)",
+                color: "var(--app-text)",
+              }}
+              onFocus={(e) => {
+                e.currentTarget.style.borderColor = "var(--app-accent-border)";
+                e.currentTarget.style.boxShadow = "0 0 0 1px var(--app-accent-soft)";
+              }}
+              onBlur={(e) => {
+                e.currentTarget.style.borderColor = "var(--app-border)";
+                e.currentTarget.style.boxShadow = "none";
+              }}
+            />
           </div>
 
           <div>
             <label
               htmlFor="password"
-              className="mb-2 block text-sm font-medium text-zinc-300"
+              className="mb-1.5 block text-sm font-medium"
+              style={{ color: "var(--app-text-secondary)" }}
             >
               Password
             </label>
@@ -179,20 +256,37 @@ const Signup = () => {
               <input
                 id="password"
                 type={showPassword ? "text" : "password"}
-                placeholder="Create a password (min 6 characters)"
+                placeholder="At least 6 characters"
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  if (error) setError("");
+                }}
                 required
-                minLength={6}
                 autoComplete="new-password"
-                className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-3 pr-11 text-sm text-white placeholder:text-zinc-600 outline-none transition focus:border-[var(--app-accent-border)] focus:ring-1 focus:ring-[var(--app-accent-soft)]"
+                disabled={loading}
+                className="w-full rounded-lg border px-4 py-2.5 pr-20 text-sm outline-none transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-60"
+                style={{
+                  borderColor: "var(--app-border)",
+                  backgroundColor: "var(--app-surface-light)",
+                  color: "var(--app-text)",
+                }}
+                onFocus={(e) => {
+                  e.currentTarget.style.borderColor = "var(--app-accent-border)";
+                  e.currentTarget.style.boxShadow = "0 0 0 1px var(--app-accent-soft)";
+                }}
+                onBlur={(e) => {
+                  e.currentTarget.style.borderColor = "var(--app-border)";
+                  e.currentTarget.style.boxShadow = "none";
+                }}
               />
 
               <button
                 type="button"
                 onClick={() => setShowPassword((prev) => !prev)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 rounded p-1 text-zinc-400 hover:text-white"
+                disabled={loading}
                 aria-label={showPassword ? "Hide password" : "Show password"}
+                className="absolute right-3.5 top-1/2 -translate-y-1/2 rounded-md p-1 text-zinc-400 transition-colors hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {showPassword ? (
                   <EyeOff className="h-4 w-4" />
@@ -201,16 +295,13 @@ const Signup = () => {
                 )}
               </button>
             </div>
-
-            <p className="mt-2 text-xs text-zinc-600">
-              Password must be at least 6 characters.
-            </p>
           </div>
 
           <div>
             <label
               htmlFor="confirmPassword"
-              className="mb-2 block text-sm font-medium text-zinc-300"
+              className="mb-1.5 block text-sm font-medium"
+              style={{ color: "var(--app-text-secondary)" }}
             >
               Confirm Password
             </label>
@@ -219,20 +310,37 @@ const Signup = () => {
               <input
                 id="confirmPassword"
                 type={showConfirmPassword ? "text" : "password"}
-                placeholder="Confirm your password"
+                placeholder="Re-enter password"
                 value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
+                onChange={(e) => {
+                  setConfirmPassword(e.target.value);
+                  if (error) setError("");
+                }}
                 required
-                minLength={6}
                 autoComplete="new-password"
-                className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-3 pr-11 text-sm text-white placeholder:text-zinc-600 outline-none transition focus:border-[var(--app-accent-border)] focus:ring-1 focus:ring-[var(--app-accent-soft)]"
+                disabled={loading}
+                className="w-full rounded-lg border px-4 py-2.5 pr-20 text-sm outline-none transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-60"
+                style={{
+                  borderColor: "var(--app-border)",
+                  backgroundColor: "var(--app-surface-light)",
+                  color: "var(--app-text)",
+                }}
+                onFocus={(e) => {
+                  e.currentTarget.style.borderColor = "var(--app-accent-border)";
+                  e.currentTarget.style.boxShadow = "0 0 0 1px var(--app-accent-soft)";
+                }}
+                onBlur={(e) => {
+                  e.currentTarget.style.borderColor = "var(--app-border)";
+                  e.currentTarget.style.boxShadow = "none";
+                }}
               />
 
               <button
                 type="button"
                 onClick={() => setShowConfirmPassword((prev) => !prev)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 rounded p-1 text-zinc-400 hover:text-white"
+                disabled={loading}
                 aria-label={showConfirmPassword ? "Hide confirm password" : "Show confirm password"}
+                className="absolute right-3.5 top-1/2 -translate-y-1/2 rounded-md p-1 text-zinc-400 transition-colors hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {showConfirmPassword ? (
                   <EyeOff className="h-4 w-4" />
@@ -246,21 +354,40 @@ const Signup = () => {
           <button
             type="submit"
             disabled={loading}
-            className="w-full rounded-lg bg-[var(--app-accent)] px-5 py-3 font-semibold text-white shadow-lg transition-all duration-300 hover:-translate-y-[1px] hover:bg-[var(--app-accent-hover)] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
-            style={{ boxShadow: "0 10px 25px var(--app-accent-soft)" }}
+            className="w-full rounded-lg px-5 py-3 text-sm font-semibold text-white transition-all duration-300 hover:-translate-y-[1px] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0 mt-2"
+            style={{
+              backgroundColor: "var(--app-accent)",
+              boxShadow: "0 10px 25px var(--app-accent-soft)",
+            }}
+            onMouseEnter={(e) => {
+              if (!loading) {
+                e.currentTarget.style.backgroundColor = "var(--app-accent-hover)";
+              }
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = "var(--app-accent)";
+            }}
           >
             {loading ? "Creating Account..." : "Create Account"}
           </button>
         </form>
 
-        <div className="mt-7 text-center">
-          <p className="text-sm text-zinc-500">
+        {/* Switch to Login */}
+        <div
+          className="mt-6 rounded-lg border p-4 text-center"
+          style={{
+            borderColor: "var(--app-accent-border)",
+            backgroundColor: "var(--app-accent-soft)",
+          }}
+        >
+          <p className="text-xs leading-5" style={{ color: "var(--app-text-muted)" }}>
             Already have an account?{" "}
             <Link
               to="/login"
-              className="font-medium text-[var(--app-accent)] transition-colors hover:text-[var(--app-accent-hover)]"
+              className="font-semibold transition hover:underline"
+              style={{ color: "var(--app-accent)" }}
             >
-              Login
+              Sign In
             </Link>
           </p>
         </div>

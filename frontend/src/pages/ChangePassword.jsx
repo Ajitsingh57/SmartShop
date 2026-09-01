@@ -1,6 +1,6 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { Eye, EyeOff, ShieldCheck } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { Eye, EyeOff, ArrowLeft, CheckCircle2 } from "lucide-react";
 import { authApi } from "../services/api";
 
 const ChangePassword = () => {
@@ -75,26 +75,51 @@ const ChangePassword = () => {
   };
 
   return (
-    <div className="w-full px-4 sm:px-6 md:px-[50px] pb-16">
+    <div
+      className="flex min-h-[calc(100vh-73px)] w-full items-center justify-center px-4 py-10 sm:px-6"
+      style={{
+        backgroundColor: "var(--app-bg)",
+        color: "var(--app-text)",
+      }}
+    >
       <div
-        className="relative mx-auto mt-8 max-w-2xl overflow-hidden rounded-2xl border border-white/5 px-5 py-10 text-white shadow-[0_10px_40px_rgba(0,0,0,0.5)] sm:mt-10 sm:rounded-3xl sm:px-[50px] sm:py-[55px]"
+        className="w-full max-w-md rounded-2xl border p-6 shadow-[0_10px_40px_rgba(0,0,0,0.5)] sm:p-8"
         style={{
-          background:
-            "radial-gradient(circle at top right, var(--app-accent-soft), transparent 60%), linear-gradient(135deg, var(--app-surface-light) 0%, var(--app-surface) 100%)",
+          borderColor: "var(--app-accent-border)",
+          background: `radial-gradient(circle at top right, var(--app-accent-soft), transparent 60%), linear-gradient(135deg, var(--app-surface-light) 0%, var(--app-surface) 100%)`,
         }}
       >
         <div className="mb-8 text-center">
-          <h1 className="text-3xl font-bold text-white sm:text-4xl">
+          <div
+            className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full text-2xl font-bold text-white shadow-lg transition-all duration-300"
+            style={{
+              backgroundColor: "var(--app-accent)",
+              boxShadow: "0 10px 25px var(--app-accent-soft)",
+            }}
+          >
+            S
+          </div>
+
+          <h1
+            className="text-3xl font-bold tracking-tight sm:text-4xl"
+            style={{ color: "var(--app-text)" }}
+          >
             Change Password
           </h1>
-          <p className="mt-2 text-sm text-zinc-400 sm:text-base">
+
+          <p className="mt-2 text-sm" style={{ color: "var(--app-text-muted)" }}>
             Update your account password securely
           </p>
         </div>
 
         {error && (
           <div
-            className="mb-5 rounded-lg border border-red-500/20 bg-red-500/5 px-4 py-3 text-sm leading-5 text-red-400"
+            className="mb-5 rounded-lg border px-4 py-3 text-sm leading-5"
+            style={{
+              borderColor: "rgba(239,68,68,0.20)",
+              backgroundColor: "rgba(239,68,68,0.05)",
+              color: "#f87171",
+            }}
             role="alert"
           >
             {error}
@@ -103,7 +128,12 @@ const ChangePassword = () => {
 
         {success && (
           <div
-            className="mb-5 rounded-lg border border-green-500/20 bg-green-500/5 px-4 py-3 text-sm leading-5 text-green-400"
+            className="mb-5 rounded-lg border px-4 py-3 text-sm leading-5"
+            style={{
+              borderColor: "rgba(34,197,94,0.20)",
+              backgroundColor: "rgba(34,197,94,0.05)",
+              color: "#4ade80",
+            }}
             role="status"
           >
             {success}
@@ -111,11 +141,12 @@ const ChangePassword = () => {
         )}
 
         {/* Change password form */}
-        <form onSubmit={handleSubmit} className="space-y-5">
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label
               htmlFor="currentPassword"
-              className="mb-2 block text-sm font-medium text-zinc-300"
+              className="mb-1.5 block text-sm font-medium"
+              style={{ color: "var(--app-text-secondary)" }}
             >
               Current Password
             </label>
@@ -126,17 +157,35 @@ const ChangePassword = () => {
                 type={showCurrent ? "text" : "password"}
                 placeholder="Enter your current password"
                 value={currentPassword}
-                onChange={(e) => setCurrentPassword(e.target.value)}
+                onChange={(e) => {
+                  setCurrentPassword(e.target.value);
+                  if (error) setError("");
+                }}
                 autoComplete="current-password"
                 required
-                className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-3 pr-11 text-sm text-white placeholder:text-zinc-600 outline-none transition focus:border-[var(--app-accent-border)] focus:ring-1 focus:ring-[var(--app-accent-soft)]"
+                disabled={loading}
+                className="w-full rounded-lg border px-4 py-2.5 pr-20 text-sm outline-none transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-60"
+                style={{
+                  borderColor: "var(--app-border)",
+                  backgroundColor: "var(--app-surface-light)",
+                  color: "var(--app-text)",
+                }}
+                onFocus={(e) => {
+                  e.currentTarget.style.borderColor = "var(--app-accent-border)";
+                  e.currentTarget.style.boxShadow = "0 0 0 1px var(--app-accent-soft)";
+                }}
+                onBlur={(e) => {
+                  e.currentTarget.style.borderColor = "var(--app-border)";
+                  e.currentTarget.style.boxShadow = "none";
+                }}
               />
 
               <button
                 type="button"
                 onClick={() => setShowCurrent((prev) => !prev)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 rounded p-1 text-zinc-400 hover:text-white"
+                disabled={loading}
                 aria-label={showCurrent ? "Hide current password" : "Show current password"}
+                className="absolute right-3.5 top-1/2 -translate-y-1/2 rounded-md p-1 text-zinc-400 transition-colors hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {showCurrent ? (
                   <EyeOff className="h-4 w-4" />
@@ -150,7 +199,8 @@ const ChangePassword = () => {
           <div>
             <label
               htmlFor="newPassword"
-              className="mb-2 block text-sm font-medium text-zinc-300"
+              className="mb-1.5 block text-sm font-medium"
+              style={{ color: "var(--app-text-secondary)" }}
             >
               New Password
             </label>
@@ -159,20 +209,37 @@ const ChangePassword = () => {
               <input
                 id="newPassword"
                 type={showNew ? "text" : "password"}
-                placeholder="Enter your new password"
+                placeholder="At least 6 characters"
                 value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
+                onChange={(e) => {
+                  setNewPassword(e.target.value);
+                  if (error) setError("");
+                }}
                 autoComplete="new-password"
                 required
-                minLength={6}
-                className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-3 pr-11 text-sm text-white placeholder:text-zinc-600 outline-none transition focus:border-[var(--app-accent-border)] focus:ring-1 focus:ring-[var(--app-accent-soft)]"
+                disabled={loading}
+                className="w-full rounded-lg border px-4 py-2.5 pr-20 text-sm outline-none transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-60"
+                style={{
+                  borderColor: "var(--app-border)",
+                  backgroundColor: "var(--app-surface-light)",
+                  color: "var(--app-text)",
+                }}
+                onFocus={(e) => {
+                  e.currentTarget.style.borderColor = "var(--app-accent-border)";
+                  e.currentTarget.style.boxShadow = "0 0 0 1px var(--app-accent-soft)";
+                }}
+                onBlur={(e) => {
+                  e.currentTarget.style.borderColor = "var(--app-border)";
+                  e.currentTarget.style.boxShadow = "none";
+                }}
               />
 
               <button
                 type="button"
                 onClick={() => setShowNew((prev) => !prev)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 rounded p-1 text-zinc-400 hover:text-white"
+                disabled={loading}
                 aria-label={showNew ? "Hide new password" : "Show new password"}
+                className="absolute right-3.5 top-1/2 -translate-y-1/2 rounded-md p-1 text-zinc-400 transition-colors hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {showNew ? (
                   <EyeOff className="h-4 w-4" />
@@ -181,16 +248,13 @@ const ChangePassword = () => {
                 )}
               </button>
             </div>
-
-            <p className="mt-2 text-xs text-zinc-600">
-              Password must be at least 6 characters.
-            </p>
           </div>
 
           <div>
             <label
               htmlFor="confirmPassword"
-              className="mb-2 block text-sm font-medium text-zinc-300"
+              className="mb-1.5 block text-sm font-medium"
+              style={{ color: "var(--app-text-secondary)" }}
             >
               Confirm New Password
             </label>
@@ -201,18 +265,35 @@ const ChangePassword = () => {
                 type={showConfirm ? "text" : "password"}
                 placeholder="Confirm your new password"
                 value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
+                onChange={(e) => {
+                  setConfirmPassword(e.target.value);
+                  if (error) setError("");
+                }}
                 autoComplete="new-password"
                 required
-                minLength={6}
-                className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-3 pr-11 text-sm text-white placeholder:text-zinc-600 outline-none transition focus:border-[var(--app-accent-border)] focus:ring-1 focus:ring-[var(--app-accent-soft)]"
+                disabled={loading}
+                className="w-full rounded-lg border px-4 py-2.5 pr-20 text-sm outline-none transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-60"
+                style={{
+                  borderColor: "var(--app-border)",
+                  backgroundColor: "var(--app-surface-light)",
+                  color: "var(--app-text)",
+                }}
+                onFocus={(e) => {
+                  e.currentTarget.style.borderColor = "var(--app-accent-border)";
+                  e.currentTarget.style.boxShadow = "0 0 0 1px var(--app-accent-soft)";
+                }}
+                onBlur={(e) => {
+                  e.currentTarget.style.borderColor = "var(--app-border)";
+                  e.currentTarget.style.boxShadow = "none";
+                }}
               />
 
               <button
                 type="button"
                 onClick={() => setShowConfirm((prev) => !prev)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 rounded p-1 text-zinc-400 hover:text-white"
+                disabled={loading}
                 aria-label={showConfirm ? "Hide confirm password" : "Show confirm password"}
+                className="absolute right-3.5 top-1/2 -translate-y-1/2 rounded-md p-1 text-zinc-400 transition-colors hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {showConfirm ? (
                   <EyeOff className="h-4 w-4" />
@@ -223,32 +304,43 @@ const ChangePassword = () => {
             </div>
           </div>
 
-          <div className="flex flex-col gap-3 pt-2 sm:flex-row">
-            <button
-              type="submit"
-              disabled={loading}
-              className="flex-1 rounded-lg bg-[var(--app-accent)] px-5 py-3 font-semibold text-white shadow-lg transition-all duration-300 hover:-translate-y-[1px] hover:bg-[var(--app-accent-hover)] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
-              style={{ boxShadow: "0 10px 25px var(--app-accent-soft)" }}
-            >
-              {loading ? "Changing Password..." : "Change Password"}
-            </button>
-
-            <button
-              type="button"
-              onClick={() => navigate("/profile")}
-              disabled={loading}
-              className="flex-1 rounded-lg border border-zinc-700 bg-zinc-900 px-5 py-3 font-semibold text-zinc-300 transition-all duration-300 hover:border-zinc-600 hover:bg-zinc-800 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              Cancel
-            </button>
-          </div>
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full rounded-lg px-5 py-3 text-sm font-semibold text-white transition-all duration-300 hover:-translate-y-[1px] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0 mt-2"
+            style={{
+              backgroundColor: "var(--app-accent)",
+              boxShadow: "0 10px 25px var(--app-accent-soft)",
+            }}
+            onMouseEnter={(e) => {
+              if (!loading) {
+                e.currentTarget.style.backgroundColor = "var(--app-accent-hover)";
+              }
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = "var(--app-accent)";
+            }}
+          >
+            {loading ? "Updating..." : "Update Password"}
+          </button>
         </form>
 
-        <div className="mt-8 rounded-lg border border-[var(--app-accent-border)] bg-[var(--app-accent-soft)] px-4 py-4">
-          <p className="text-sm font-medium text-[var(--app-accent)]">Security Tip</p>
-          <p className="mt-1 text-xs leading-5 text-zinc-400">
-            Use a strong password that is difficult to guess and avoid sharing your password with anyone.
-          </p>
+        {/* Back to Settings link */}
+        <div
+          className="mt-6 rounded-lg border p-4 text-center"
+          style={{
+            borderColor: "var(--app-accent-border)",
+            backgroundColor: "var(--app-accent-soft)",
+          }}
+        >
+          <Link
+            to="/settings"
+            className="inline-flex items-center gap-1.5 text-xs font-semibold transition hover:underline"
+            style={{ color: "var(--app-accent)" }}
+          >
+            <ArrowLeft className="h-3.5 w-3.5" />
+            <span>Back to Settings</span>
+          </Link>
         </div>
       </div>
     </div>

@@ -23,15 +23,22 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Standardize error message extraction
+// Standardize error message extraction and auto-clear expired sessions
 api.interceptors.response.use(
   (response) => response,
   (error) => {
+    const status = error.response?.status;
     const message =
       error.response?.data?.message ||
       error.response?.data?.error ||
       error.message ||
       "Something went wrong. Please try again.";
+
+    // If server rejects token as expired or unauthorized, automatically clear session
+    if (status === 401) {
+      authStorage.clear();
+    }
+
     return Promise.reject(new Error(message));
   }
 );
@@ -322,7 +329,7 @@ export const aboutApi = {
 };
 
 // Helper to parse JWT payload safely
-const parseJwt = (token) => {
+export const parseJwt = (token) => {
   try {
     if (!token || typeof token !== "string") return null;
     const parts = token.split(".");
@@ -341,16 +348,17 @@ const parseJwt = (token) => {
   }
 };
 
-// Local token helper utilities
-export const getToken = () =>
-  localStorage.getItem("adminAuthToken") || localStorage.getItem("authToken");
-export const setToken = (token) => {
-  localStorage.setItem("adminAuthToken", token);
-  localStorage.setItem("authToken", token);
-};
-export const removeToken = () => {
-  localStorage.removeItem("adminAuthToken");
-  localStorage.removeItem("authToken");
+// Validates whether a token exists, is well-formed, and is not expired
+export const isTokenValid = (token) => {
+  if (!token || typeof token !== "string") return false;
+  const payload = parseJwt(token);
+  if (!payload) return false;
+  if (payload.exp && typeof payload.exp === "number") {
+    // payload.exp is timestamp in seconds
+    const isExpired = Date.now() >= payload.exp * 1000;
+    if (isExpired) return false;
+  }
+  return true;
 };
 
 // Local storage session wrapper
@@ -358,22 +366,44 @@ export const authStorage = {
   setToken: (token) => {
     localStorage.setItem("adminAuthToken", token);
     localStorage.setItem("authToken", token);
+    window.dispatchEvent(new Event("auth-changed"));
   },
+
   getToken: () => {
-    return (
+    const token =
       localStorage.getItem("adminAuthToken") ||
-      localStorage.getItem("authToken")
-    );
+      localStorage.getItem("authToken");
+
+    if (!token) return null;
+
+    // If token is expired or malformed, purge storage immediately
+    if (!isTokenValid(token)) {
+      authStorage.clear();
+      return null;
+    }
+
+    return token;
   },
+
   removeToken: () => {
     localStorage.removeItem("adminAuthToken");
     localStorage.removeItem("authToken");
+    window.dispatchEvent(new Event("auth-changed"));
   },
+
   setUser: (user) => {
     localStorage.setItem("adminAuthUser", JSON.stringify(user));
     localStorage.setItem("authUser", JSON.stringify(user));
+    window.dispatchEvent(new Event("auth-changed"));
   },
+
   getUser: () => {
+    // Only return user if valid unexpired token exists
+    const token = authStorage.getToken();
+    if (!token) {
+      return null;
+    }
+
     const userStr =
       localStorage.getItem("adminAuthUser") ||
       localStorage.getItem("authUser");
@@ -386,40 +416,44 @@ export const authStorage = {
       }
     }
 
-    // Fallback: If user role or id is missing/corrupted, recover from valid JWT
-    const token =
-      localStorage.getItem("adminAuthToken") ||
-      localStorage.getItem("authToken");
-    if (token) {
-      const jwtPayload = parseJwt(token);
-      if (jwtPayload) {
-        if (!parsedUser) {
-          parsedUser = {
-            id: jwtPayload.id,
-            role: jwtPayload.role,
-          };
-        } else {
-          if (!parsedUser.role && jwtPayload.role) {
-            parsedUser.role = jwtPayload.role;
-          }
-          if (!parsedUser.id && jwtPayload.id) {
-            parsedUser.id = jwtPayload.id;
-          }
+    // Fallback: If user role or id is missing, recover from valid JWT
+    const jwtPayload = parseJwt(token);
+    if (jwtPayload) {
+      if (!parsedUser) {
+        parsedUser = {
+          id: jwtPayload.id,
+          role: jwtPayload.role,
+        };
+      } else {
+        if (!parsedUser.role && jwtPayload.role) {
+          parsedUser.role = jwtPayload.role;
+        }
+        if (!parsedUser.id && jwtPayload.id) {
+          parsedUser.id = jwtPayload.id;
         }
       }
     }
 
     return parsedUser;
   },
+
   removeUser: () => {
     localStorage.removeItem("adminAuthUser");
     localStorage.removeItem("authUser");
+    window.dispatchEvent(new Event("auth-changed"));
   },
+
   clear: () => {
     localStorage.removeItem("adminAuthToken");
     localStorage.removeItem("authToken");
     localStorage.removeItem("adminAuthUser");
     localStorage.removeItem("authUser");
+    window.dispatchEvent(new Event("auth-changed"));
+  },
+
+  isAuthenticated: () => {
+    const token = authStorage.getToken();
+    return Boolean(token && isTokenValid(token));
   },
 };
 

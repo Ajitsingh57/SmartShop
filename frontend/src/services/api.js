@@ -23,15 +23,21 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Format and extract response errors
+// Format and extract response errors with auto-session cleanup on 401
 api.interceptors.response.use(
   (response) => response,
   (error) => {
+    const status = error.response?.status;
     const message =
       error.response?.data?.message ||
       error.response?.data?.error ||
       error.message ||
       "Something went wrong. Please try again.";
+
+    // If server rejects token as expired or unauthorized, automatically clear session
+    if (status === 401) {
+      authStorage.clear();
+    }
 
     return Promise.reject(new Error(message));
   }
@@ -150,7 +156,7 @@ export const returnsApi = {
 };
 
 // Helper to parse JWT payload safely
-const parseJwt = (token) => {
+export const parseJwt = (token) => {
   try {
     if (!token || typeof token !== "string") return null;
     const parts = token.split(".");
@@ -169,16 +175,17 @@ const parseJwt = (token) => {
   }
 };
 
-// Auth token storage helpers
-export const getToken = () =>
-  localStorage.getItem("customerAuthToken") || localStorage.getItem("authToken");
-export const setToken = (token) => {
-  localStorage.setItem("customerAuthToken", token);
-  localStorage.setItem("authToken", token);
-};
-export const removeToken = () => {
-  localStorage.removeItem("customerAuthToken");
-  localStorage.removeItem("authToken");
+// Validates whether a token exists, is well-formed, and is not expired
+export const isTokenValid = (token) => {
+  if (!token || typeof token !== "string") return false;
+  const payload = parseJwt(token);
+  if (!payload) return false;
+  if (payload.exp && typeof payload.exp === "number") {
+    // payload.exp is timestamp in seconds
+    const isExpired = Date.now() >= payload.exp * 1000;
+    if (isExpired) return false;
+  }
+  return true;
 };
 
 // Local storage session management
@@ -186,26 +193,44 @@ export const authStorage = {
   setToken: (token) => {
     localStorage.setItem("customerAuthToken", token);
     localStorage.setItem("authToken", token);
+    window.dispatchEvent(new Event("auth-changed"));
   },
 
   getToken: () => {
-    return (
+    const token =
       localStorage.getItem("customerAuthToken") ||
-      localStorage.getItem("authToken")
-    );
+      localStorage.getItem("authToken");
+
+    if (!token) return null;
+
+    // If token is expired or invalid, clear session immediately
+    if (!isTokenValid(token)) {
+      authStorage.clear();
+      return null;
+    }
+
+    return token;
   },
 
   removeToken: () => {
     localStorage.removeItem("customerAuthToken");
     localStorage.removeItem("authToken");
+    window.dispatchEvent(new Event("auth-changed"));
   },
 
   setUser: (user) => {
     localStorage.setItem("customerAuthUser", JSON.stringify(user));
     localStorage.setItem("authUser", JSON.stringify(user));
+    window.dispatchEvent(new Event("auth-changed"));
   },
 
   getUser: () => {
+    // Only return user if valid unexpired token exists
+    const token = authStorage.getToken();
+    if (!token) {
+      return null;
+    }
+
     const user =
       localStorage.getItem("customerAuthUser") ||
       localStorage.getItem("authUser");
@@ -219,24 +244,19 @@ export const authStorage = {
     }
 
     // Fallback: If role or id is missing, recover from valid JWT
-    const token =
-      localStorage.getItem("customerAuthToken") ||
-      localStorage.getItem("authToken");
-    if (token) {
-      const jwtPayload = parseJwt(token);
-      if (jwtPayload) {
-        if (!parsedUser) {
-          parsedUser = {
-            id: jwtPayload.id,
-            role: jwtPayload.role,
-          };
-        } else {
-          if (!parsedUser.role && jwtPayload.role) {
-            parsedUser.role = jwtPayload.role;
-          }
-          if (!parsedUser.id && jwtPayload.id) {
-            parsedUser.id = jwtPayload.id;
-          }
+    const jwtPayload = parseJwt(token);
+    if (jwtPayload) {
+      if (!parsedUser) {
+        parsedUser = {
+          id: jwtPayload.id,
+          role: jwtPayload.role,
+        };
+      } else {
+        if (!parsedUser.role && jwtPayload.role) {
+          parsedUser.role = jwtPayload.role;
+        }
+        if (!parsedUser.id && jwtPayload.id) {
+          parsedUser.id = jwtPayload.id;
         }
       }
     }
@@ -247,6 +267,7 @@ export const authStorage = {
   removeUser: () => {
     localStorage.removeItem("customerAuthUser");
     localStorage.removeItem("authUser");
+    window.dispatchEvent(new Event("auth-changed"));
   },
 
   clear: () => {
@@ -254,6 +275,12 @@ export const authStorage = {
     localStorage.removeItem("authToken");
     localStorage.removeItem("customerAuthUser");
     localStorage.removeItem("authUser");
+    window.dispatchEvent(new Event("auth-changed"));
+  },
+
+  isAuthenticated: () => {
+    const token = authStorage.getToken();
+    return Boolean(token && isTokenValid(token));
   },
 };
 
