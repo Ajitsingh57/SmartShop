@@ -7,6 +7,7 @@ import razorpay from "../config/razorpay.js";
 import cloudinary from "../config/cloudinary.js";
 import { runTransaction } from "../utils/helpers.js";
 import { syncCustomerTrustAndLimits } from "../utils/trustScoreEngine.js";
+import { logAdminActivity } from "../utils/activityLogger.js";
 
 const PAYMENT_METHODS = ["cash", "upi"];
 
@@ -303,6 +304,17 @@ export async function createPayment(req, res) {
 
       return createdPayment[0];
     });
+
+    if (isAdmin(req.user.role)) {
+      logAdminActivity({
+        admin: req.user,
+        req,
+        action: "Recorded Payment",
+        category: "Payment",
+        targetId: payment._id,
+        detail: `Recorded ${payment.paymentMethod?.toUpperCase()} payment of ₹${Number(payment.amount || 0).toLocaleString("en-IN")}`,
+      });
+    }
 
     return res.status(201).json({
       success: true,
@@ -643,6 +655,16 @@ export async function approvePayment(req, res) {
       });
     }
 
+    // log payment approval activity
+    logAdminActivity({
+      admin: req.user,
+      req,
+      action: "Approved Payment",
+      category: "Payment",
+      targetId: payment._id,
+      detail: `Approved ${payment.paymentMethod?.toUpperCase()} payment of ₹${Number(payment.amount || 0).toLocaleString("en-IN")}`,
+    });
+
     return res.status(200).json({
       success: true,
       message: "Payment approved successfully",
@@ -688,6 +710,16 @@ export async function rejectPayment(req, res) {
     payment.verifiedBy = req.user._id;
     payment.verifiedAt = new Date();
     await payment.save();
+
+    // log payment rejection activity
+    logAdminActivity({
+      admin: req.user,
+      req,
+      action: "Rejected Payment",
+      category: "Payment",
+      targetId: payment._id,
+      detail: `Rejected ${payment.paymentMethod?.toUpperCase()} payment of ₹${Number(payment.amount || 0).toLocaleString("en-IN")}`,
+    });
 
     return res.status(200).json({
       success: true,

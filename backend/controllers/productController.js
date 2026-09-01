@@ -1,5 +1,6 @@
 import Product from "../models/productModel.js";
 import cloudinary from "../config/cloudinary.js";
+import { logAdminActivity } from "../utils/activityLogger.js";
 
 // Add new product with optional image upload
 export async function addProduct(req, res) {
@@ -80,6 +81,17 @@ export async function addProduct(req, res) {
         });
 
         await product.save();
+
+        // log product creation activity
+        logAdminActivity({
+            admin: req.user,
+            req,
+            action: "Created Product",
+            category: "Product",
+            targetId: product._id,
+            targetName: product.name,
+            detail: `Added new product '${product.name}' (Price: ₹${product.price}, Stock: ${product.stock} ${product.unit || ""})`
+        });
 
         return res.status(201).json({
             success: true,
@@ -243,6 +255,17 @@ export async function updateProduct(req, res) {
 
         await product.save();
 
+        // log product update activity
+        logAdminActivity({
+            admin: req.user,
+            req,
+            action: "Updated Product",
+            category: "Product",
+            targetId: product._id,
+            targetName: product.name,
+            detail: `Updated product '${product.name}' (Price: ₹${product.price}, Stock: ${product.stock} ${product.unit || ""})`
+        });
+
         return res.status(200).json({
             success: true,
             message: "Product updated successfully",
@@ -270,12 +293,25 @@ export async function deleteProduct(req, res) {
             });
         }
 
+        const deletedProductName = product.name;
+
         product.deleted = true;
         product.available = false;
         if (req.user?._id || req.user?.id) {
             product.updatedBy = req.user._id || req.user.id;
         }
         await product.save();
+
+        // log product deletion activity
+        logAdminActivity({
+            admin: req.user,
+            req,
+            action: "Deleted Product",
+            category: "Product",
+            targetId: product._id,
+            targetName: deletedProductName,
+            detail: `Deleted product '${deletedProductName}'`
+        });
 
         return res.status(200).json({
             success: true,

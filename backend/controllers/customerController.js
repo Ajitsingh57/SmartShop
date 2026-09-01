@@ -5,6 +5,7 @@ import Payment from "../models/paymentModel.js";
 import Sale from "../models/saleModel.js";
 import Return from "../models/returnModel.js";
 import { calculateCustomerTrustScoreAndLimits, syncCustomerTrustAndLimits } from "../utils/trustScoreEngine.js";
+import { logAdminActivity } from "../utils/activityLogger.js";
 
 // Fetch customer profile for authenticated user
 export const getMyProfile = async (req, res) => {
@@ -512,6 +513,22 @@ export const updateBorrowLimit = async (req, res) => {
         const manualLimit = Number(latestCustomer.manualBorrowLimit || 0);
         const effectiveLimit = activeMode === "manual" ? manualLimit : autoLimit;
 
+        // Fetch user details for clean activity log
+        const customerUser = await User.findById(latestCustomer.userId).select("name phone username");
+        const customerName = customerUser?.name || "Customer";
+
+        logAdminActivity({
+            admin: req.user,
+            req,
+            action: "Updated Credit Limit",
+            category: "Credit",
+            targetId: customer._id,
+            targetName: customerName,
+            detail: activeMode === "manual"
+                ? `Switched to Manual Limit Mode (₹${manualLimit.toLocaleString("en-IN")}) for customer ${customerName}`
+                : `Switched to Automatic Limit Mode (Active: ₹${autoLimit.toLocaleString("en-IN")}) for customer ${customerName}`
+        });
+
         return res.status(200).json({
             success: true,
             message: activeMode === "manual"
@@ -545,6 +562,19 @@ export const recalculateCustomerTrust = async (req, res) => {
                 message: "Customer not found"
             });
         }
+
+        const customerUser = await User.findById(result.customer.userId).select("name phone username");
+        const customerName = customerUser?.name || "Customer";
+
+        logAdminActivity({
+            admin: req.user,
+            req,
+            action: "Recalculated Trust Score",
+            category: "Credit",
+            targetId: customerId,
+            targetName: customerName,
+            detail: `Recalculated trust score to ${result.calculated.trustScore}/100 (${result.calculated.trustTier}) for customer ${customerName}`
+        });
 
         return res.status(200).json({
             success: true,

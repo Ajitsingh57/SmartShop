@@ -2,10 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* =====================================================
-   ROOT THEME VARIABLES
-   ===================================================== */
-
+/* theme colors and variables */
 :root {
   --app-bg: #050811;
   --app-text: #f1f5f9;
@@ -21,70 +18,38 @@
   --app-border: #27272a;
 }
 
-/* =====================================================
-   RESET
-   ===================================================== */
-
+/* reset defaults */
 * {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
 }
 
-/* =====================================================
-   HTML
-   ===================================================== */
-
+/* html root */
 html {
   min-height: 100%;
   background: var(--app-bg);
-
-  transition:
-    background-color 0.4s ease;
+  transition: background-color 0.4s ease;
 }
 
-/* =====================================================
-   BODY
-   ===================================================== */
-
+/* body typography and theme */
 body {
   min-height: 100vh;
-
-  font-family:
-    "Plus Jakarta Sans",
-    -apple-system,
-    BlinkMacSystemFont,
-    "SF Pro Display",
-    "Inter",
-    sans-serif;
-
+  font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", sans-serif;
   background-color: var(--app-bg);
   color: var(--app-text);
-
   overflow-x: hidden;
-
-  transition:
-    background-color 0.4s ease,
-    color 0.4s ease;
+  transition: background-color 0.4s ease, color 0.4s ease;
 }
 
-/* =====================================================
-   ROOT
-   ===================================================== */
-
+/* app container */
 #root {
   min-height: 100vh;
-
   background-color: var(--app-bg);
-
-  transition:
-    background-color 0.4s ease;
+  transition: background-color 0.4s ease;
 }
 
-/* =====================================================
-   THEME UTILITY CLASSES
-   ===================================================== */
-
+/* theme utility classes */
 .theme-bg {
   background-color: var(--app-bg);
 }
@@ -123,4 +88,54 @@ body {
 
 .theme-accent-hover:hover {
   color: var(--app-accent-hover);
+}
+
+/* print optimizations */
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 10mm;
+  }
+
+  body, html, #root {
+    background: #ffffff !important;
+    color: #0f172a !important;
+    min-height: auto !important;
+    height: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* hide navbar, sidebars and action buttons */
+  nav,
+  aside,
+  header,
+  footer,
+  button,
+  .no-print {
+    display: none !important;
+  }
+
+  /* fit modal cleanly on paper */
+  .fixed.inset-0 {
+    position: static !important;
+    background: transparent !important;
+    padding: 0 !important;
+    backdrop-filter: none !important;
+    display: block !important;
+  }
+
+  .print-receipt-card {
+    border: 1px solid #cbd5e1 !important;
+    background: #ffffff !important;
+    color: #0f172a !important;
+    box-shadow: none !important;
+    max-width: 100% !important;
+    margin: 0 auto !important;
+    page-break-inside: avoid !important;
+    page-break-after: avoid !important;
+    page-break-before: avoid !important;
+  }
 }

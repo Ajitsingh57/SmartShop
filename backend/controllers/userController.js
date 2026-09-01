@@ -9,6 +9,7 @@ import Payment from "../models/paymentModel.js";
 import Sale from "../models/saleModel.js";
 import Return from "../models/returnModel.js";
 import { calculateCustomerTrustScoreAndLimits, syncCustomerTrustAndLimits } from "../utils/trustScoreEngine.js";
+import { logAdminActivity } from "../utils/activityLogger.js";
 
 const TOKEN_EXPIRES_IN = "24h";
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -626,6 +627,17 @@ export async function updateCustomerStatus(req, res) {
         customer.isActive = finalStatus;
         await customer.save();
 
+        // log customer status change activity
+        logAdminActivity({
+            admin: req.user,
+            req,
+            action: finalStatus ? "Activated Customer" : "Deactivated Customer",
+            category: "Customer",
+            targetId: customer._id,
+            targetName: customer.name,
+            detail: `${finalStatus ? "Activated" : "Deactivated"} customer account for ${customer.name} (${customer.phone || customer.email || customer.username || "Customer"})`
+        });
+
         return res.status(200).json({
             success: true,
             message: finalStatus
@@ -673,6 +685,9 @@ export async function deleteCustomer(req, res) {
             });
         }
 
+        const deletedCustomerName = user.name;
+        const deletedCustomerContact = user.phone || user.email || "";
+
         await session.withTransaction(async () => {
             if (customer) {
                 await Payment.deleteMany({ userId: user._id }, { session });
@@ -682,6 +697,17 @@ export async function deleteCustomer(req, res) {
                 await Customer.deleteOne({ _id: customer._id }, { session });
             }
             await User.deleteOne({ _id: user._id }, { session });
+        });
+
+        // log customer deletion activity
+        logAdminActivity({
+            admin: req.user,
+            req,
+            action: "Deleted Customer",
+            category: "Customer",
+            targetId: user._id,
+            targetName: deletedCustomerName,
+            detail: `Deleted customer account for ${deletedCustomerName} (${deletedCustomerContact}) and wiped related data`
         });
 
         return res.status(200).json({

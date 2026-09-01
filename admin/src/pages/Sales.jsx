@@ -31,6 +31,7 @@ import {
   productsApi,
   salesApi,
 } from "../services/api";
+import { printSaleBillPDF } from "../utils/exportReports";
 
 const money = (value) => {
   return `₹${Number(value || 0).toLocaleString("en-IN", {
@@ -2082,8 +2083,8 @@ const Sales = () => {
               <div className="mt-6 flex items-center justify-end gap-3">
                 <button
                   type="button"
-                  onClick={() => window.print()}
-                  className="inline-flex items-center gap-2 rounded-xl border px-4 py-2.5 text-xs font-bold text-white shadow transition hover:bg-white/10"
+                  onClick={() => printSaleBillPDF(createdReceipt)}
+                  className="inline-flex items-center gap-2 rounded-xl border px-4 py-2.5 text-xs font-bold text-white shadow transition hover:bg-white/10 cursor-pointer"
                   style={{
                     borderColor: "var(--app-border)",
                     backgroundColor: "var(--app-surface-light)",

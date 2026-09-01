@@ -76,14 +76,24 @@ const AdminActivity = () => {
 
   const getCategoryBadgeStyle = (category) => {
     switch (category) {
+      case "Customer":
+        return "bg-cyan-500/10 text-cyan-400 border border-cyan-500/20";
+      case "Credit":
+        return "bg-amber-500/10 text-amber-400 border border-amber-500/20";
+      case "Settings":
+        return "bg-rose-500/10 text-rose-400 border border-rose-500/20";
+      case "Admin":
+        return "bg-indigo-500/10 text-indigo-400 border border-indigo-500/20";
+      case "Product":
+        return "bg-orange-500/10 text-orange-400 border border-orange-500/20";
+      case "Category":
+        return "bg-teal-500/10 text-teal-400 border border-teal-500/20";
       case "Sale":
         return "bg-blue-500/10 text-blue-400 border border-blue-500/20";
       case "Payment":
         return "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20";
       case "Return":
         return "bg-purple-500/10 text-purple-400 border border-purple-500/20";
-      case "Product":
-        return "bg-orange-500/10 text-orange-400 border border-orange-500/20";
       default:
         return "bg-zinc-500/10 text-zinc-400 border border-zinc-500/20";
     }

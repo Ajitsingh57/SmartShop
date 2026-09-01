@@ -4,6 +4,7 @@ import Return from "../models/returnModel.js";
 import Product from "../models/productModel.js";
 import Customer from "../models/customerModel.js";
 import Credit from "../models/creditModel.js";
+import { logAdminActivity } from "../utils/activityLogger.js";
 
 // Process sale returns with inventory replenishment and credit/refund handling
 export const createReturn = async (req, res) => {
@@ -256,6 +257,16 @@ export const createReturn = async (req, res) => {
 
             createdReturn = returnRecord;
             finalSaleStatus = sale.status;
+        });
+
+        // log return processing activity
+        logAdminActivity({
+            admin: req.user,
+            req,
+            action: "Processed Return",
+            category: "Return",
+            targetId: createdReturn._id,
+            detail: `Processed return of ₹${Number(createdReturn.returnAmount || 0).toLocaleString("en-IN")} (${createdReturn.refundMethod}) for sale #${createdReturn.saleId}`
         });
 
         return res.status(201).json({

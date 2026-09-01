@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import Credit from "../models/creditModel.js";
 import Customer from "../models/customerModel.js";
 import { findCustomerByIdOrUser, runTransaction } from "../utils/helpers.js";
+import { logAdminActivity } from "../utils/activityLogger.js";
 
 // Create new customer credit
 export async function createCredit(req, res) {
@@ -79,6 +80,16 @@ export async function createCredit(req, res) {
             }
 
             return newCredit;
+        });
+
+        // log credit creation activity
+        logAdminActivity({
+            admin: req.user,
+            req,
+            action: "Created Credit",
+            category: "Credit",
+            targetId: credit._id,
+            detail: `Issued credit of ₹${amount.toLocaleString("en-IN")} with due date ${due.toLocaleDateString("en-IN")}`
         });
 
         return res.status(201).json({
@@ -294,6 +305,16 @@ export async function extendDueDate(req, res) {
         }
 
         await credit.save();
+
+        // log credit extension activity
+        logAdminActivity({
+            admin: req.user,
+            req,
+            action: "Extended Due Date",
+            category: "Credit",
+            targetId: credit._id,
+            detail: `Extended credit due date to ${newDue.toLocaleDateString("en-IN")} (Reason: ${reason.trim()})`
+        });
 
         return res.status(200).json({
             success: true,

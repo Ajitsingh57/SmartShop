@@ -5,6 +5,7 @@ import Customer from "../models/customerModel.js";
 import Credit from "../models/creditModel.js";
 import { findCustomerByIdOrUser, runTransaction } from "../utils/helpers.js";
 import { syncCustomerTrustAndLimits } from "../utils/trustScoreEngine.js";
+import { logAdminActivity } from "../utils/activityLogger.js";
 
 // Record new sale with stock deduction and optional credit generation
 export const createSale = async (req, res) => {
@@ -256,6 +257,18 @@ export const createSale = async (req, res) => {
                 console.warn("Background customer trust sync error:", err);
             });
         }
+
+        // log sale creation activity
+        const custName = populatedSale?.customerId?.userId?.name || populatedSale?.customerId?.name || "Walk-in Customer";
+        logAdminActivity({
+            admin: req.user,
+            req,
+            action: "Created Sale",
+            category: "Sale",
+            targetId: populatedSale._id,
+            targetName: custName,
+            detail: `Recorded sale of ₹${Number(populatedSale.totalAmount || 0).toLocaleString("en-IN")} (${populatedSale.paymentType?.toUpperCase()}) for ${custName}`
+        });
 
         return res.status(201).json({
             success: true,

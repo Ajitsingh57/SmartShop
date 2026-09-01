@@ -1,4 +1,5 @@
 import PaymentSetting from "../models/paymentSettingModel.js";
+import { logAdminActivity } from "../utils/activityLogger.js";
 
 // Fetch payment gateway configuration
 export async function getPaymentSettings(req, res) {
@@ -54,6 +55,17 @@ export async function updateRazorpaySetting(req, res) {
     settings.razorpayEnabled = enabled;
     settings.updatedBy = req.user._id;
     await settings.save();
+
+    // log payment gateway toggle activity
+    logAdminActivity({
+      admin: req.user,
+      req,
+      action: enabled ? "Enabled Razorpay" : "Disabled Razorpay",
+      category: "Settings",
+      targetId: settings._id,
+      targetName: "Razorpay Gateway",
+      detail: `${enabled ? "Enabled" : "Disabled"} Razorpay payment gateway in store settings`,
+    });
 
     return res.status(200).json({
       success: true,

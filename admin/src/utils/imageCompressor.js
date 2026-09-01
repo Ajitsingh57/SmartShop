@@ -1,9 +1,4 @@
-/**
- * Client-side image compression utility.
- * Compresses large images (e.g. 5MB-10MB mobile camera photos) to ~100KB-200KB base64 / JPEG
- * to prevent MongoDB 16MB limit and Express 413 Payload Too Large errors.
- */
-
+// compress uploaded image before sending to backend
 export const compressImageFile = (file, maxWidth = 1000, maxHeight = 1000, quality = 0.8) => {
   return new Promise((resolve, reject) => {
     if (!file || !(file instanceof File || file instanceof Blob)) {

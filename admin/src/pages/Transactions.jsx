@@ -12,7 +12,7 @@ import {
   FileText,
 } from "lucide-react";
 import { salesApi, paymentsApi, returnsApi } from "../services/api";
-import { exportToCSV, printReportPDF } from "../utils/exportReports";
+import { exportToCSV, printReportPDF, printTransactionReceiptPDF } from "../utils/exportReports";
 
 const Transactions = () => {
   const [activeTab, setActiveTab] = useState("all");
@@ -590,8 +590,8 @@ const Transactions = () => {
               <div className="mt-6 flex items-center justify-end gap-3">
                 <button
                   type="button"
-                  onClick={() => window.print()}
-                  className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-xs font-semibold text-white transition hover:bg-white/10"
+                  onClick={() => printTransactionReceiptPDF(selectedTransaction)}
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-xs font-semibold text-white transition hover:bg-white/10 cursor-pointer"
                 >
                   <Printer className="h-3.5 w-3.5" />
                   Print Receipt / PDF

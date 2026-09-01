@@ -4,6 +4,8 @@ import Sale from "../models/saleModel.js";
 import Payment from "../models/paymentModel.js";
 import Return from "../models/returnModel.js";
 import Product from "../models/productModel.js";
+import Activity from "../models/activityModel.js";
+import { logAdminActivity } from "../utils/activityLogger.js";
 
 // Fetch all admin accounts (superadmin only)
 export const getAllAdmins = async (req, res) => {
@@ -174,6 +176,17 @@ export const createAdmin = async (req, res) => {
         const adminResponse = admin.toObject();
         delete adminResponse.password;
 
+        // log admin creation activity
+        logAdminActivity({
+            admin: req.user,
+            req,
+            action: "Created Admin",
+            category: "Admin",
+            targetId: admin._id,
+            targetName: admin.name,
+            detail: `Created new admin account for ${admin.name} (@${admin.username})`
+        });
+
         res.status(201).json({
             success: true,
             message: "Admin created successfully",
@@ -257,6 +270,17 @@ export const updateAdmin = async (req, res) => {
         const adminResponse = admin.toObject();
         delete adminResponse.password;
 
+        // log admin update activity
+        logAdminActivity({
+            admin: req.user,
+            req,
+            action: "Updated Admin",
+            category: "Admin",
+            targetId: admin._id,
+            targetName: admin.name,
+            detail: `Updated admin profile/credentials for ${admin.name} (@${admin.username})`
+        });
+
         res.status(200).json({
             success: true,
             message: "Admin updated successfully",
@@ -296,6 +320,17 @@ export const updateAdminStatus = async (req, res) => {
         const adminResponse = admin.toObject();
         delete adminResponse.password;
 
+        // log admin status toggle activity
+        logAdminActivity({
+            admin: req.user,
+            req,
+            action: admin.isActive ? "Activated Admin" : "Deactivated Admin",
+            category: "Admin",
+            targetId: admin._id,
+            targetName: admin.name,
+            detail: `${admin.isActive ? "Activated" : "Deactivated"} admin account for ${admin.name} (@${admin.username})`
+        });
+
         res.status(200).json({
             success: true,
             message: `Admin status updated successfully`,
@@ -323,6 +358,17 @@ export const deleteAdmin = async (req, res) => {
             });
         }
 
+        // log admin deletion activity
+        logAdminActivity({
+            admin: req.user,
+            req,
+            action: "Deleted Admin",
+            category: "Admin",
+            targetId: admin._id,
+            targetName: admin.name,
+            detail: `Deleted admin account for ${admin.name} (@${admin.username})`
+        });
+
         res.status(200).json({
             success: true,
             message: "Admin deleted successfully"
@@ -336,134 +382,177 @@ export const deleteAdmin = async (req, res) => {
     }
 };
 
-// Fetch real audit trail of admin actions across sales, payments, products and returns
+// Fetch real audit trail of admin actions across all store operations
 export const getAdminActivities = async (req, res) => {
     try {
-        const [defaultAdmin, sales, payments, returns, products] = await Promise.all([
-            User.findOne({ role: { $in: ["admin", "superadmin"] }, isActive: true }).sort({ createdAt: 1 }),
-            Sale.find()
-                .populate("adminId", "name username email")
-                .populate("customerId")
-                .sort({ createdAt: -1 })
-                .limit(50),
-            Payment.find({ $or: [{ recordedBy: { $ne: null } }, { verifiedBy: { $ne: null } }, { status: { $in: ["approved", "rejected"] } }] })
-                .populate("recordedBy", "name username email")
-                .populate("verifiedBy", "name username email")
-                .populate("customerId")
-                .sort({ updatedAt: -1 })
-                .limit(50),
-            Return.find()
-                .populate("adminId", "name username email")
-                .sort({ returnedAt: -1 })
-                .limit(50),
-            Product.find()
-                .populate("updatedBy", "name username email")
-                .populate("createdBy", "name username email")
-                .sort({ updatedAt: -1 })
-                .limit(30)
-        ]);
+        // fetch recorded activities from Activity collection
+        const recordedActivities = await Activity.find()
+            .populate("adminId", "name username email")
+            .sort({ createdAt: -1 })
+            .limit(100);
 
         const activities = [];
 
-        for (const sale of sales) {
-            const admin = sale.adminId || defaultAdmin;
-            if (admin) {
-                activities.push({
-                    id: `sale_${sale._id}`,
-                    adminId: admin._id,
-                    adminName: admin.name,
-                    username: admin.username || admin.email || "admin",
-                    action: "Created Sale",
-                    category: "Sale",
-                    detail: `Sale of ₹${Number(sale.totalAmount || 0).toLocaleString("en-IN")} recorded (${sale.paymentType})`,
-                    date: new Date(sale.createdAt).toLocaleString("en-IN", {
-                        day: "2-digit",
-                        month: "short",
-                        year: "numeric",
-                        hour: "2-digit",
-                        minute: "2-digit"
-                    }),
-                    createdAt: sale.createdAt
-                });
-            }
-        }
-
-        for (const payment of payments) {
-            const admin = payment.verifiedBy || payment.recordedBy || defaultAdmin;
-            if (admin) {
-                const action =
-                    payment.status === "approved"
-                        ? "Approved Payment"
-                        : payment.status === "rejected"
-                        ? "Rejected Payment"
-                        : "Recorded Payment";
-
-                activities.push({
-                    id: `pay_${payment._id}`,
-                    adminId: admin._id,
-                    adminName: admin.name,
-                    username: admin.username || admin.email || "admin",
-                    action,
-                    category: "Payment",
-                    detail: `${payment.paymentMethod?.toUpperCase()} payment of ₹${Number(payment.amount || 0).toLocaleString("en-IN")} ${payment.status}`,
-                    date: new Date(payment.verifiedAt || payment.updatedAt || payment.paidAt).toLocaleString("en-IN", {
-                        day: "2-digit",
-                        month: "short",
-                        year: "numeric",
-                        hour: "2-digit",
-                        minute: "2-digit"
-                    }),
-                    createdAt: payment.verifiedAt || payment.updatedAt || payment.paidAt
-                });
-            }
-        }
-
-        for (const ret of returns) {
-            const admin = ret.adminId || defaultAdmin;
-            if (admin) {
-                activities.push({
-                    id: `ret_${ret._id}`,
-                    adminId: admin._id,
-                    adminName: admin.name,
-                    username: admin.username || admin.email || "admin",
-                    action: "Processed Return",
-                    category: "Return",
-                    detail: `Return of ₹${Number(ret.returnAmount || 0).toLocaleString("en-IN")} processed (${ret.refundMethod})`,
-                    date: new Date(ret.returnedAt || ret.createdAt).toLocaleString("en-IN", {
-                        day: "2-digit",
-                        month: "short",
-                        year: "numeric",
-                        hour: "2-digit",
-                        minute: "2-digit"
-                    }),
-                    createdAt: ret.returnedAt || ret.createdAt
-                });
-            }
-        }
-
-        for (const product of products) {
-            const admin = product.updatedBy || product.createdBy || defaultAdmin;
-            const adminId = admin ? admin._id : (defaultAdmin ? defaultAdmin._id : null);
-            const adminName = admin ? admin.name : (defaultAdmin ? defaultAdmin.name : "Admin");
-            const username = admin ? (admin.username || admin.email || "admin") : (defaultAdmin ? (defaultAdmin.username || defaultAdmin.email) : "admin");
+        for (const act of recordedActivities) {
+            const admin = act.adminId;
+            const adminName = act.adminName || admin?.name || "Admin";
+            const username = act.username || admin?.username || admin?.email || "admin";
 
             activities.push({
-                id: `prod_${product._id}`,
-                adminId,
+                id: `act_${act._id}`,
+                adminId: admin?._id || act.adminId || null,
                 adminName,
                 username,
-                action: "Updated Product",
-                category: "Product",
-                detail: `Product "${product.name}" updated (Stock: ${product.stock}, Price: ₹${product.price})`,
-                date: new Date(product.updatedAt || product.createdAt).toLocaleString("en-IN", {
+                action: act.action,
+                category: act.category,
+                detail: act.detail,
+                date: new Date(act.createdAt).toLocaleString("en-IN", {
                     day: "2-digit",
                     month: "short",
                     year: "numeric",
                     hour: "2-digit",
                     minute: "2-digit"
                 }),
-                createdAt: product.updatedAt || product.createdAt
+                createdAt: act.createdAt
             });
+        }
+
+        // fallback synthesize recent sales, payments, returns, products if needed
+        const [defaultAdmin, sales, payments, returns, products] = await Promise.all([
+            User.findOne({ role: { $in: ["admin", "superadmin"] }, isActive: true }).sort({ createdAt: 1 }),
+            Sale.find()
+                .populate("adminId", "name username email")
+                .populate("customerId")
+                .sort({ createdAt: -1 })
+                .limit(30),
+            Payment.find({ $or: [{ recordedBy: { $ne: null } }, { verifiedBy: { $ne: null } }, { status: { $in: ["approved", "rejected"] } }] })
+                .populate("recordedBy", "name username email")
+                .populate("verifiedBy", "name username email")
+                .populate("customerId")
+                .sort({ updatedAt: -1 })
+                .limit(30),
+            Return.find()
+                .populate("adminId", "name username email")
+                .sort({ returnedAt: -1 })
+                .limit(30),
+            Product.find()
+                .populate("updatedBy", "name username email")
+                .populate("createdBy", "name username email")
+                .sort({ updatedAt: -1 })
+                .limit(20)
+        ]);
+
+        for (const sale of sales) {
+            const saleIdStr = String(sale._id);
+            if (!activities.some((a) => a.id.includes(saleIdStr) || a.detail?.includes(saleIdStr))) {
+                const admin = sale.adminId || defaultAdmin;
+                if (admin) {
+                    activities.push({
+                        id: `sale_${sale._id}`,
+                        adminId: admin._id,
+                        adminName: admin.name,
+                        username: admin.username || admin.email || "admin",
+                        action: "Created Sale",
+                        category: "Sale",
+                        detail: `Sale of ₹${Number(sale.totalAmount || 0).toLocaleString("en-IN")} recorded (${sale.paymentType})`,
+                        date: new Date(sale.createdAt).toLocaleString("en-IN", {
+                            day: "2-digit",
+                            month: "short",
+                            year: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit"
+                        }),
+                        createdAt: sale.createdAt
+                    });
+                }
+            }
+        }
+
+        for (const payment of payments) {
+            const payIdStr = String(payment._id);
+            if (!activities.some((a) => a.id.includes(payIdStr) || a.detail?.includes(payIdStr))) {
+                const admin = payment.verifiedBy || payment.recordedBy || defaultAdmin;
+                if (admin) {
+                    const action =
+                        payment.status === "approved"
+                            ? "Approved Payment"
+                            : payment.status === "rejected"
+                            ? "Rejected Payment"
+                            : "Recorded Payment";
+
+                    activities.push({
+                        id: `pay_${payment._id}`,
+                        adminId: admin._id,
+                        adminName: admin.name,
+                        username: admin.username || admin.email || "admin",
+                        action,
+                        category: "Payment",
+                        detail: `${payment.paymentMethod?.toUpperCase()} payment of ₹${Number(payment.amount || 0).toLocaleString("en-IN")} ${payment.status}`,
+                        date: new Date(payment.verifiedAt || payment.updatedAt || payment.paidAt).toLocaleString("en-IN", {
+                            day: "2-digit",
+                            month: "short",
+                            year: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit"
+                        }),
+                        createdAt: payment.verifiedAt || payment.updatedAt || payment.paidAt
+                    });
+                }
+            }
+        }
+
+        for (const ret of returns) {
+            const retIdStr = String(ret._id);
+            if (!activities.some((a) => a.id.includes(retIdStr) || a.detail?.includes(retIdStr))) {
+                const admin = ret.adminId || defaultAdmin;
+                if (admin) {
+                    activities.push({
+                        id: `ret_${ret._id}`,
+                        adminId: admin._id,
+                        adminName: admin.name,
+                        username: admin.username || admin.email || "admin",
+                        action: "Processed Return",
+                        category: "Return",
+                        detail: `Return of ₹${Number(ret.returnAmount || 0).toLocaleString("en-IN")} processed (${ret.refundMethod})`,
+                        date: new Date(ret.returnedAt || ret.createdAt).toLocaleString("en-IN", {
+                            day: "2-digit",
+                            month: "short",
+                            year: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit"
+                        }),
+                        createdAt: ret.returnedAt || ret.createdAt
+                    });
+                }
+            }
+        }
+
+        for (const product of products) {
+            const prodIdStr = String(product._id);
+            if (!activities.some((a) => a.id.includes(prodIdStr) || a.detail?.includes(prodIdStr))) {
+                const admin = product.updatedBy || product.createdBy || defaultAdmin;
+                const adminId = admin ? admin._id : (defaultAdmin ? defaultAdmin._id : null);
+                const adminName = admin ? admin.name : (defaultAdmin ? defaultAdmin.name : "Admin");
+                const username = admin ? (admin.username || admin.email || "admin") : (defaultAdmin ? (defaultAdmin.username || defaultAdmin.email) : "admin");
+
+                activities.push({
+                    id: `prod_${product._id}`,
+                    adminId,
+                    adminName,
+                    username,
+                    action: "Updated Product",
+                    category: "Product",
+                    detail: `Product "${product.name}" updated (Stock: ${product.stock}, Price: ₹${product.price})`,
+                    date: new Date(product.updatedAt || product.createdAt).toLocaleString("en-IN", {
+                        day: "2-digit",
+                        month: "short",
+                        year: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit"
+                    }),
+                    createdAt: product.updatedAt || product.createdAt
+                });
+            }
         }
 
         activities.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());

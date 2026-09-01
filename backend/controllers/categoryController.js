@@ -1,5 +1,6 @@
 import Category from "../models/categoryModel.js";
 import Product from "../models/productModel.js";
+import { logAdminActivity } from "../utils/activityLogger.js";
 
 const DEFAULT_CATEGORIES = [
   "Electronics",
@@ -104,6 +105,17 @@ export async function addCategory(req, res) {
 
     await category.save();
 
+    // log category creation activity
+    logAdminActivity({
+      admin: req.user,
+      req,
+      action: "Created Category",
+      category: "Category",
+      targetId: category._id,
+      targetName: category.name,
+      detail: `Created new product category '${category.name}'`,
+    });
+
     return res.status(201).json({
       success: true,
       message: "Category added successfully",
@@ -167,6 +179,17 @@ export async function updateCategory(req, res) {
     category.updatedBy = req.user?._id || req.user?.id || null;
     await category.save();
 
+    // log category update activity
+    logAdminActivity({
+      admin: req.user,
+      req,
+      action: "Updated Category",
+      category: "Category",
+      targetId: category._id,
+      targetName: category.name,
+      detail: `Updated product category '${category.name}'`,
+    });
+
     const productCount = await Product.countDocuments({
       category: category.name,
       deleted: false,
@@ -203,6 +226,8 @@ export async function deleteCategory(req, res) {
       });
     }
 
+    const deletedCategoryName = category.name;
+
     // Check if category is used by active products
     const productCount = await Product.countDocuments({
       category: category.name,
@@ -227,6 +252,17 @@ export async function deleteCategory(req, res) {
     }
 
     await Category.findByIdAndDelete(id);
+
+    // log category deletion activity
+    logAdminActivity({
+      admin: req.user,
+      req,
+      action: "Deleted Category",
+      category: "Category",
+      targetId: category._id,
+      targetName: deletedCategoryName,
+      detail: `Deleted product category '${deletedCategoryName}'`,
+    });
 
     return res.status(200).json({
       success: true,
