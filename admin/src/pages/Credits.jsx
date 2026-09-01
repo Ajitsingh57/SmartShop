@@ -3,6 +3,23 @@ import { FileSpreadsheet, Printer, Search } from "lucide-react";
 import { creditsApi, paymentsApi } from "../services/api";
 import { exportToCSV, printReportPDF } from "../utils/exportReports";
 
+// Formats a Date object to local YYYY-MM-DD string without timezone drift
+const getLocalDateString = (d) => {
+  const date = d ? new Date(d) : new Date();
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+// Calculates future date by adding N days to a base date
+const addDaysToDate = (base, days) => {
+  const d = base ? new Date(base) : new Date();
+  d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() + Number(days));
+  return getLocalDateString(d);
+};
+
 const Credits = () => {
   const [activeTab, setActiveTab] = useState("outstanding");
   const [search, setSearch] = useState("");
@@ -154,7 +171,8 @@ const Credits = () => {
 
   const handleOpenExtendModal = (credit) => {
     setSelectedCredit(credit);
-    setExtendDueDate("");
+    const base = credit?.rawDueDate ? new Date(credit.rawDueDate) : new Date();
+    setExtendDueDate(addDaysToDate(base, 15));
     setExtendReason("");
     setExtendModal(true);
   };
@@ -702,15 +720,82 @@ const Credits = () => {
 
               <form onSubmit={handleExtendSubmit} className="mt-5 space-y-4">
                 <div>
-                  <label className="mb-1 block text-xs font-semibold text-zinc-300">New Due Date</label>
-                  <input
-                    type="date"
-                    required
-                    value={extendDueDate}
-                    onChange={(e) => setExtendDueDate(e.target.value)}
-                    className="w-full rounded-lg border p-3 text-sm text-white outline-none"
-                    style={{ borderColor: "var(--app-border)", backgroundColor: "var(--app-surface-light)" }}
-                  />
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-semibold text-zinc-300">New Due Date</label>
+                    {extendDueDate && (
+                      <span className="text-[11px] font-bold text-amber-300">
+                        {new Date(extendDueDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const cur = extendDueDate ? new Date(extendDueDate) : new Date();
+                        cur.setDate(cur.getDate() - 1);
+                        setExtendDueDate(getLocalDateString(cur));
+                      }}
+                      className="rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 py-2 text-xs font-bold text-zinc-300 hover:border-zinc-700 hover:text-white"
+                    >
+                      -1d
+                    </button>
+
+                    <input
+                      type="date"
+                      required
+                      min={addDaysToDate(selectedCredit?.rawDueDate || new Date(), 1)}
+                      max={addDaysToDate(new Date(), 365)}
+                      value={extendDueDate}
+                      onChange={(e) => setExtendDueDate(e.target.value)}
+                      onClick={(e) => {
+                        try {
+                          e.target.showPicker?.();
+                        } catch {}
+                      }}
+                      className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-xs font-semibold text-white outline-none focus:border-amber-500 cursor-pointer"
+                      style={{ colorScheme: "dark" }}
+                    />
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const cur = extendDueDate ? new Date(extendDueDate) : new Date();
+                        cur.setDate(cur.getDate() + 1);
+                        setExtendDueDate(getLocalDateString(cur));
+                      }}
+                      className="rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 py-2 text-xs font-bold text-zinc-300 hover:border-zinc-700 hover:text-white"
+                    >
+                      +1d
+                    </button>
+                  </div>
+
+                  {/* Quick Jump Chips */}
+                  <div className="flex flex-wrap items-center gap-1 mt-2">
+                    <span className="text-[10px] text-zinc-500 mr-1">Extend By:</span>
+                    {[
+                      { label: "+7 Days", days: 7 },
+                      { label: "+15 Days", days: 15 },
+                      { label: "+30 Days", days: 30 },
+                      { label: "+45 Days", days: 45 },
+                      { label: "+60 Days", days: 60 },
+                    ].map((chip) => (
+                      <button
+                        key={chip.days}
+                        type="button"
+                        onClick={() => {
+                          const base = selectedCredit?.rawDueDate
+                            ? new Date(selectedCredit.rawDueDate)
+                            : new Date();
+                          setExtendDueDate(addDaysToDate(base, chip.days));
+                        }}
+                        className="rounded border border-zinc-800 bg-zinc-900 px-2 py-0.5 text-[10px] text-zinc-400 hover:border-amber-500/40 hover:text-amber-300"
+                      >
+                        {chip.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
                 <div>
@@ -721,8 +806,7 @@ const Credits = () => {
                     placeholder="Reason for extending credit due date..."
                     value={extendReason}
                     onChange={(e) => setExtendReason(e.target.value)}
-                    className="w-full rounded-lg border p-3 text-sm text-white outline-none"
-                    style={{ borderColor: "var(--app-border)", backgroundColor: "var(--app-surface-light)" }}
+                    className="w-full rounded-lg border border-zinc-700 bg-zinc-900 p-2.5 text-xs text-white outline-none focus:border-amber-500"
                   />
                 </div>
 

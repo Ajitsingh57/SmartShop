@@ -31,13 +31,30 @@ import {
   Check,
 } from "lucide-react";
 
-import { customersApi } from "../services/api";
+import { customersApi, creditsApi } from "../services/api";
 
 const money = (value) => {
   const amount = Number(value || 0);
   return `₹${amount.toLocaleString("en-IN", {
     maximumFractionDigits: 2,
   })}`;
+};
+
+// Formats a Date object to local YYYY-MM-DD string without timezone drift
+const getLocalDateString = (d) => {
+  const date = d ? new Date(d) : new Date();
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+// Calculates future date by adding N days to a base date
+const addDaysToDate = (base, days) => {
+  const d = base ? new Date(base) : new Date();
+  d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() + Number(days));
+  return getLocalDateString(d);
 };
 
 const formatDate = (value) => {
@@ -115,6 +132,12 @@ const CustomerProfile = () => {
   const [manualInput, setManualInput] = useState("");
   const [activateOnSave, setActivateOnSave] = useState(true);
   const [savingLimit, setSavingLimit] = useState(false);
+
+  // Extend Due Date Modal state (1-time allowed)
+  const [extendModalCredit, setExtendModalCredit] = useState(null);
+  const [extendDueDate, setExtendDueDate] = useState("");
+  const [extendReason, setExtendReason] = useState("");
+  const [extending, setExtending] = useState(false);
 
   const loadCustomer = async (refresh = false) => {
     if (!id) {
@@ -291,18 +314,35 @@ const CustomerProfile = () => {
       };
     });
 
-    const creditHistory = credits.map((credit, index) => ({
-      id: getId(credit) || `credit-${index}`,
-      type: "Credit",
-      title: `Credit Loan #${String(credit._id || index).slice(-6).toUpperCase()}`,
-      rawId: credit?._id,
-      amount: getNumber(credit?.borrowedAmount, credit?.creditAmount),
-      paidAmount: getNumber(credit?.paidAmount),
-      pendingAmount: getNumber(credit?.pendingAmount),
-      date: credit?.borrowDate || credit?.createdAt,
-      dueDate: credit?.dueDate,
-      status: credit?.status || (getNumber(credit?.pendingAmount) <= 0 ? "Paid" : "Active"),
-    }));
+    const creditHistory = credits.map((credit, index) => {
+      const isPending = getNumber(credit?.pendingAmount) > 0;
+      const isOverdue =
+        isPending &&
+        credit?.dueDate &&
+        new Date(credit.dueDate) < new Date();
+
+      return {
+        id: getId(credit) || `credit-${index}`,
+        type: "Credit",
+        title: `Credit Loan #${String(credit._id || index).slice(-6).toUpperCase()}`,
+        rawId: credit?._id,
+        amount: getNumber(credit?.borrowedAmount, credit?.creditAmount),
+        paidAmount: getNumber(credit?.paidAmount),
+        pendingAmount: getNumber(credit?.pendingAmount),
+        date: credit?.borrowDate || credit?.createdAt,
+        dueDate: credit?.dueDate,
+        extensionCount: credit?.extensionCount || 0,
+        extension: credit?.extension,
+        isOverdue,
+        status:
+          !isPending
+            ? "Paid"
+            : isOverdue
+            ? "Overdue"
+            : "Active",
+        creditDoc: credit,
+      };
+    });
 
     const paymentHistory = payments.map((payment, index) => ({
       id: getId(payment) || `pay-${index}`,
@@ -496,6 +536,49 @@ const CustomerProfile = () => {
       setSuccessMsg("");
     } finally {
       setSavingLimit(false);
+    }
+  };
+
+  const handleOpenExtendModal = (creditItem) => {
+    setExtendModalCredit(creditItem);
+    setExtendDueDate("");
+    setExtendReason("");
+    setError("");
+  };
+
+  const handleExtendSubmit = async (e) => {
+    e.preventDefault();
+    if (!extendModalCredit || extending) return;
+
+    if (!extendDueDate) {
+      setError("Please select a new due date.");
+      return;
+    }
+
+    if (!extendReason.trim()) {
+      setError("Please provide a reason for extending the due date.");
+      return;
+    }
+
+    try {
+      setExtending(true);
+      setError("");
+      setSuccessMsg("");
+
+      const creditId = extendModalCredit.rawId || extendModalCredit.id;
+      await creditsApi.extendDueDate(creditId, {
+        newDueDate: extendDueDate,
+        reason: extendReason.trim(),
+      });
+
+      setSuccessMsg("Credit due date extended successfully. Customer Trust Score updated.");
+      setExtendModalCredit(null);
+      await loadCustomer(true);
+    } catch (err) {
+      console.error("Extend due date error:", err);
+      setError(getErrorMessage(err, "Failed to extend credit due date."));
+    } finally {
+      setExtending(false);
     }
   };
 
@@ -1145,9 +1228,27 @@ const CustomerProfile = () => {
                           )}
 
                           {item.dueDate && (
-                            <p className="mt-0.5 text-[10px] text-yellow-400/90">
-                              Due Date: {formatDate(item.dueDate)}
-                            </p>
+                            <div className="mt-1 flex flex-wrap items-center gap-2">
+                              <p className={`text-[11px] font-semibold ${item.isOverdue ? "text-red-400" : "text-amber-400"}`}>
+                                Due Date: {formatDate(item.dueDate)} {item.isOverdue ? "(OVERDUE)" : ""}
+                              </p>
+
+                              {item.extensionCount >= 1 && (
+                                <span className="rounded bg-yellow-500/10 border border-yellow-500/30 px-1.5 py-0.2 text-[10px] text-yellow-400">
+                                  Extension Used
+                                </span>
+                              )}
+
+                              {item.type === "Credit" && item.status !== "Paid" && item.extensionCount < 1 && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenExtendModal(item)}
+                                  className="rounded border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold text-amber-300 transition hover:bg-amber-500/20"
+                                >
+                                  Extend Due (1-Time)
+                                </button>
+                              )}
+                            </div>
                           )}
                         </div>
                       </div>
@@ -1161,6 +1262,8 @@ const CustomerProfile = () => {
                                 ? "#4ade80"
                                 : item.type === "Return"
                                 ? "#c084fc"
+                                : item.isOverdue
+                                ? "#f87171"
                                 : "var(--app-accent)",
                           }}
                         >
@@ -1265,6 +1368,162 @@ const CustomerProfile = () => {
                     className="rounded-xl bg-blue-600 px-4 py-2 text-xs font-bold text-white shadow-lg transition hover:bg-blue-500 disabled:opacity-50"
                   >
                     {savingLimit ? "Saving..." : "Save Manual Limit"}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* 1-Time Extend Due Date Modal */}
+        {extendModalCredit && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
+            <div
+              className="relative w-full max-w-md overflow-hidden rounded-2xl border p-5 sm:p-6 shadow-2xl"
+              style={{
+                borderColor: "var(--app-border)",
+                backgroundColor: "var(--app-surface)",
+              }}
+            >
+              <div className="mb-4 flex items-start justify-between border-b pb-3" style={{ borderColor: "var(--app-border)" }}>
+                <div>
+                  <h3 className="text-base font-bold text-white">Extend Repayment Due Date</h3>
+                  <p className="mt-0.5 text-xs text-amber-400">
+                    1-Time Emergency Extension for {customerName}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setExtendModalCredit(null)}
+                  className="rounded p-1 text-zinc-400 hover:text-white"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              <form onSubmit={handleExtendSubmit} className="space-y-4">
+                <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-3 text-xs text-amber-300/90 leading-relaxed">
+                  <p>
+                    <strong>Credit Balance:</strong> {money(extendModalCredit.pendingAmount)}
+                  </p>
+                  <p className="mt-1">
+                    <strong>Current Due Date:</strong> {formatDate(extendModalCredit.dueDate)}
+                  </p>
+                  <p className="mt-1 text-[11px] text-zinc-400">
+                    ⚠️ Note: Each credit record can be extended only <strong>once</strong>.
+                  </p>
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-semibold text-zinc-300">
+                      New Due Date
+                    </label>
+                    {extendDueDate && (
+                      <span className="text-[11px] font-bold text-amber-300">
+                        {formatDate(extendDueDate)}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const cur = extendDueDate ? new Date(extendDueDate) : new Date();
+                        cur.setDate(cur.getDate() - 1);
+                        setExtendDueDate(getLocalDateString(cur));
+                      }}
+                      className="rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 py-2 text-xs font-bold text-zinc-300 hover:border-zinc-700 hover:text-white"
+                    >
+                      -1d
+                    </button>
+
+                    <input
+                      type="date"
+                      required
+                      value={extendDueDate}
+                      min={addDaysToDate(extendModalCredit?.dueDate || new Date(), 1)}
+                      max={addDaysToDate(new Date(), 365)}
+                      onChange={(e) => setExtendDueDate(e.target.value)}
+                      onClick={(e) => {
+                        try {
+                          e.target.showPicker?.();
+                        } catch {}
+                      }}
+                      className="w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3.5 py-2 text-sm font-semibold text-white outline-none focus:border-amber-500 cursor-pointer"
+                      style={{ colorScheme: "dark" }}
+                    />
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const cur = extendDueDate ? new Date(extendDueDate) : new Date();
+                        cur.setDate(cur.getDate() + 1);
+                        setExtendDueDate(getLocalDateString(cur));
+                      }}
+                      className="rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 py-2 text-xs font-bold text-zinc-300 hover:border-zinc-700 hover:text-white"
+                    >
+                      +1d
+                    </button>
+                  </div>
+
+                  {/* Quick Extension Chips */}
+                  <div className="flex flex-wrap items-center gap-1 mt-2">
+                    <span className="text-[10px] text-zinc-500 mr-1">Extend By:</span>
+                    {[
+                      { label: "+7 Days", days: 7 },
+                      { label: "+15 Days", days: 15 },
+                      { label: "+30 Days", days: 30 },
+                      { label: "+45 Days", days: 45 },
+                      { label: "+60 Days", days: 60 },
+                    ].map((chip) => (
+                      <button
+                        key={chip.days}
+                        type="button"
+                        onClick={() => {
+                          const base = extendModalCredit?.dueDate
+                            ? new Date(extendModalCredit.dueDate)
+                            : new Date();
+                          setExtendDueDate(addDaysToDate(base, chip.days));
+                        }}
+                        className="rounded border border-zinc-800 bg-zinc-900 px-2 py-0.5 text-[10px] text-zinc-300 hover:border-amber-500/40 hover:text-amber-300"
+                      >
+                        {chip.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-xs font-semibold text-zinc-300">
+                    Reason for Extension
+                  </label>
+                  <textarea
+                    rows={3}
+                    required
+                    placeholder="e.g. Customer requested extra time due to salary delay / medical emergency..."
+                    value={extendReason}
+                    onChange={(e) => setExtendReason(e.target.value)}
+                    className="w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3.5 py-2 text-xs text-white outline-none focus:border-amber-500"
+                  />
+                </div>
+
+                <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-white/10">
+                  <button
+                    type="button"
+                    onClick={() => setExtendModalCredit(null)}
+                    className="rounded-xl border border-white/10 px-3.5 py-2 text-xs font-semibold text-zinc-400 hover:text-white"
+                  >
+                    Cancel
+                  </button>
+
+                  <button
+                    type="submit"
+                    disabled={extending}
+                    className="rounded-xl bg-amber-600 px-4 py-2 text-xs font-bold text-white shadow-lg transition hover:bg-amber-500 disabled:opacity-50"
+                  >
+                    {extending ? "Extending..." : "Confirm 1-Time Extension"}
                   </button>
                 </div>
               </form>

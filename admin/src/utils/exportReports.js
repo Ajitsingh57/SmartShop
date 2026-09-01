@@ -651,6 +651,7 @@ export const printSaleBillPDF = (receipt) => {
           <div class="totals-section">
             <div class="notes-box">
               <div class="notes-title">Terms & Notice</div>
+              ${receipt.dueDate && pendingAmount > 0 ? `<div style="color: #b91c1c; font-weight: 700;">• Repayment Due Date: ${new Date(receipt.dueDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</div>` : ""}
               <div>• Goods once sold can be returned or exchanged within 7 days with valid bill.</div>
               <div>• Thank you for shopping with SmartShop!</div>
             </div>
@@ -678,6 +679,12 @@ export const printSaleBillPDF = (receipt) => {
                       <td>Balance Due (Credit):</td>
                       <td class="text-right mono">₹${pendingAmount.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                     </tr>
+                    ${receipt.dueDate ? `
+                    <tr>
+                      <td style="font-size: 10px; color: #b91c1c; font-weight: 600;">Due Date:</td>
+                      <td class="text-right mono" style="font-size: 10px; color: #b91c1c; font-weight: 700;">${new Date(receipt.dueDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</td>
+                    </tr>
+                    ` : ""}
                   `
                       : ""
                   }

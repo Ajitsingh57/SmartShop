@@ -3,6 +3,7 @@ import Credit from "../models/creditModel.js";
 import Customer from "../models/customerModel.js";
 import { findCustomerByIdOrUser, runTransaction } from "../utils/helpers.js";
 import { logAdminActivity } from "../utils/activityLogger.js";
+import { syncCustomerTrustAndLimits } from "../utils/trustScoreEngine.js";
 
 // Create new customer credit
 export async function createCredit(req, res) {
@@ -81,6 +82,13 @@ export async function createCredit(req, res) {
 
             return newCredit;
         });
+
+        // Sync customer metrics in background
+        if (credit.customerId) {
+            syncCustomerTrustAndLimits(credit.customerId).catch((err) => {
+                console.warn("Background trust sync error on credit create:", err);
+            });
+        }
 
         // log credit creation activity
         logAdminActivity({
@@ -277,11 +285,26 @@ export async function extendDueDate(req, res) {
             });
         }
 
-        const newDue = new Date(newDueDate);
-        if (isNaN(newDue.getTime()) || newDue <= new Date(credit.dueDate)) {
+        let newDue = null;
+        if (typeof newDueDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(newDueDate.trim())) {
+            const [y, m, d] = newDueDate.trim().split("-").map(Number);
+            newDue = new Date(y, m - 1, d, 23, 59, 59, 999);
+        } else {
+            newDue = new Date(newDueDate);
+        }
+
+        if (!newDue || isNaN(newDue.getTime())) {
             return res.status(400).json({
                 success: false,
-                message: "New due date must be after the current due date"
+                message: "Invalid new due date format"
+            });
+        }
+
+        const currentDue = new Date(credit.dueDate);
+        if (newDue <= currentDue) {
+            return res.status(400).json({
+                success: false,
+                message: `New due date must be after current due date (${currentDue.toLocaleDateString("en-IN")})`
             });
         }
 
@@ -305,6 +328,13 @@ export async function extendDueDate(req, res) {
         }
 
         await credit.save();
+
+        // Sync customer trust metrics after due date extension
+        if (credit.customerId) {
+            syncCustomerTrustAndLimits(credit.customerId).catch((err) => {
+                console.warn("Background trust sync error on extend due date:", err);
+            });
+        }
 
         // log credit extension activity
         logAdminActivity({

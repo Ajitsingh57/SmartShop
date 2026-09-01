@@ -24,6 +24,8 @@ import {
   Printer,
   Receipt,
   FileText,
+  Calendar,
+  Clock,
 } from "lucide-react";
 
 import {
@@ -37,6 +39,23 @@ const money = (value) => {
   return `₹${Number(value || 0).toLocaleString("en-IN", {
     maximumFractionDigits: 2,
   })}`;
+};
+
+// Formats a Date object to local YYYY-MM-DD string without timezone drift
+const getLocalDateString = (d) => {
+  const date = d ? new Date(d) : new Date();
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+// Returns a YYYY-MM-DD date string by adding N days to local today
+const addDaysToToday = (days) => {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() + Number(days));
+  return getLocalDateString(d);
 };
 
 const getId = (item) => {
@@ -237,6 +256,106 @@ const Sales = () => {
   const [paymentType, setPaymentType] = useState("cash");
   const [paidAmount, setPaidAmount] = useState("");
   const [partialPaymentType, setPartialPaymentType] = useState("");
+  const [creditTenure, setCreditTenure] = useState("30");
+  const [customDueDate, setCustomDueDate] = useState("");
+
+  const minDueDateStr = useMemo(() => addDaysToToday(1), []);
+  const maxDueDateStr = useMemo(() => addDaysToToday(365), []);
+
+  const dueDateInfo = useMemo(() => {
+    let dateStr = "";
+    if (creditTenure === "custom") {
+      dateStr = customDueDate;
+    } else {
+      const days = Number(creditTenure) || 30;
+      dateStr = addDaysToToday(days);
+    }
+
+    if (!dateStr) {
+      return { isValid: false, dateStr: "", formattedDate: "", diffDays: 0, error: "Please select a repayment due date." };
+    }
+
+    const parts = String(dateStr).trim().split("-");
+    if (parts.length !== 3 || parts[0].length !== 4) {
+      return { isValid: false, dateStr, formattedDate: "", diffDays: 0, error: "Incomplete date format." };
+    }
+
+    const year = Number(parts[0]);
+    const month = Number(parts[1]) - 1;
+    const day = Number(parts[2]);
+
+    if (isNaN(year) || isNaN(month) || isNaN(day) || month < 0 || month > 11 || day < 1 || day > 31) {
+      return { isValid: false, dateStr, formattedDate: "", diffDays: 0, error: "Invalid calendar date." };
+    }
+
+    const targetDate = new Date(year, month, day);
+    if (isNaN(targetDate.getTime()) || targetDate.getMonth() !== month || targetDate.getDate() !== day) {
+      return { isValid: false, dateStr, formattedDate: "", diffDays: 0, error: "Invalid day for the selected month." };
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const diffTime = targetDate.getTime() - today.getTime();
+    const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+
+    if (diffDays < 1) {
+      return {
+        isValid: false,
+        dateStr,
+        formattedDate: targetDate.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }),
+        diffDays,
+        error: "Due date must be tomorrow or later. Past/today's date is not allowed.",
+      };
+    }
+
+    if (diffDays > 365) {
+      return {
+        isValid: false,
+        dateStr,
+        formattedDate: targetDate.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }),
+        diffDays,
+        error: "Due date cannot exceed 1 year (365 days).",
+      };
+    }
+
+    return {
+      isValid: true,
+      dateStr,
+      formattedDate: targetDate.toLocaleDateString("en-IN", {
+        weekday: "short",
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      }),
+      diffDays,
+      error: null,
+    };
+  }, [creditTenure, customDueDate]);
+
+  const handleShiftCustomDays = (offset) => {
+    let baseDate = new Date();
+    if (customDueDate) {
+      const parts = customDueDate.split("-");
+      if (parts.length === 3) {
+        baseDate = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+      }
+    } else {
+      baseDate.setDate(baseDate.getDate() + 30);
+    }
+
+    baseDate.setDate(baseDate.getDate() + offset);
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    if (baseDate <= today) {
+      baseDate = new Date();
+      baseDate.setDate(baseDate.getDate() + 1);
+    }
+
+    setCustomDueDate(getLocalDateString(baseDate));
+  };
 
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -617,6 +736,12 @@ const Sales = () => {
       return `Credit limit exceeded. Available credit is ${money(availableCredit)}.`;
     }
 
+    if (needsCredit) {
+      if (!dueDateInfo.isValid) {
+        return dueDateInfo.error || "Please select a valid repayment due date.";
+      }
+    }
+
     return "";
   };
 
@@ -706,6 +831,8 @@ const Sales = () => {
         paymentType === "partial" || paymentType === "credit" ? pending : 0,
       partialPaymentType:
         paymentType === "partial" ? partialPaymentType : null,
+      dueDate: needsCredit ? dueDateInfo.dateStr : null,
+      creditDays: needsCredit && creditTenure !== "custom" ? Number(creditTenure) : null,
     };
 
     try {
@@ -735,6 +862,7 @@ const Sales = () => {
         paidAmount: saleData.paidAmount,
         pendingAmount: saleData.pendingAmount,
         paymentType: paymentType.toUpperCase(),
+        dueDate: needsCredit ? dueDateInfo.dateStr : null,
       });
 
       setMessage(response?.message || "Sale created successfully.");
@@ -766,6 +894,8 @@ const Sales = () => {
     setPaymentType("cash");
     setPaidAmount("");
     setPartialPaymentType("");
+    setCreditTenure("30");
+    setCustomDueDate("");
     setShowCustomerList(false);
     setShowProductList(false);
   };
@@ -1822,6 +1952,162 @@ const Sales = () => {
                       </span>
                     </div>
                   </div>
+
+                  {needsCredit && (
+                    <div
+                      className="mt-4 rounded-xl border p-4"
+                      style={{
+                        borderColor: "var(--app-border)",
+                        backgroundColor: "var(--app-surface-light)",
+                      }}
+                    >
+                      <div className="flex items-center justify-between">
+                        <label className="flex items-center gap-1.5 text-xs font-semibold text-zinc-200">
+                          <Clock className="h-3.5 w-3.5 text-amber-400" />
+                          Repayment Due Date
+                        </label>
+                        {dueDateInfo.isValid && (
+                          <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold text-amber-300">
+                            {dueDateInfo.diffDays} Days ({dueDateInfo.formattedDate})
+                          </span>
+                        )}
+                      </div>
+
+                      <p className="mt-1 text-[11px] text-zinc-500">
+                        Choose repayment duration or pick a custom date.
+                      </p>
+
+                      <div className="mt-3 grid grid-cols-3 gap-1.5">
+                        {[
+                          { value: "7", label: "7 Days" },
+                          { value: "15", label: "15 Days" },
+                          { value: "30", label: "30 Days (Default)" },
+                          { value: "45", label: "45 Days" },
+                          { value: "60", label: "60 Days" },
+                          { value: "custom", label: "📅 Custom Date" },
+                        ].map((preset) => (
+                          <button
+                            key={preset.value}
+                            type="button"
+                            onClick={() => {
+                              setCreditTenure(preset.value);
+                              if (preset.value === "custom" && !customDueDate) {
+                                setCustomDueDate(addDaysToToday(30));
+                              }
+                            }}
+                            className={`rounded-lg border px-2 py-2 text-center text-xs font-semibold transition ${
+                              creditTenure === preset.value
+                                ? "border-amber-500 bg-amber-500/15 text-amber-300 shadow-sm ring-1 ring-amber-500/30"
+                                : "border-zinc-800 bg-zinc-900/60 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200"
+                            }`}
+                          >
+                            {preset.label}
+                          </button>
+                        ))}
+                      </div>
+
+                      {/* Custom Date Picker Controls */}
+                      {creditTenure === "custom" && (
+                        <div className="mt-3.5 space-y-2.5 rounded-xl border border-zinc-800 bg-zinc-950/70 p-3">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[11px] font-medium text-zinc-400">
+                              Select Specific Due Date:
+                            </span>
+                            <span className="text-[10px] text-zinc-500">
+                              (Min: Tomorrow • Max: 1 Year)
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => handleShiftCustomDays(-1)}
+                              title="Decrease 1 Day"
+                              className="rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 py-2 text-xs font-bold text-zinc-300 hover:border-zinc-700 hover:text-white"
+                            >
+                              -1d
+                            </button>
+
+                            <div className="relative flex-1">
+                              <input
+                                type="date"
+                                min={minDueDateStr}
+                                max={maxDueDateStr}
+                                value={customDueDate || addDaysToToday(30)}
+                                onChange={(e) => setCustomDueDate(e.target.value)}
+                                onClick={(e) => {
+                                  try {
+                                    e.target.showPicker?.();
+                                  } catch {}
+                                }}
+                                className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-xs font-semibold text-white outline-none focus:border-amber-500 cursor-pointer"
+                                style={{
+                                  colorScheme: "dark",
+                                }}
+                              />
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() => handleShiftCustomDays(1)}
+                              title="Increase 1 Day"
+                              className="rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 py-2 text-xs font-bold text-zinc-300 hover:border-zinc-700 hover:text-white"
+                            >
+                              +1d
+                            </button>
+                          </div>
+
+                          {/* Quick Jump Chips */}
+                          <div className="flex flex-wrap items-center gap-1 pt-1">
+                            <span className="text-[10px] text-zinc-500 mr-1">Quick Jump:</span>
+                            {[
+                              { label: "+7 Days", days: 7 },
+                              { label: "+14 Days", days: 14 },
+                              { label: "+30 Days", days: 30 },
+                              { label: "+45 Days", days: 45 },
+                              { label: "+60 Days", days: 60 },
+                              { label: "+90 Days", days: 90 },
+                            ].map((chip) => (
+                              <button
+                                key={chip.days}
+                                type="button"
+                                onClick={() => setCustomDueDate(addDaysToToday(chip.days))}
+                                className="rounded border border-zinc-800 bg-zinc-900/90 px-1.5 py-0.5 text-[10px] text-zinc-400 hover:border-amber-500/40 hover:text-amber-300"
+                              >
+                                {chip.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Live Date Confirmation Card */}
+                      {dueDateInfo.isValid ? (
+                        <div className="mt-3 rounded-lg border border-amber-500/20 bg-amber-500/10 p-2.5 text-xs text-amber-200">
+                          <div className="flex items-center justify-between font-semibold">
+                            <span>📅 Repayment Due:</span>
+                            <span className="text-amber-300 font-bold">{dueDateInfo.formattedDate}</span>
+                          </div>
+                          <div className="mt-1 flex items-center justify-between text-[11px] text-amber-300/80">
+                            <span>Time to Clear:</span>
+                            <span>{dueDateInfo.diffDays} days from today</span>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="mt-3 flex items-center gap-2 rounded-lg border border-red-500/30 bg-red-500/10 p-2.5 text-xs text-red-300">
+                          <AlertCircle className="h-4 w-4 shrink-0 text-red-400" />
+                          <span>{dueDateInfo.error || "Please select a valid future due date."}</span>
+                        </div>
+                      )}
+
+                      <div className="mt-3 flex items-start gap-2 rounded-lg border border-zinc-800 bg-zinc-950/60 p-2.5 text-[11px] text-zinc-400 leading-relaxed">
+                        <AlertCircle className="h-4 w-4 shrink-0 text-amber-400 mt-0.5" />
+                        <div>
+                          <span className="font-semibold text-zinc-300">Repayment Policy:</span> Customer can extend this due date <strong>exactly 1 time</strong> if in emergency. Dues unpaid past this due date will directly penalize Trust Score.
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
                   {!selectedCustomer && pendingAmount > 0 && (
                     <div className="mt-4 rounded-lg border border-red-500/20 bg-red-500/5 px-3 py-3 text-xs text-red-400">

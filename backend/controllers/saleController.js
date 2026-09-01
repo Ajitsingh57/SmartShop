@@ -17,7 +17,9 @@ export const createSale = async (req, res) => {
                 totalAmount,
                 paymentType,
                 paidAmount = 0,
-                partialPaymentType = null
+                partialPaymentType = null,
+                dueDate = null,
+                creditDays = null
             } = req.body;
 
             if (totalAmount === undefined || totalAmount === null || totalAmount === "") {
@@ -199,8 +201,43 @@ export const createSale = async (req, res) => {
                     throw new Error(`Credit limit exceeded. Customer is on ${limitMode.toUpperCase()} limit (Max: ₹${maxLimit.toLocaleString("en-IN")}, Available: ₹${Math.max(0, maxLimit - currentPending).toLocaleString("en-IN")})`);
                 }
 
-                const defaultDueDate = new Date();
-                defaultDueDate.setDate(defaultDueDate.getDate() + 30);
+                let finalDueDate = null;
+                if (dueDate) {
+                    let parsed = null;
+                    if (typeof dueDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(dueDate.trim())) {
+                        const [y, m, d] = dueDate.trim().split("-").map(Number);
+                        parsed = new Date(y, m - 1, d, 23, 59, 59, 999);
+                    } else {
+                        parsed = new Date(dueDate);
+                    }
+
+                    if (parsed && !isNaN(parsed.getTime())) {
+                        const now = new Date();
+                        now.setHours(0, 0, 0, 0);
+                        if (parsed > now) {
+                            finalDueDate = parsed;
+                        } else {
+                            throw new Error("Credit repayment due date must be tomorrow or in the future");
+                        }
+                    } else {
+                        throw new Error("Invalid due date format. Please provide a valid date");
+                    }
+                }
+                if (!finalDueDate && creditDays) {
+                    const days = Number(creditDays);
+                    if (Number.isFinite(days) && days > 0) {
+                        const d = new Date();
+                        d.setDate(d.getDate() + days);
+                        d.setHours(23, 59, 59, 999);
+                        finalDueDate = d;
+                    }
+                }
+                if (!finalDueDate) {
+                    const defaultDueDate = new Date();
+                    defaultDueDate.setDate(defaultDueDate.getDate() + 30);
+                    defaultDueDate.setHours(23, 59, 59, 999);
+                    finalDueDate = defaultDueDate;
+                }
 
                 const newCredit = new Credit({
                     customerId: customer._id,
@@ -209,7 +246,7 @@ export const createSale = async (req, res) => {
                     paidAmount: 0,
                     pendingAmount: finalPendingAmount,
                     borrowDate: new Date(),
-                    dueDate: defaultDueDate,
+                    dueDate: finalDueDate,
                     extensionCount: 0,
                     status: "active"
                 });
