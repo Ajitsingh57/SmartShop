@@ -98,10 +98,70 @@ app.get("/api/health", (req, res) => {
 // Centralized JSON error handler
 app.use((err, req, res, next) => {
   console.error("Unhandled API Error:", err);
-  const status = err.status || 500;
+
+  let status = err.status || 500;
+  let message = err.message || "Something went wrong. Please try again.";
+  let errors = err.errors || {};
+
+  // Handle Mongoose Validation Errors
+  if (err.name === "ValidationError" && err.errors) {
+    status = 400;
+    const fieldKeys = Object.keys(err.errors);
+    errors = {};
+    fieldKeys.forEach((key) => {
+      errors[key] = err.errors[key]?.message || "Invalid value entered";
+    });
+    message = Object.values(errors)[0] || "Please check the entered details";
+  }
+
+  // Handle Mongoose CastError (invalid ObjectId or type conversion)
+  else if (err.name === "CastError") {
+    status = 400;
+    message = "The requested record or identifier is invalid";
+    if (err.path) {
+      errors[err.path] = "Invalid format";
+    }
+  }
+
+  // Handle MongoDB Duplicate Key Errors (11000)
+  else if (err.code === 11000) {
+    status = 409;
+    const field = Object.keys(err.keyPattern || err.keyValue || {})[0] || "field";
+    if (field === "phone") {
+      message = "This mobile number is already registered. Please login or use a different number.";
+      errors.phone = message;
+    } else if (field === "email") {
+      message = "This email address is already registered. Please login or use a different email.";
+      errors.email = message;
+    } else if (field === "username") {
+      message = "This username is already taken. Please choose another username.";
+      errors.username = message;
+    } else if (field === "name") {
+      message = "An item with this name already exists. Please choose a different name.";
+      errors.name = message;
+    } else {
+      message = `This ${field} is already in use. Please enter a different value.`;
+      errors[field] = message;
+    }
+  }
+
+  // Handle Multer upload errors
+  else if (err.code === "LIMIT_FILE_SIZE") {
+    status = 400;
+    message = "Image size exceeds the 5MB limit. Please upload a smaller image.";
+    errors.image = message;
+  }
+
+  // Handle malformed JSON
+  else if (err instanceof SyntaxError && "body" in err) {
+    status = 400;
+    message = "Invalid data format received. Please try again.";
+  }
+
   res.status(status).json({
     success: false,
-    message: err.message || "Internal Server Error"
+    message,
+    errors
   });
 });
 

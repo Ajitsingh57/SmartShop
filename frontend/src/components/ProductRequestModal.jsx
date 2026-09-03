@@ -16,6 +16,7 @@ import {
   Mail,
   HelpCircle,
 } from "lucide-react";
+import { toast } from "react-toastify";
 import { productRequestsApi, authApi } from "../services/api";
 import {
   isValidName,
@@ -74,6 +75,7 @@ const ProductRequestModal = ({ isOpen, onClose, initialProduct = null }) => {
   // Status & List state
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState({});
   const [successMsg, setSuccessMsg] = useState("");
   const [myRequests, setMyRequests] = useState([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
@@ -161,25 +163,32 @@ const ProductRequestModal = ({ isOpen, onClose, initialProduct = null }) => {
 
     setError("");
     setSuccessMsg("");
+    setFieldErrors({});
+
+    const newFieldErrors = {};
 
     if (!productName.trim()) {
-      setError("Please enter the product name.");
-      return;
+      newFieldErrors.productName = "Please enter the product name.";
     }
 
     const qty = Number(requestedQuantity);
     if (!Number.isFinite(qty) || qty <= 0) {
-      setError("Please enter a valid requested quantity (e.g. 5 or 10.5).");
-      return;
+      newFieldErrors.requestedQuantity = "Please enter a valid quantity greater than 0.";
     }
 
     if (!customerName.trim() || !isValidName(customerName)) {
-      setError("Please provide a valid full name (letters only, no numbers).");
-      return;
+      newFieldErrors.customerName = "Please enter your valid name (letters and spaces only).";
     }
 
     if (!customerPhone.trim() || !isValidPhone(customerPhone)) {
-      setError("Please provide a valid 10-digit mobile number so the shopkeeper can reach you.");
+      newFieldErrors.customerPhone = "Please enter a valid 10-digit mobile number.";
+    }
+
+    if (Object.keys(newFieldErrors).length > 0) {
+      setFieldErrors(newFieldErrors);
+      const firstMsg = Object.values(newFieldErrors)[0];
+      setError(firstMsg);
+      toast.error(firstMsg);
       return;
     }
 
@@ -210,10 +219,9 @@ const ProductRequestModal = ({ isOpen, onClose, initialProduct = null }) => {
 
       const response = await productRequestsApi.create(formData);
 
-      setSuccessMsg(
-        response?.message ||
-          "Your product request has been received! The shopkeeper will review it soon."
-      );
+      const msg = response?.message || "Your product request has been received! The shopkeeper will review it soon.";
+      setSuccessMsg(msg);
+      toast.success(msg);
 
       // Reset form
       if (!initialProduct) {
@@ -231,7 +239,10 @@ const ProductRequestModal = ({ isOpen, onClose, initialProduct = null }) => {
       }, 1500);
     } catch (err) {
       console.error("Submit product request error:", err);
-      setError(err?.message || "Failed to submit request. Please try again.");
+      const msg = err?.message || "Failed to submit request. Please try again.";
+      setError(msg);
+      if (err?.errors) setFieldErrors(err.errors);
+      toast.error(msg);
     } finally {
       setSubmitting(false);
     }
@@ -395,9 +406,19 @@ const ProductRequestModal = ({ isOpen, onClose, initialProduct = null }) => {
                   required
                   placeholder="e.g. Basmati Rice, Tata Salt, Dove Soap..."
                   value={productName}
-                  onChange={(e) => setProductName(e.target.value)}
-                  className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-3.5 py-2 text-xs text-white outline-none focus:border-amber-500"
+                  onChange={(e) => {
+                    setProductName(e.target.value);
+                    if (fieldErrors.productName) setFieldErrors((prev) => ({ ...prev, productName: "" }));
+                  }}
+                  className={`w-full rounded-xl border bg-zinc-900 px-3.5 py-2 text-xs text-white outline-none ${
+                    fieldErrors.productName ? "border-red-500 ring-1 ring-red-500" : "border-zinc-700 focus:border-amber-500"
+                  }`}
                 />
+                {fieldErrors.productName && (
+                  <p className="mt-1 text-[11px] text-red-400 font-medium">
+                    {fieldErrors.productName}
+                  </p>
+                )}
               </div>
 
               <div>
@@ -432,8 +453,13 @@ const ProductRequestModal = ({ isOpen, onClose, initialProduct = null }) => {
                     required
                     placeholder="e.g. 10 or 25"
                     value={requestedQuantity}
-                    onChange={(e) => setRequestedQuantity(e.target.value)}
-                    className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-3.5 py-2 text-xs text-white outline-none focus:border-amber-500"
+                    onChange={(e) => {
+                      setRequestedQuantity(e.target.value);
+                      if (fieldErrors.requestedQuantity) setFieldErrors((prev) => ({ ...prev, requestedQuantity: "" }));
+                    }}
+                    className={`w-full rounded-xl border bg-zinc-900 px-3.5 py-2 text-xs text-white outline-none ${
+                      fieldErrors.requestedQuantity ? "border-red-500 ring-1 ring-red-500" : "border-zinc-700 focus:border-amber-500"
+                    }`}
                   />
                   <select
                     value={unit}
@@ -447,6 +473,11 @@ const ProductRequestModal = ({ isOpen, onClose, initialProduct = null }) => {
                     ))}
                   </select>
                 </div>
+                {fieldErrors.requestedQuantity && (
+                  <p className="mt-1 text-[11px] text-red-400 font-medium">
+                    {fieldErrors.requestedQuantity}
+                  </p>
+                )}
               </div>
 
               <div>
@@ -542,9 +573,19 @@ const ProductRequestModal = ({ isOpen, onClose, initialProduct = null }) => {
                     required
                     placeholder="Your Name (letters only)"
                     value={customerName}
-                    onChange={(e) => setCustomerName(sanitizeNameInput(e.target.value))}
-                    className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-1.5 text-xs text-white outline-none focus:border-amber-500"
+                    onChange={(e) => {
+                      setCustomerName(sanitizeNameInput(e.target.value));
+                      if (fieldErrors.customerName) setFieldErrors((prev) => ({ ...prev, customerName: "" }));
+                    }}
+                    className={`w-full rounded-lg border bg-zinc-950 px-3 py-1.5 text-xs text-white outline-none ${
+                      fieldErrors.customerName ? "border-red-500 ring-1 ring-red-500" : "border-zinc-700 focus:border-amber-500"
+                    }`}
                   />
+                  {fieldErrors.customerName && (
+                    <p className="mt-1 text-[11px] text-red-400 font-medium">
+                      {fieldErrors.customerName}
+                    </p>
+                  )}
                 </div>
 
                 <div>
@@ -557,9 +598,19 @@ const ProductRequestModal = ({ isOpen, onClose, initialProduct = null }) => {
                     required
                     placeholder="10-digit mobile number"
                     value={customerPhone}
-                    onChange={(e) => setCustomerPhone(sanitizePhoneInput(e.target.value))}
-                    className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-1.5 text-xs text-white outline-none focus:border-amber-500"
+                    onChange={(e) => {
+                      setCustomerPhone(sanitizePhoneInput(e.target.value));
+                      if (fieldErrors.customerPhone) setFieldErrors((prev) => ({ ...prev, customerPhone: "" }));
+                    }}
+                    className={`w-full rounded-lg border bg-zinc-950 px-3 py-1.5 text-xs text-white outline-none ${
+                      fieldErrors.customerPhone ? "border-red-500 ring-1 ring-red-500" : "border-zinc-700 focus:border-amber-500"
+                    }`}
                   />
+                  {fieldErrors.customerPhone && (
+                    <p className="mt-1 text-[11px] text-red-400 font-medium">
+                      {fieldErrors.customerPhone}
+                    </p>
+                  )}
                 </div>
               </div>
             </div>

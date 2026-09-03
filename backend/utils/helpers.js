@@ -84,3 +84,13 @@ export const isValidEmail = (email) => {
     if (!email || typeof email !== "string") return false;
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
 };
+
+// Standard response helper for form validation errors
+export const sendValidationError = (res, message, errors = {}, status = 400) => {
+    const errorObj = typeof errors === "string" ? { general: errors } : (errors || {});
+    return res.status(status).json({
+        success: false,
+        message,
+        errors: errorObj
+    });
+};

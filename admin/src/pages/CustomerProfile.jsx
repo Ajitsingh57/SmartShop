@@ -30,6 +30,7 @@ import {
   UserCheck,
   Check,
 } from "lucide-react";
+import { toast } from "react-toastify";
 
 import { customersApi, creditsApi } from "../services/api";
 
@@ -123,6 +124,7 @@ const CustomerProfile = () => {
   const [recalculatingTrust, setRecalculatingTrust] = useState(false);
   const [error, setError] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
+  const [fieldErrors, setFieldErrors] = useState({});
 
   const [historyType, setHistoryType] = useState("All");
   const [historySearch, setHistorySearch] = useState("");
@@ -407,10 +409,13 @@ const CustomerProfile = () => {
       setSuccessMsg("");
 
       const res = await customersApi.recalculateTrust(customerId);
-      setSuccessMsg(res?.message || "Trust score and auto credit limit recalculated!");
+      const msg = res?.message || "Trust score and auto credit limit recalculated!";
+      setSuccessMsg(msg);
+      toast.success(msg);
       await loadCustomer(true);
     } catch (err) {
       console.error("Recalculate trust error:", err);
+      toast.error(getErrorMessage(err, "Failed to recalculate trust score."));
       await loadCustomer(true);
     } finally {
       setRecalculatingTrust(false);
@@ -454,11 +459,12 @@ const CustomerProfile = () => {
     });
 
     setError("");
-    setSuccessMsg(
+    const switchMsg =
       targetMode === "manual"
         ? `Switched to Manual Limit Mode (${money(manualBorrowLimit)})`
-        : `Switched to Automatic Limit Mode (${money(autoCreditLimit)})`
-    );
+        : `Switched to Automatic Limit Mode (${money(autoCreditLimit)})`;
+    setSuccessMsg(switchMsg);
+    toast.success(switchMsg);
 
     // 2. Persist to MongoDB in background
     try {
@@ -469,7 +475,9 @@ const CustomerProfile = () => {
     } catch (err) {
       console.error("Switch limit mode error:", err);
       setCustomerData(previousData);
-      setError(getErrorMessage(err, "Failed to switch credit limit mode."));
+      const errMsg = getErrorMessage(err, "Failed to switch credit limit mode.");
+      setError(errMsg);
+      toast.error(errMsg);
       setSuccessMsg("");
     } finally {
       setSavingLimit(false);
@@ -480,10 +488,14 @@ const CustomerProfile = () => {
   const handleSaveManualLimit = async (e) => {
     e.preventDefault();
     if (!customerId || savingLimit) return;
+    setFieldErrors({});
 
     const amount = Number(manualInput);
     if (!Number.isFinite(amount) || amount < 0) {
-      setError("Please enter a valid non-negative number for manual credit limit.");
+      const msg = "Please enter a valid credit limit of ₹0 or more.";
+      setError(msg);
+      setFieldErrors({ manualInput: msg });
+      toast.error(msg);
       return;
     }
 
@@ -512,11 +524,11 @@ const CustomerProfile = () => {
 
     setLimitModalOpen(false);
     setError("");
-    setSuccessMsg(
-      `Manual credit limit set to ${money(amount)}${
-        activateOnSave ? " and activated for sales." : "."
-      }`
-    );
+    const saveMsg = `Manual credit limit set to ${money(amount)}${
+      activateOnSave ? " and activated for sales." : "."
+    }`;
+    setSuccessMsg(saveMsg);
+    toast.success(saveMsg);
 
     try {
       setSavingLimit(true);
@@ -532,7 +544,9 @@ const CustomerProfile = () => {
     } catch (err) {
       console.error("Save manual limit error:", err);
       setCustomerData(previousData);
-      setError(getErrorMessage(err, "Failed to update manual credit limit."));
+      const errMsg = getErrorMessage(err, "Failed to update manual credit limit.");
+      setError(errMsg);
+      toast.error(errMsg);
       setSuccessMsg("");
     } finally {
       setSavingLimit(false);
@@ -544,19 +558,29 @@ const CustomerProfile = () => {
     setExtendDueDate("");
     setExtendReason("");
     setError("");
+    setFieldErrors({});
   };
 
   const handleExtendSubmit = async (e) => {
     e.preventDefault();
     if (!extendModalCredit || extending) return;
+    setFieldErrors({});
+
+    const newFieldErrors = {};
 
     if (!extendDueDate) {
-      setError("Please select a new due date.");
-      return;
+      newFieldErrors.extendDueDate = "Please select a new due date.";
     }
 
     if (!extendReason.trim()) {
-      setError("Please provide a reason for extending the due date.");
+      newFieldErrors.extendReason = "Please provide a reason for extending the due date.";
+    }
+
+    if (Object.keys(newFieldErrors).length > 0) {
+      setFieldErrors(newFieldErrors);
+      const firstMsg = Object.values(newFieldErrors)[0];
+      setError(firstMsg);
+      toast.error(firstMsg);
       return;
     }
 
@@ -566,17 +590,22 @@ const CustomerProfile = () => {
       setSuccessMsg("");
 
       const creditId = extendModalCredit.rawId || extendModalCredit.id;
-      await creditsApi.extendDueDate(creditId, {
+      const res = await creditsApi.extendDueDate(creditId, {
         newDueDate: extendDueDate,
         reason: extendReason.trim(),
       });
 
-      setSuccessMsg("Credit due date extended successfully. Customer Trust Score updated.");
+      const msg = res?.message || "Credit due date extended successfully. Customer Trust Score updated.";
+      setSuccessMsg(msg);
+      toast.success(msg);
       setExtendModalCredit(null);
       await loadCustomer(true);
     } catch (err) {
       console.error("Extend due date error:", err);
-      setError(getErrorMessage(err, "Failed to extend credit due date."));
+      const errMsg = getErrorMessage(err, "Failed to extend credit due date.");
+      setError(errMsg);
+      if (err?.errors) setFieldErrors(err.errors);
+      toast.error(errMsg);
     } finally {
       setExtending(false);
     }
@@ -596,11 +625,14 @@ const CustomerProfile = () => {
       setActionLoading(true);
       setError("");
 
-      await customersApi.updateStatus(customerId, nextStatus);
+      const res = await customersApi.updateStatus(customerId, nextStatus);
+      toast.success(res?.message || `Customer ${nextStatus ? "activated" : "deactivated"} successfully.`);
       await loadCustomer(true);
     } catch (err) {
       console.error("Update customer status error:", err);
-      setError(getErrorMessage(err, "Failed to update customer status."));
+      const errMsg = getErrorMessage(err, "Failed to update customer status.");
+      setError(errMsg);
+      toast.error(errMsg);
     } finally {
       setActionLoading(false);
     }
@@ -610,7 +642,9 @@ const CustomerProfile = () => {
     if (!customerId || actionLoading) return;
 
     if (isActive) {
-      window.alert("Please deactivate the customer before deleting the account.");
+      const msg = "Please deactivate the customer account before deleting.";
+      window.alert(msg);
+      toast.warn(msg);
       return;
     }
 
@@ -1318,14 +1352,23 @@ const CustomerProfile = () => {
                       step="100"
                       placeholder="e.g. 10000"
                       value={manualInput}
-                      onChange={(e) => setManualInput(e.target.value)}
+                      onChange={(e) => {
+                        setManualInput(e.target.value);
+                        if (fieldErrors.manualInput) setFieldErrors((prev) => ({ ...prev, manualInput: "" }));
+                      }}
                       required
-                      className="w-full rounded-xl border border-white/10 bg-zinc-950 pl-8 pr-4 py-2 text-sm text-white outline-none focus:border-blue-500"
+                      className={`w-full rounded-xl border bg-zinc-950 pl-8 pr-4 py-2 text-sm text-white outline-none ${
+                        fieldErrors.manualInput ? "border-red-500 ring-1 ring-red-500" : "border-white/10 focus:border-blue-500"
+                      }`}
                     />
                   </div>
-                  <p className="mt-1 text-[11px] text-zinc-500">
-                    This custom amount will remain saved independently in the customer record.
-                  </p>
+                  {fieldErrors.manualInput ? (
+                    <p className="mt-1 text-xs text-red-500 font-medium">{fieldErrors.manualInput}</p>
+                  ) : (
+                    <p className="mt-1 text-[11px] text-zinc-500">
+                      This custom amount will remain saved independently in the customer record.
+                    </p>
+                  )}
                 </div>
 
                 <label className="flex items-center gap-2 cursor-pointer pt-1">
@@ -1433,6 +1476,7 @@ const CustomerProfile = () => {
                         const cur = extendDueDate ? new Date(extendDueDate) : new Date();
                         cur.setDate(cur.getDate() - 1);
                         setExtendDueDate(getLocalDateString(cur));
+                        if (fieldErrors.extendDueDate) setFieldErrors((prev) => ({ ...prev, extendDueDate: "" }));
                       }}
                       className="rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 py-2 text-xs font-bold text-zinc-300 hover:border-zinc-700 hover:text-white"
                     >
@@ -1445,13 +1489,18 @@ const CustomerProfile = () => {
                       value={extendDueDate}
                       min={addDaysToDate(extendModalCredit?.dueDate || new Date(), 1)}
                       max={addDaysToDate(new Date(), 365)}
-                      onChange={(e) => setExtendDueDate(e.target.value)}
+                      onChange={(e) => {
+                        setExtendDueDate(e.target.value);
+                        if (fieldErrors.extendDueDate) setFieldErrors((prev) => ({ ...prev, extendDueDate: "" }));
+                      }}
                       onClick={(e) => {
                         try {
                           e.target.showPicker?.();
                         } catch {}
                       }}
-                      className="w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3.5 py-2 text-sm font-semibold text-white outline-none focus:border-amber-500 cursor-pointer"
+                      className={`w-full rounded-xl border bg-zinc-950 px-3.5 py-2 text-sm font-semibold text-white outline-none cursor-pointer ${
+                        fieldErrors.extendDueDate ? "border-red-500 ring-1 ring-red-500" : "border-zinc-700 focus:border-amber-500"
+                      }`}
                       style={{ colorScheme: "dark" }}
                     />
 
@@ -1461,12 +1510,16 @@ const CustomerProfile = () => {
                         const cur = extendDueDate ? new Date(extendDueDate) : new Date();
                         cur.setDate(cur.getDate() + 1);
                         setExtendDueDate(getLocalDateString(cur));
+                        if (fieldErrors.extendDueDate) setFieldErrors((prev) => ({ ...prev, extendDueDate: "" }));
                       }}
                       className="rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 py-2 text-xs font-bold text-zinc-300 hover:border-zinc-700 hover:text-white"
                     >
                       +1d
                     </button>
                   </div>
+                  {fieldErrors.extendDueDate && (
+                    <p className="mt-1 text-xs text-red-500 font-medium">{fieldErrors.extendDueDate}</p>
+                  )}
 
                   {/* Quick Extension Chips */}
                   <div className="flex flex-wrap items-center gap-1 mt-2">
@@ -1486,6 +1539,7 @@ const CustomerProfile = () => {
                             ? new Date(extendModalCredit.dueDate)
                             : new Date();
                           setExtendDueDate(addDaysToDate(base, chip.days));
+                          if (fieldErrors.extendDueDate) setFieldErrors((prev) => ({ ...prev, extendDueDate: "" }));
                         }}
                         className="rounded border border-zinc-800 bg-zinc-900 px-2 py-0.5 text-[10px] text-zinc-300 hover:border-amber-500/40 hover:text-amber-300"
                       >
@@ -1504,9 +1558,17 @@ const CustomerProfile = () => {
                     required
                     placeholder="e.g. Customer requested extra time due to salary delay / medical emergency..."
                     value={extendReason}
-                    onChange={(e) => setExtendReason(e.target.value)}
-                    className="w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3.5 py-2 text-xs text-white outline-none focus:border-amber-500"
+                    onChange={(e) => {
+                      setExtendReason(e.target.value);
+                      if (fieldErrors.extendReason) setFieldErrors((prev) => ({ ...prev, extendReason: "" }));
+                    }}
+                    className={`w-full rounded-xl border bg-zinc-950 px-3.5 py-2 text-xs text-white outline-none ${
+                      fieldErrors.extendReason ? "border-red-500 ring-1 ring-red-500" : "border-zinc-700 focus:border-amber-500"
+                    }`}
                   />
+                  {fieldErrors.extendReason && (
+                    <p className="mt-1 text-xs text-red-500 font-medium">{fieldErrors.extendReason}</p>
+                  )}
                 </div>
 
                 <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-white/10">

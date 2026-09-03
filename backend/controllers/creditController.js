@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 import Credit from "../models/creditModel.js";
 import Customer from "../models/customerModel.js";
-import { findCustomerByIdOrUser, runTransaction } from "../utils/helpers.js";
+import { findCustomerByIdOrUser, runTransaction, sendValidationError } from "../utils/helpers.js";
 import { logAdminActivity } from "../utils/activityLogger.js";
 import { syncCustomerTrustAndLimits } from "../utils/trustScoreEngine.js";
 
@@ -10,35 +10,33 @@ export async function createCredit(req, res) {
     try {
         const { customerId, borrowedAmount, dueDate } = req.body;
 
-        if (!customerId || borrowedAmount === undefined || !dueDate) {
-            return res.status(400).json({
-                success: false,
-                message: "Customer, borrowed amount and due date are required"
-            });
-        }
-
-        if (!mongoose.Types.ObjectId.isValid(customerId)) {
-            return res.status(400).json({
-                success: false,
-                message: "Invalid customer ID"
-            });
+        const errors = {};
+        if (!customerId) {
+            errors.customerId = "Please select a customer";
+        } else if (!mongoose.Types.ObjectId.isValid(customerId)) {
+            errors.customerId = "Invalid customer selected";
         }
 
         const amount = Number(borrowedAmount);
-        if (!Number.isFinite(amount) || amount <= 0) {
-            return res.status(400).json({
-                success: false,
-                message: "Borrowed amount must be greater than 0"
-            });
+        if (borrowedAmount === undefined || borrowedAmount === null || borrowedAmount === "" || !Number.isFinite(amount) || amount <= 0) {
+            errors.borrowedAmount = "Borrowed amount must be greater than 0";
+        }
+
+        if (!dueDate) {
+            errors.dueDate = "Please select a due date";
+        } else {
+            const due = new Date(dueDate);
+            if (isNaN(due.getTime()) || due <= new Date()) {
+                errors.dueDate = "Due date must be a future date";
+            }
+        }
+
+        if (Object.keys(errors).length > 0) {
+            const firstMsg = Object.values(errors)[0];
+            return sendValidationError(res, firstMsg, errors);
         }
 
         const due = new Date(dueDate);
-        if (isNaN(due.getTime()) || due <= new Date()) {
-            return res.status(400).json({
-                success: false,
-                message: "Due date must be a valid future date"
-            });
-        }
 
         const credit = await runTransaction(async (session) => {
             const customer = await findCustomerByIdOrUser(customerId, session);
@@ -249,17 +247,23 @@ export async function extendDueDate(req, res) {
         const { id } = req.params;
         const { newDueDate, reason } = req.body;
 
-        if (!newDueDate || !reason || !reason.trim()) {
-            return res.status(400).json({
-                success: false,
-                message: "New due date and reason are required"
-            });
+        const errors = {};
+        if (!newDueDate) {
+            errors.newDueDate = "Please select a new due date";
+        }
+        if (!reason || !reason.trim()) {
+            errors.reason = "Please enter a reason for extending the due date";
+        }
+
+        if (Object.keys(errors).length > 0) {
+            const firstMsg = Object.values(errors)[0];
+            return sendValidationError(res, firstMsg, errors);
         }
 
         if (!mongoose.Types.ObjectId.isValid(id)) {
             return res.status(400).json({
                 success: false,
-                message: "Invalid credit ID"
+                message: "Invalid credit record identifier"
             });
         }
 
@@ -274,14 +278,16 @@ export async function extendDueDate(req, res) {
         if (credit.extensionCount >= 1) {
             return res.status(400).json({
                 success: false,
-                message: "Due date extension has already been used for this credit"
+                message: "A due date extension has already been granted for this credit record.",
+                errors: { newDueDate: "Extension already granted" }
             });
         }
 
         if (credit.status === "paid" || Number(credit.pendingAmount) <= 0) {
             return res.status(400).json({
                 success: false,
-                message: "Paid credit cannot be extended"
+                message: "This credit is already fully paid and cannot be extended.",
+                errors: { newDueDate: "Credit already paid" }
             });
         }
 
@@ -294,17 +300,15 @@ export async function extendDueDate(req, res) {
         }
 
         if (!newDue || isNaN(newDue.getTime())) {
-            return res.status(400).json({
-                success: false,
-                message: "Invalid new due date format"
+            return sendValidationError(res, "Please select a valid new due date", {
+                newDueDate: "Invalid date format"
             });
         }
 
         const currentDue = new Date(credit.dueDate);
         if (newDue <= currentDue) {
-            return res.status(400).json({
-                success: false,
-                message: `New due date must be after current due date (${currentDue.toLocaleDateString("en-IN")})`
+            return sendValidationError(res, `New due date must be after current due date (${currentDue.toLocaleDateString("en-IN")})`, {
+                newDueDate: `Date must be after ${currentDue.toLocaleDateString("en-IN")}`
             });
         }
 

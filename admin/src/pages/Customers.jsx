@@ -14,6 +14,7 @@ import {
   Sliders,
   Sparkles,
 } from "lucide-react";
+import { toast } from "react-toastify";
 import { customersApi } from "../services/api";
 
 const Customers = () => {
@@ -206,7 +207,7 @@ const Customers = () => {
       setActionLoading(`status-${customer.id}`);
       setError("");
 
-      await customersApi.updateStatus(customer.id, nextStatus);
+      const res = await customersApi.updateStatus(customer.id, nextStatus);
 
       setCustomers((prev) =>
         prev.map((item) =>
@@ -219,9 +220,12 @@ const Customers = () => {
             : item
         )
       );
+      toast.success(res?.message || `Customer account ${nextStatus ? "activated" : "deactivated"} successfully.`);
     } catch (err) {
       console.error("Update customer status error:", err);
-      setError(err?.message || "Failed to update customer status.");
+      const msg = err?.message || "Failed to update customer status.";
+      setError(msg);
+      toast.error(msg);
     } finally {
       setActionLoading(null);
     }
@@ -229,7 +233,9 @@ const Customers = () => {
 
   const handleDelete = async (customer) => {
     if (customer.isActive) {
-      window.alert("Please deactivate the customer before deleting the account.");
+      const msg = "Please deactivate the customer account before deleting.";
+      window.alert(msg);
+      toast.warn(msg);
       return;
     }
 
@@ -243,11 +249,14 @@ const Customers = () => {
       setActionLoading(`delete-${customer.id}`);
       setError("");
 
-      await customersApi.delete(customer.id);
+      const res = await customersApi.delete(customer.id);
       setCustomers((prev) => prev.filter((item) => item.id !== customer.id));
+      toast.success(res?.message || "Customer deleted successfully.");
     } catch (err) {
       console.error("Delete customer error:", err);
-      setError(err?.message || "Failed to delete customer.");
+      const msg = err?.message || "Failed to delete customer.";
+      setError(msg);
+      toast.error(msg);
     } finally {
       setActionLoading(null);
     }

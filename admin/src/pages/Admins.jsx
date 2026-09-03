@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
+import { toast } from "react-toastify";
 import { adminsApi } from "../services/api";
 import {
   isValidName,
@@ -24,6 +25,7 @@ const Admins = () => {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [fieldErrors, setFieldErrors] = useState({});
 
   const [form, setForm] = useState({
     name: "",
@@ -141,23 +143,29 @@ const Admins = () => {
 
   const handleAddSubmit = async (e) => {
     e.preventDefault();
-    if (!form.name.trim() || !form.username.trim() || !form.password) {
-      setError("Please fill in all required fields.");
-      return;
+    setFieldErrors({});
+
+    const newFieldErrors = {};
+
+    if (!form.name.trim() || !isValidName(form.name)) {
+      newFieldErrors.name = "Please enter a valid name (letters only, min 2 characters).";
     }
 
-    if (!isValidName(form.name)) {
-      setError("Please enter a valid full name (letters only, min 2 characters, no numbers).");
-      return;
+    if (!form.username.trim() || !isValidUsername(form.username)) {
+      newFieldErrors.username = "Username must be 3-30 characters with letters and numbers.";
     }
 
-    if (!isValidUsername(form.username)) {
-      setError("Username must be 3-30 characters with letters and numbers (no special characters).");
-      return;
+    if (!form.password) {
+      newFieldErrors.password = "Please enter a password.";
+    } else if (form.password.length < 6) {
+      newFieldErrors.password = "Password must be at least 6 characters long.";
     }
 
-    if (form.password.length < 6) {
-      setError("Password must be at least 6 characters long.");
+    if (Object.keys(newFieldErrors).length > 0) {
+      setFieldErrors(newFieldErrors);
+      const firstMsg = Object.values(newFieldErrors)[0];
+      setError(firstMsg);
+      toast.error(firstMsg);
       return;
     }
 
@@ -166,19 +174,24 @@ const Admins = () => {
       setError("");
       setSuccess("");
 
-      await adminsApi.create({
+      const res = await adminsApi.create({
         name: form.name.trim(),
         username: form.username.trim(),
         password: form.password,
       });
 
-      setSuccess("Admin created successfully.");
+      const successMsg = res?.message || "Admin created successfully.";
+      setSuccess(successMsg);
+      toast.success(successMsg);
       setShowAddModal(false);
       setForm({ name: "", username: "", password: "" });
       await loadAdminsAndActivities();
     } catch (err) {
       console.error("Create admin error:", err);
-      setError(err?.message || "Failed to create admin.");
+      const msg = err?.message || "Failed to create admin.";
+      setError(msg);
+      if (err?.errors) setFieldErrors(err.errors);
+      toast.error(msg);
     } finally {
       setSubmitting(false);
     }
@@ -186,6 +199,7 @@ const Admins = () => {
 
   const handleOpenEdit = (admin) => {
     setSelectedAdmin(admin);
+    setFieldErrors({});
     setEditForm({
       name: admin.name,
       username: admin.username,
@@ -202,19 +216,27 @@ const Admins = () => {
   const handleEditSubmit = async (e) => {
     e.preventDefault();
     if (!selectedAdmin) return;
+    setFieldErrors({});
+
+    const newFieldErrors = {};
 
     if (!editForm.name.trim() || !isValidName(editForm.name)) {
-      setError("Please enter a valid full name (letters only, min 2 characters, no numbers).");
-      return;
+      newFieldErrors.name = "Please enter a valid name (letters only, min 2 characters).";
     }
 
     if (!editForm.username.trim() || !isValidUsername(editForm.username)) {
-      setError("Username must be 3-30 characters with letters and numbers (no special characters).");
-      return;
+      newFieldErrors.username = "Username must be 3-30 characters with letters and numbers.";
     }
 
     if (editForm.password && editForm.password.length < 6) {
-      setError("New password must be at least 6 characters long.");
+      newFieldErrors.password = "New password must be at least 6 characters long.";
+    }
+
+    if (Object.keys(newFieldErrors).length > 0) {
+      setFieldErrors(newFieldErrors);
+      const firstMsg = Object.values(newFieldErrors)[0];
+      setError(firstMsg);
+      toast.error(firstMsg);
       return;
     }
 
@@ -231,14 +253,19 @@ const Admins = () => {
         payload.password = editForm.password;
       }
 
-      await adminsApi.update(selectedAdmin.id, payload);
-      setSuccess("Admin details updated successfully.");
+      const res = await adminsApi.update(selectedAdmin.id, payload);
+      const successMsg = res?.message || "Admin details updated successfully.";
+      setSuccess(successMsg);
+      toast.success(successMsg);
       setShowEditModal(false);
       setSelectedAdmin(null);
       await loadAdminsAndActivities();
     } catch (err) {
       console.error("Update admin error:", err);
-      setError(err?.message || "Failed to update admin.");
+      const msg = err?.message || "Failed to update admin.";
+      setError(msg);
+      if (err?.errors) setFieldErrors(err.errors);
+      toast.error(msg);
     } finally {
       setSubmitting(false);
     }
@@ -729,10 +756,20 @@ const Admins = () => {
                     required
                     placeholder="Admin name (letters only)..."
                     value={form.name}
-                    onChange={(e) => setForm({ ...form, name: sanitizeNameInput(e.target.value) })}
-                    className="w-full rounded-lg border p-3 text-sm text-white outline-none"
-                    style={{ borderColor: "var(--app-border)", backgroundColor: "var(--app-surface-light)" }}
+                    onChange={(e) => {
+                      setForm({ ...form, name: sanitizeNameInput(e.target.value) });
+                      if (fieldErrors.name) setFieldErrors((prev) => ({ ...prev, name: "" }));
+                    }}
+                    className={`w-full rounded-lg border p-3 text-sm text-white outline-none ${
+                      fieldErrors.name ? "border-red-500 ring-1 ring-red-500" : ""
+                    }`}
+                    style={{ borderColor: fieldErrors.name ? "#ef4444" : "var(--app-border)", backgroundColor: "var(--app-surface-light)" }}
                   />
+                  {fieldErrors.name && (
+                    <p className="mt-1 text-xs text-red-500 font-medium">
+                      {fieldErrors.name}
+                    </p>
+                  )}
                 </div>
 
                 <div>
@@ -742,10 +779,20 @@ const Admins = () => {
                     required
                     placeholder="e.g. rahul_admin"
                     value={form.username}
-                    onChange={(e) => setForm({ ...form, username: sanitizeUsernameInput(e.target.value) })}
-                    className="w-full rounded-lg border p-3 text-sm text-white outline-none"
-                    style={{ borderColor: "var(--app-border)", backgroundColor: "var(--app-surface-light)" }}
+                    onChange={(e) => {
+                      setForm({ ...form, username: sanitizeUsernameInput(e.target.value) });
+                      if (fieldErrors.username) setFieldErrors((prev) => ({ ...prev, username: "" }));
+                    }}
+                    className={`w-full rounded-lg border p-3 text-sm text-white outline-none ${
+                      fieldErrors.username ? "border-red-500 ring-1 ring-red-500" : ""
+                    }`}
+                    style={{ borderColor: fieldErrors.username ? "#ef4444" : "var(--app-border)", backgroundColor: "var(--app-surface-light)" }}
                   />
+                  {fieldErrors.username && (
+                    <p className="mt-1 text-xs text-red-500 font-medium">
+                      {fieldErrors.username}
+                    </p>
+                  )}
                 </div>
 
                 <div>
@@ -757,9 +804,14 @@ const Admins = () => {
                       minLength={6}
                       placeholder="Password (min 6 characters)"
                       value={form.password}
-                      onChange={(e) => setForm({ ...form, password: e.target.value })}
-                      className="w-full rounded-lg border p-3 pr-10 text-sm text-white outline-none"
-                      style={{ borderColor: "var(--app-border)", backgroundColor: "var(--app-surface-light)" }}
+                      onChange={(e) => {
+                        setForm({ ...form, password: e.target.value });
+                        if (fieldErrors.password) setFieldErrors((prev) => ({ ...prev, password: "" }));
+                      }}
+                      className={`w-full rounded-lg border p-3 pr-10 text-sm text-white outline-none ${
+                        fieldErrors.password ? "border-red-500 ring-1 ring-red-500" : ""
+                      }`}
+                      style={{ borderColor: fieldErrors.password ? "#ef4444" : "var(--app-border)", backgroundColor: "var(--app-surface-light)" }}
                     />
                     <button
                       type="button"
@@ -770,6 +822,11 @@ const Admins = () => {
                       {showAddPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </button>
                   </div>
+                  {fieldErrors.password && (
+                    <p className="mt-1 text-xs text-red-500 font-medium">
+                      {fieldErrors.password}
+                    </p>
+                  )}
                 </div>
 
                 <div className="flex gap-3 pt-2">
@@ -809,10 +866,20 @@ const Admins = () => {
                     required
                     placeholder="Admin name (letters only)..."
                     value={editForm.name}
-                    onChange={(e) => setEditForm({ ...editForm, name: sanitizeNameInput(e.target.value) })}
-                    className="w-full rounded-lg border p-3 text-sm text-white outline-none"
-                    style={{ borderColor: "var(--app-border)", backgroundColor: "var(--app-surface-light)" }}
+                    onChange={(e) => {
+                      setEditForm({ ...editForm, name: sanitizeNameInput(e.target.value) });
+                      if (fieldErrors.name) setFieldErrors((prev) => ({ ...prev, name: "" }));
+                    }}
+                    className={`w-full rounded-lg border p-3 text-sm text-white outline-none ${
+                      fieldErrors.name ? "border-red-500 ring-1 ring-red-500" : ""
+                    }`}
+                    style={{ borderColor: fieldErrors.name ? "#ef4444" : "var(--app-border)", backgroundColor: "var(--app-surface-light)" }}
                   />
+                  {fieldErrors.name && (
+                    <p className="mt-1 text-xs text-red-500 font-medium">
+                      {fieldErrors.name}
+                    </p>
+                  )}
                 </div>
 
                 <div>
@@ -822,10 +889,20 @@ const Admins = () => {
                     required
                     placeholder="e.g. rahul_admin"
                     value={editForm.username}
-                    onChange={(e) => setEditForm({ ...editForm, username: sanitizeUsernameInput(e.target.value) })}
-                    className="w-full rounded-lg border p-3 text-sm text-white outline-none"
-                    style={{ borderColor: "var(--app-border)", backgroundColor: "var(--app-surface-light)" }}
+                    onChange={(e) => {
+                      setEditForm({ ...editForm, username: sanitizeUsernameInput(e.target.value) });
+                      if (fieldErrors.username) setFieldErrors((prev) => ({ ...prev, username: "" }));
+                    }}
+                    className={`w-full rounded-lg border p-3 text-sm text-white outline-none ${
+                      fieldErrors.username ? "border-red-500 ring-1 ring-red-500" : ""
+                    }`}
+                    style={{ borderColor: fieldErrors.username ? "#ef4444" : "var(--app-border)", backgroundColor: "var(--app-surface-light)" }}
                   />
+                  {fieldErrors.username && (
+                    <p className="mt-1 text-xs text-red-500 font-medium">
+                      {fieldErrors.username}
+                    </p>
+                  )}
                 </div>
 
                 <div>
@@ -834,10 +911,20 @@ const Admins = () => {
                     type="password"
                     placeholder="New password..."
                     value={editForm.password}
-                    onChange={(e) => setEditForm({ ...editForm, password: e.target.value })}
-                    className="w-full rounded-lg border p-3 text-sm text-white outline-none"
-                    style={{ borderColor: "var(--app-border)", backgroundColor: "var(--app-surface-light)" }}
+                    onChange={(e) => {
+                      setEditForm({ ...editForm, password: e.target.value });
+                      if (fieldErrors.password) setFieldErrors((prev) => ({ ...prev, password: "" }));
+                    }}
+                    className={`w-full rounded-lg border p-3 text-sm text-white outline-none ${
+                      fieldErrors.password ? "border-red-500 ring-1 ring-red-500" : ""
+                    }`}
+                    style={{ borderColor: fieldErrors.password ? "#ef4444" : "var(--app-border)", backgroundColor: "var(--app-surface-light)" }}
                   />
+                  {fieldErrors.password && (
+                    <p className="mt-1 text-xs text-red-500 font-medium">
+                      {fieldErrors.password}
+                    </p>
+                  )}
                 </div>
 
                 <div className="flex gap-3 pt-2">

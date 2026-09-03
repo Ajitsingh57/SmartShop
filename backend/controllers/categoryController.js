@@ -1,6 +1,7 @@
 import Category from "../models/categoryModel.js";
 import Product from "../models/productModel.js";
 import { logAdminActivity } from "../utils/activityLogger.js";
+import { sendValidationError } from "../utils/helpers.js";
 
 const DEFAULT_CATEGORIES = [
   "Electronics",
@@ -76,9 +77,8 @@ export async function addCategory(req, res) {
     const { name, description } = req.body;
 
     if (!name || !name.trim()) {
-      return res.status(400).json({
-        success: false,
-        message: "Category name is required",
+      return sendValidationError(res, "Please enter a category name", {
+        name: "Category name is required"
       });
     }
 
@@ -90,9 +90,10 @@ export async function addCategory(req, res) {
     });
 
     if (existing) {
-      return res.status(400).json({
+      return res.status(409).json({
         success: false,
-        message: `Category "${trimmedName}" already exists`,
+        message: `Category "${trimmedName}" already exists. Please choose a different name.`,
+        errors: { name: `Category "${trimmedName}" already exists` }
       });
     }
 
@@ -150,26 +151,35 @@ export async function updateCategory(req, res) {
     const oldName = category.name;
     const trimmedName = name ? name.trim() : oldName;
 
-    if (name && trimmedName !== oldName) {
-      // Check if new name already exists
-      const duplicate = await Category.findOne({
-        _id: { $ne: id },
-        name: { $regex: new RegExp(`^${trimmedName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i") },
-      });
-
-      if (duplicate) {
-        return res.status(400).json({
-          success: false,
-          message: `Category "${trimmedName}" already exists`,
+    if (name !== undefined) {
+      if (!trimmedName) {
+        return sendValidationError(res, "Category name cannot be empty", {
+          name: "Category name is required"
         });
       }
 
-      // Update name across all active products referencing this category
-      await Product.updateMany(
-        { category: oldName },
-        { $set: { category: trimmedName } }
-      );
-      category.name = trimmedName;
+      if (trimmedName !== oldName) {
+        // Check if new name already exists
+        const duplicate = await Category.findOne({
+          _id: { $ne: id },
+          name: { $regex: new RegExp(`^${trimmedName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i") },
+        });
+
+        if (duplicate) {
+          return res.status(409).json({
+            success: false,
+            message: `Category "${trimmedName}" already exists. Please choose a different name.`,
+            errors: { name: `Category "${trimmedName}" already exists` }
+          });
+        }
+
+        // Update name across all active products referencing this category
+        await Product.updateMany(
+          { category: oldName },
+          { $set: { category: trimmedName } }
+        );
+        category.name = trimmedName;
+      }
     }
 
     if (description !== undefined) {

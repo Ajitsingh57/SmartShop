@@ -10,7 +10,7 @@ import Sale from "../models/saleModel.js";
 import Return from "../models/returnModel.js";
 import { calculateCustomerTrustScoreAndLimits, syncCustomerTrustAndLimits } from "../utils/trustScoreEngine.js";
 import { logAdminActivity } from "../utils/activityLogger.js";
-import { isValidName, isValidPhone, isValidUsername, isValidEmail } from "../utils/helpers.js";
+import { isValidName, isValidPhone, isValidUsername, isValidEmail, sendValidationError } from "../utils/helpers.js";
 
 const TOKEN_EXPIRES_IN = "24h";
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -22,56 +22,45 @@ export async function register(req, res) {
     try {
         const { name, email, phone, password, username } = req.body;
 
+        const errors = {};
+
         if (!name || !isValidName(name)) {
-            return res.status(400).json({
-                success: false,
-                message: "Please enter a valid full name (letters only, min 2 characters, no numbers)"
-            });
+            errors.name = "Please enter your full name (letters and spaces only, min 2 characters)";
         }
 
         if (!password) {
-            return res.status(400).json({
-                success: false,
-                message: "Password is required"
-            });
+            errors.password = "Password is required";
+        } else if (password.length < 6) {
+            errors.password = "Password must be at least 6 characters long";
         }
 
         if (!email && !phone && !username) {
-            return res.status(400).json({
-                success: false,
-                message: "Email or phone number is required"
-            });
+            errors.phone = "Please provide at least a mobile number or email address";
+            errors.email = "Please provide at least a mobile number or email address";
         }
 
         const normalizedEmail = email ? email.trim().toLowerCase() : undefined;
-        if (normalizedEmail && !isValidEmail(normalizedEmail)) {
-            return res.status(400).json({
-                success: false,
-                message: "Please enter a valid email address"
-            });
+        if (normalizedEmail) {
+            if (!normalizedEmail.includes("@")) {
+                errors.email = "Email address must include '@' symbol (e.g. name@example.com)";
+            } else if (!isValidEmail(normalizedEmail)) {
+                errors.email = "Please enter a valid email address (e.g. name@example.com)";
+            }
         }
 
         const normalizedPhone = phone ? phone.trim().replace(/[\s\-()]/g, "") : undefined;
         if (normalizedPhone && !isValidPhone(normalizedPhone)) {
-            return res.status(400).json({
-                success: false,
-                message: "Please enter a valid 10-digit mobile number (digits only)"
-            });
+            errors.phone = "Please enter a valid 10-digit mobile number";
         }
 
         const normalizedUsername = username ? username.trim() : undefined;
         if (normalizedUsername && !isValidUsername(normalizedUsername)) {
-            return res.status(400).json({
-                success: false,
-                message: "Username must be 3-30 characters with letters and numbers (no special symbols)"
-            });
+            errors.username = "Username must be 3-30 characters (letters and numbers only)";
         }
 
-        if (password.length < 6) {
-            return res.status(400).json({
-                success: false,
-                message: "Password must be at least 6 characters"
-            });
+        if (Object.keys(errors).length > 0) {
+            const firstMsg = Object.values(errors)[0];
+            return sendValidationError(res, firstMsg, errors);
         }
 
         if (!JWT_SECRET) {
@@ -89,19 +78,22 @@ export async function register(req, res) {
                 if (normalizedEmail && existingUser.email === normalizedEmail) {
                     return res.status(409).json({
                         success: false,
-                        message: "Email already exists"
+                        message: "This email address is already registered. Please sign in or use another email.",
+                        errors: { email: "This email address is already registered" }
                     });
                 }
                 if (normalizedPhone && existingUser.phone === normalizedPhone) {
                     return res.status(409).json({
                         success: false,
-                        message: "Phone number already exists"
+                        message: "This mobile number is already registered. Please sign in or use another number.",
+                        errors: { phone: "This mobile number is already registered" }
                     });
                 }
                 if (normalizedUsername && existingUser.username === normalizedUsername) {
                     return res.status(409).json({
                         success: false,
-                        message: "Username already exists"
+                        message: "This username is already taken. Please choose another username.",
+                        errors: { username: "This username is already taken" }
                     });
                 }
             }
@@ -184,11 +176,17 @@ export async function login(req, res) {
     try {
         const { identifier, password } = req.body;
 
-        if (!identifier || !password) {
-            return res.status(400).json({
-                success: false,
-                message: "Username, email/phone and password are required"
-            });
+        const errors = {};
+        if (!identifier || !identifier.trim()) {
+            errors.identifier = "Please enter your username, email, or mobile number";
+        }
+        if (!password) {
+            errors.password = "Please enter your password";
+        }
+
+        if (Object.keys(errors).length > 0) {
+            const firstMsg = Object.values(errors)[0];
+            return sendValidationError(res, firstMsg, errors);
         }
 
         const value = identifier.trim();
@@ -208,21 +206,31 @@ export async function login(req, res) {
         if (!user) {
             return res.status(401).json({
                 success: false,
-                message: "Invalid username/email/phone or password"
+                message: "Incorrect username/email/mobile or password. Please try again.",
+                errors: {
+                    identifier: "Incorrect credentials",
+                    password: "Incorrect credentials"
+                }
             });
         }
 
         if (!user.isActive) {
             return res.status(403).json({
                 success: false,
-                message: "This account is inactive"
+                message: "Your account is currently disabled. Please contact the administrator.",
+                errors: {
+                    identifier: "This account is currently disabled"
+                }
             });
         }
 
         if (!user.password) {
             return res.status(401).json({
                 success: false,
-                message: "Password login is not available for this account"
+                message: "Password login is not available for this account",
+                errors: {
+                    password: "Password login not configured"
+                }
             });
         }
 
@@ -230,7 +238,11 @@ export async function login(req, res) {
         if (!isMatch) {
             return res.status(401).json({
                 success: false,
-                message: "Invalid username/email/phone or password"
+                message: "Incorrect username/email/mobile or password. Please try again.",
+                errors: {
+                    identifier: "Incorrect credentials",
+                    password: "Incorrect credentials"
+                }
             });
         }
 
@@ -468,9 +480,8 @@ export async function updateCustomer(req, res) {
 
         if (name !== undefined) {
             if (!isValidName(name)) {
-                return res.status(400).json({
-                    success: false,
-                    message: "Please enter a valid full name (letters only, min 2 characters, no numbers)"
+                return sendValidationError(res, "Please enter a valid full name (letters and spaces only, min 2 characters)", {
+                    name: "Please enter a valid full name (letters and spaces only)"
                 });
             }
             user.name = name.trim();
@@ -480,9 +491,8 @@ export async function updateCustomer(req, res) {
             if (username !== null && username !== "") {
                 const normalizedUsername = username.trim();
                 if (!isValidUsername(normalizedUsername)) {
-                    return res.status(400).json({
-                        success: false,
-                        message: "Username must be 3-30 characters with letters and numbers (no special symbols)"
+                    return sendValidationError(res, "Username must be 3-30 characters with letters and numbers (no special symbols)", {
+                        username: "Username must be 3-30 characters (letters and numbers only)"
                     });
                 }
 
@@ -494,7 +504,8 @@ export async function updateCustomer(req, res) {
                 if (existingUsername) {
                     return res.status(409).json({
                         success: false,
-                        message: "Username already exists"
+                        message: "This username is already taken. Please choose another username.",
+                        errors: { username: "This username is already taken" }
                     });
                 }
                 user.username = normalizedUsername;
@@ -504,9 +515,8 @@ export async function updateCustomer(req, res) {
         if (email !== undefined) {
             const normalizedEmail = email ? email.trim().toLowerCase() : undefined;
             if (normalizedEmail && !isValidEmail(normalizedEmail)) {
-                return res.status(400).json({
-                    success: false,
-                    message: "Invalid email address"
+                return sendValidationError(res, "Please enter a valid email address (e.g. name@example.com)", {
+                    email: "Please enter a valid email address"
                 });
             }
 
@@ -519,7 +529,8 @@ export async function updateCustomer(req, res) {
                 if (existingEmail) {
                     return res.status(409).json({
                         success: false,
-                        message: "Email already exists"
+                        message: "This email address is already registered.",
+                        errors: { email: "This email address is already registered" }
                     });
                 }
             }
@@ -529,9 +540,8 @@ export async function updateCustomer(req, res) {
         if (phone !== undefined) {
             const normalizedPhone = phone ? phone.trim().replace(/[\s\-()]/g, "") : undefined;
             if (normalizedPhone && !isValidPhone(normalizedPhone)) {
-                return res.status(400).json({
-                    success: false,
-                    message: "Please enter a valid 10-digit mobile number (digits only)"
+                return sendValidationError(res, "Please enter a valid 10-digit mobile number", {
+                    phone: "Please enter a valid 10-digit mobile number"
                 });
             }
 
@@ -544,7 +554,8 @@ export async function updateCustomer(req, res) {
                 if (existingPhone) {
                     return res.status(409).json({
                         success: false,
-                        message: "Phone number already exists"
+                        message: "This mobile number is already registered.",
+                        errors: { phone: "This mobile number is already registered" }
                     });
                 }
             }
@@ -553,9 +564,8 @@ export async function updateCustomer(req, res) {
 
         if (password !== undefined && password) {
             if (password.length < 6) {
-                return res.status(400).json({
-                    success: false,
-                    message: "Password must be at least 6 characters"
+                return sendValidationError(res, "Password must be at least 6 characters long", {
+                    password: "Password must be at least 6 characters long"
                 });
             }
             user.password = await bcrypt.hash(password, 10);
@@ -747,9 +757,8 @@ export async function updateMyProfile(req, res) {
 
         if (name !== undefined) {
             if (!isValidName(name)) {
-                return res.status(400).json({
-                    success: false,
-                    message: "Please enter a valid full name (letters only, min 2 characters, no numbers)"
+                return sendValidationError(res, "Please enter a valid full name (letters and spaces only, min 2 characters)", {
+                    name: "Please enter a valid full name (letters and spaces only)"
                 });
             }
             user.name = name.trim();
@@ -758,9 +767,8 @@ export async function updateMyProfile(req, res) {
         if (phone !== undefined) {
             const normalizedPhone = phone ? phone.trim().replace(/[\s\-()]/g, "") : "";
             if (!normalizedPhone || !isValidPhone(normalizedPhone)) {
-                return res.status(400).json({
-                    success: false,
-                    message: "Please enter a valid 10-digit mobile number (digits only)"
+                return sendValidationError(res, "Please enter a valid 10-digit mobile number", {
+                    phone: "Please enter a valid 10-digit mobile number"
                 });
             }
 
@@ -772,7 +780,8 @@ export async function updateMyProfile(req, res) {
             if (existingUser) {
                 return res.status(409).json({
                     success: false,
-                    message: "Phone number already exists"
+                    message: "This mobile number is already registered with another account.",
+                    errors: { phone: "This mobile number is already registered" }
                 });
             }
 

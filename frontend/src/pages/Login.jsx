@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Eye, EyeOff } from "lucide-react";
+import { toast } from "react-toastify";
 import { authApi, authStorage } from "../services/api";
 import { isValidEmail, isValidPhone } from "../utils/validators";
 
@@ -12,34 +13,41 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState({});
 
   // Submit customer login credentials and establish session
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
+    setFieldErrors({});
 
     const trimmedId = identifier.trim();
-    if (!trimmedId) {
-      setError("Please enter your registered email or 10-digit mobile number.");
-      return;
-    }
+    const newFieldErrors = {};
 
-    // If identifier contains letters without @, check if it's an invalid phone or email
-    const isDigitsOnly = /^[\d+\-\s]+$/.test(trimmedId);
-    if (isDigitsOnly) {
-      if (!isValidPhone(trimmedId)) {
-        setError("Please enter a valid 10-digit mobile number.");
-        return;
-      }
-    } else if (trimmedId.includes("@")) {
-      if (!isValidEmail(trimmedId)) {
-        setError("Please enter a valid email address.");
-        return;
+    if (!trimmedId) {
+      newFieldErrors.identifier = "Please enter your registered email or 10-digit mobile number.";
+    } else {
+      const isDigitsOnly = /^[\d+\-\s]+$/.test(trimmedId);
+      if (isDigitsOnly) {
+        if (!isValidPhone(trimmedId)) {
+          newFieldErrors.identifier = "Please enter a valid 10-digit mobile number.";
+        }
+      } else if (trimmedId.includes("@")) {
+        if (!isValidEmail(trimmedId)) {
+          newFieldErrors.identifier = "Please enter a valid email address.";
+        }
       }
     }
 
     if (!password) {
-      setError("Please enter your password.");
+      newFieldErrors.password = "Please enter your password.";
+    }
+
+    if (Object.keys(newFieldErrors).length > 0) {
+      setFieldErrors(newFieldErrors);
+      const firstMsg = Object.values(newFieldErrors)[0];
+      setError(firstMsg);
+      toast.error(firstMsg);
       return;
     }
 
@@ -63,10 +71,18 @@ const Login = () => {
         authStorage.setUser(loggedInUser);
       }
 
+      toast.success(data?.message || "Login successful!");
       navigate("/", { replace: true });
     } catch (err) {
       console.error("Login failed:", err);
-      setError(err?.message || "Unable to login. Please check your credentials.");
+      const msg = err?.message || "Unable to login. Please check your credentials.";
+      setError(msg);
+      if (err?.errors && Object.keys(err.errors).length > 0) {
+        setFieldErrors(err.errors);
+      } else {
+        setFieldErrors({ identifier: msg });
+      }
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
@@ -110,22 +126,21 @@ const Login = () => {
           </p>
         </div>
 
-        {error && (
-          <div
-            className="mb-5 rounded-lg border px-4 py-3 text-sm leading-5"
-            style={{
-              borderColor: "rgba(239,68,68,0.20)",
-              backgroundColor: "rgba(239,68,68,0.05)",
-              color: "#f87171",
-            }}
-            role="alert"
-          >
-            {error}
-          </div>
-        )}
-
         {/* Customer authentication form */}
-        <form onSubmit={handleSubmit} className="space-y-5">
+        <form onSubmit={handleSubmit} noValidate className="space-y-5">
+          {error && (
+            <div
+              className="rounded-xl border p-3.5 text-xs font-medium text-red-400 flex items-start gap-2.5 animate-in fade-in"
+              style={{
+                borderColor: "rgba(239, 68, 68, 0.3)",
+                backgroundColor: "rgba(239, 68, 68, 0.08)",
+              }}
+            >
+              <span className="text-base leading-none">⚠️</span>
+              <div className="flex-1">{error}</div>
+            </div>
+          )}
+
           <div>
             <label
               htmlFor="identifier"
@@ -143,25 +158,38 @@ const Login = () => {
               onChange={(e) => {
                 setIdentifier(e.target.value);
                 if (error) setError("");
+                if (fieldErrors.identifier) {
+                  setFieldErrors((prev) => ({ ...prev, identifier: "" }));
+                }
               }}
-              required
               autoComplete="username"
               disabled={loading}
-              className="w-full rounded-lg border px-4 py-3 text-sm outline-none transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-60"
+              className={`w-full rounded-lg border px-4 py-3 text-sm outline-none transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-60 ${
+                fieldErrors.identifier ? "border-red-500 ring-1 ring-red-500" : ""
+              }`}
               style={{
-                borderColor: "var(--app-border)",
+                borderColor: fieldErrors.identifier ? "#ef4444" : "var(--app-border)",
                 backgroundColor: "var(--app-surface-light)",
                 color: "var(--app-text)",
               }}
               onFocus={(e) => {
-                e.currentTarget.style.borderColor = "var(--app-accent-border)";
-                e.currentTarget.style.boxShadow = "0 0 0 1px var(--app-accent-soft)";
+                if (!fieldErrors.identifier) {
+                  e.currentTarget.style.borderColor = "var(--app-accent-border)";
+                  e.currentTarget.style.boxShadow = "0 0 0 1px var(--app-accent-soft)";
+                }
               }}
               onBlur={(e) => {
-                e.currentTarget.style.borderColor = "var(--app-border)";
-                e.currentTarget.style.boxShadow = "none";
+                if (!fieldErrors.identifier) {
+                  e.currentTarget.style.borderColor = "var(--app-border)";
+                  e.currentTarget.style.boxShadow = "none";
+                }
               }}
             />
+            {fieldErrors.identifier && (
+              <p className="mt-1 text-xs text-red-500 font-medium">
+                {fieldErrors.identifier}
+              </p>
+            )}
           </div>
 
           <div>
@@ -179,7 +207,7 @@ const Login = () => {
                 className="text-xs transition-colors hover:underline"
                 style={{ color: "var(--app-accent)" }}
               >
-                Forgot Password?
+                Forgot password?
               </Link>
             </div>
 
@@ -192,32 +220,42 @@ const Login = () => {
                 onChange={(e) => {
                   setPassword(e.target.value);
                   if (error) setError("");
+                  if (fieldErrors.password) {
+                    setFieldErrors((prev) => ({ ...prev, password: "" }));
+                  }
                 }}
                 required
                 autoComplete="current-password"
                 disabled={loading}
-                className="w-full rounded-lg border px-4 py-3 pr-20 text-sm outline-none transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-60"
+                className={`w-full rounded-lg border px-4 py-3 pr-11 text-sm outline-none transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-60 ${
+                  fieldErrors.password ? "border-red-500 ring-1 ring-red-500" : ""
+                }`}
                 style={{
-                  borderColor: "var(--app-border)",
+                  borderColor: fieldErrors.password ? "#ef4444" : "var(--app-border)",
                   backgroundColor: "var(--app-surface-light)",
                   color: "var(--app-text)",
                 }}
                 onFocus={(e) => {
-                  e.currentTarget.style.borderColor = "var(--app-accent-border)";
-                  e.currentTarget.style.boxShadow = "0 0 0 1px var(--app-accent-soft)";
+                  if (!fieldErrors.password) {
+                    e.currentTarget.style.borderColor = "var(--app-accent-border)";
+                    e.currentTarget.style.boxShadow = "0 0 0 1px var(--app-accent-soft)";
+                  }
                 }}
                 onBlur={(e) => {
-                  e.currentTarget.style.borderColor = "var(--app-border)";
-                  e.currentTarget.style.boxShadow = "none";
+                  if (!fieldErrors.password) {
+                    e.currentTarget.style.borderColor = "var(--app-border)";
+                    e.currentTarget.style.boxShadow = "none";
+                  }
                 }}
               />
 
               <button
                 type="button"
-                onClick={() => setShowPassword((prev) => !prev)}
-                disabled={loading}
+                onClick={() => setShowPassword(!showPassword)}
+                tabIndex={-1}
+                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-zinc-400 transition-colors hover:text-zinc-200"
+                style={{ color: "var(--app-text-muted)" }}
                 aria-label={showPassword ? "Hide password" : "Show password"}
-                className="absolute right-3.5 top-1/2 -translate-y-1/2 rounded-md p-1 text-zinc-400 transition-colors hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {showPassword ? (
                   <EyeOff className="h-4 w-4" />
@@ -226,6 +264,11 @@ const Login = () => {
                 )}
               </button>
             </div>
+            {fieldErrors.password && (
+              <p className="mt-1 text-xs text-red-500 font-medium">
+                {fieldErrors.password}
+              </p>
+            )}
           </div>
 
           <button

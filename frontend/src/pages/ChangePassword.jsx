@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Eye, EyeOff, ArrowLeft, CheckCircle2 } from "lucide-react";
+import { toast } from "react-toastify";
 import { authApi } from "../services/api";
 
 const ChangePassword = () => {
@@ -17,40 +18,42 @@ const ChangePassword = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [fieldErrors, setFieldErrors] = useState({});
 
   // Validate and submit new password credentials
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
     setSuccess("");
+    setFieldErrors({});
+
+    const newFieldErrors = {};
 
     if (!currentPassword) {
-      setError("Please enter your current password.");
-      return;
+      newFieldErrors.currentPassword = "Please enter your current password.";
     }
 
     if (!newPassword) {
-      setError("Please enter your new password.");
-      return;
-    }
-
-    if (newPassword.length < 6) {
-      setError("New password must be at least 6 characters long.");
-      return;
+      newFieldErrors.newPassword = "Please enter your new password.";
+    } else if (newPassword.length < 6) {
+      newFieldErrors.newPassword = "New password must be at least 6 characters long.";
     }
 
     if (!confirmPassword) {
-      setError("Please confirm your new password.");
-      return;
+      newFieldErrors.confirmPassword = "Please confirm your new password.";
+    } else if (newPassword && newPassword !== confirmPassword) {
+      newFieldErrors.confirmPassword = "New password and confirm password do not match.";
     }
 
-    if (newPassword !== confirmPassword) {
-      setError("New password and confirm password do not match.");
-      return;
+    if (currentPassword && newPassword && currentPassword === newPassword) {
+      newFieldErrors.newPassword = "New password must be different from your current password.";
     }
 
-    if (currentPassword === newPassword) {
-      setError("New password must be different from your current password.");
+    if (Object.keys(newFieldErrors).length > 0) {
+      setFieldErrors(newFieldErrors);
+      const firstMsg = Object.values(newFieldErrors)[0];
+      setError(firstMsg);
+      toast.error(firstMsg);
       return;
     }
 
@@ -62,13 +65,22 @@ const ChangePassword = () => {
         newPassword,
       });
 
-      setSuccess(data?.message || "Password changed successfully.");
+      const successMsg = data?.message || "Password changed successfully.";
+      setSuccess(successMsg);
+      toast.success(successMsg);
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
     } catch (err) {
       console.error("Change password failed:", err);
-      setError(err?.message || "Unable to change password. Please try again.");
+      const msg = err?.message || "Unable to change password. Please try again.";
+      setError(msg);
+      if (err?.errors && Object.keys(err.errors).length > 0) {
+        setFieldErrors(err.errors);
+      } else {
+        setFieldErrors({ currentPassword: msg });
+      }
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
@@ -112,34 +124,6 @@ const ChangePassword = () => {
           </p>
         </div>
 
-        {error && (
-          <div
-            className="mb-5 rounded-lg border px-4 py-3 text-sm leading-5"
-            style={{
-              borderColor: "rgba(239,68,68,0.20)",
-              backgroundColor: "rgba(239,68,68,0.05)",
-              color: "#f87171",
-            }}
-            role="alert"
-          >
-            {error}
-          </div>
-        )}
-
-        {success && (
-          <div
-            className="mb-5 rounded-lg border px-4 py-3 text-sm leading-5"
-            style={{
-              borderColor: "rgba(34,197,94,0.20)",
-              backgroundColor: "rgba(34,197,94,0.05)",
-              color: "#4ade80",
-            }}
-            role="status"
-          >
-            {success}
-          </div>
-        )}
-
         {/* Change password form */}
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
@@ -160,32 +144,40 @@ const ChangePassword = () => {
                 onChange={(e) => {
                   setCurrentPassword(e.target.value);
                   if (error) setError("");
+                  if (fieldErrors.currentPassword) setFieldErrors((prev) => ({ ...prev, currentPassword: "" }));
                 }}
                 autoComplete="current-password"
                 required
                 disabled={loading}
-                className="w-full rounded-lg border px-4 py-2.5 pr-20 text-sm outline-none transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-60"
+                className={`w-full rounded-lg border px-4 py-2.5 pr-11 text-sm outline-none transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-60 ${
+                  fieldErrors.currentPassword ? "border-red-500 ring-1 ring-red-500" : ""
+                }`}
                 style={{
-                  borderColor: "var(--app-border)",
+                  borderColor: fieldErrors.currentPassword ? "#ef4444" : "var(--app-border)",
                   backgroundColor: "var(--app-surface-light)",
                   color: "var(--app-text)",
                 }}
                 onFocus={(e) => {
-                  e.currentTarget.style.borderColor = "var(--app-accent-border)";
-                  e.currentTarget.style.boxShadow = "0 0 0 1px var(--app-accent-soft)";
+                  if (!fieldErrors.currentPassword) {
+                    e.currentTarget.style.borderColor = "var(--app-accent-border)";
+                    e.currentTarget.style.boxShadow = "0 0 0 1px var(--app-accent-soft)";
+                  }
                 }}
                 onBlur={(e) => {
-                  e.currentTarget.style.borderColor = "var(--app-border)";
-                  e.currentTarget.style.boxShadow = "none";
+                  if (!fieldErrors.currentPassword) {
+                    e.currentTarget.style.borderColor = "var(--app-border)";
+                    e.currentTarget.style.boxShadow = "none";
+                  }
                 }}
               />
 
               <button
                 type="button"
                 onClick={() => setShowCurrent((prev) => !prev)}
-                disabled={loading}
+                tabIndex={-1}
                 aria-label={showCurrent ? "Hide current password" : "Show current password"}
-                className="absolute right-3.5 top-1/2 -translate-y-1/2 rounded-md p-1 text-zinc-400 transition-colors hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-zinc-400 transition-colors hover:text-zinc-200"
+                style={{ color: "var(--app-text-muted)" }}
               >
                 {showCurrent ? (
                   <EyeOff className="h-4 w-4" />
@@ -194,6 +186,11 @@ const ChangePassword = () => {
                 )}
               </button>
             </div>
+            {fieldErrors.currentPassword && (
+              <p className="mt-1 text-xs text-red-500 font-medium">
+                {fieldErrors.currentPassword}
+              </p>
+            )}
           </div>
 
           <div>
@@ -214,32 +211,40 @@ const ChangePassword = () => {
                 onChange={(e) => {
                   setNewPassword(e.target.value);
                   if (error) setError("");
+                  if (fieldErrors.newPassword) setFieldErrors((prev) => ({ ...prev, newPassword: "" }));
                 }}
                 autoComplete="new-password"
                 required
                 disabled={loading}
-                className="w-full rounded-lg border px-4 py-2.5 pr-20 text-sm outline-none transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-60"
+                className={`w-full rounded-lg border px-4 py-2.5 pr-11 text-sm outline-none transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-60 ${
+                  fieldErrors.newPassword ? "border-red-500 ring-1 ring-red-500" : ""
+                }`}
                 style={{
-                  borderColor: "var(--app-border)",
+                  borderColor: fieldErrors.newPassword ? "#ef4444" : "var(--app-border)",
                   backgroundColor: "var(--app-surface-light)",
                   color: "var(--app-text)",
                 }}
                 onFocus={(e) => {
-                  e.currentTarget.style.borderColor = "var(--app-accent-border)";
-                  e.currentTarget.style.boxShadow = "0 0 0 1px var(--app-accent-soft)";
+                  if (!fieldErrors.newPassword) {
+                    e.currentTarget.style.borderColor = "var(--app-accent-border)";
+                    e.currentTarget.style.boxShadow = "0 0 0 1px var(--app-accent-soft)";
+                  }
                 }}
                 onBlur={(e) => {
-                  e.currentTarget.style.borderColor = "var(--app-border)";
-                  e.currentTarget.style.boxShadow = "none";
+                  if (!fieldErrors.newPassword) {
+                    e.currentTarget.style.borderColor = "var(--app-border)";
+                    e.currentTarget.style.boxShadow = "none";
+                  }
                 }}
               />
 
               <button
                 type="button"
                 onClick={() => setShowNew((prev) => !prev)}
-                disabled={loading}
+                tabIndex={-1}
                 aria-label={showNew ? "Hide new password" : "Show new password"}
-                className="absolute right-3.5 top-1/2 -translate-y-1/2 rounded-md p-1 text-zinc-400 transition-colors hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-zinc-400 transition-colors hover:text-zinc-200"
+                style={{ color: "var(--app-text-muted)" }}
               >
                 {showNew ? (
                   <EyeOff className="h-4 w-4" />
@@ -248,6 +253,11 @@ const ChangePassword = () => {
                 )}
               </button>
             </div>
+            {fieldErrors.newPassword && (
+              <p className="mt-1 text-xs text-red-500 font-medium">
+                {fieldErrors.newPassword}
+              </p>
+            )}
           </div>
 
           <div>
@@ -268,32 +278,40 @@ const ChangePassword = () => {
                 onChange={(e) => {
                   setConfirmPassword(e.target.value);
                   if (error) setError("");
+                  if (fieldErrors.confirmPassword) setFieldErrors((prev) => ({ ...prev, confirmPassword: "" }));
                 }}
                 autoComplete="new-password"
                 required
                 disabled={loading}
-                className="w-full rounded-lg border px-4 py-2.5 pr-20 text-sm outline-none transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-60"
+                className={`w-full rounded-lg border px-4 py-2.5 pr-11 text-sm outline-none transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-60 ${
+                  fieldErrors.confirmPassword ? "border-red-500 ring-1 ring-red-500" : ""
+                }`}
                 style={{
-                  borderColor: "var(--app-border)",
+                  borderColor: fieldErrors.confirmPassword ? "#ef4444" : "var(--app-border)",
                   backgroundColor: "var(--app-surface-light)",
                   color: "var(--app-text)",
                 }}
                 onFocus={(e) => {
-                  e.currentTarget.style.borderColor = "var(--app-accent-border)";
-                  e.currentTarget.style.boxShadow = "0 0 0 1px var(--app-accent-soft)";
+                  if (!fieldErrors.confirmPassword) {
+                    e.currentTarget.style.borderColor = "var(--app-accent-border)";
+                    e.currentTarget.style.boxShadow = "0 0 0 1px var(--app-accent-soft)";
+                  }
                 }}
                 onBlur={(e) => {
-                  e.currentTarget.style.borderColor = "var(--app-border)";
-                  e.currentTarget.style.boxShadow = "none";
+                  if (!fieldErrors.confirmPassword) {
+                    e.currentTarget.style.borderColor = "var(--app-border)";
+                    e.currentTarget.style.boxShadow = "none";
+                  }
                 }}
               />
 
               <button
                 type="button"
                 onClick={() => setShowConfirm((prev) => !prev)}
-                disabled={loading}
+                tabIndex={-1}
                 aria-label={showConfirm ? "Hide confirm password" : "Show confirm password"}
-                className="absolute right-3.5 top-1/2 -translate-y-1/2 rounded-md p-1 text-zinc-400 transition-colors hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-zinc-400 transition-colors hover:text-zinc-200"
+                style={{ color: "var(--app-text-muted)" }}
               >
                 {showConfirm ? (
                   <EyeOff className="h-4 w-4" />
@@ -302,6 +320,11 @@ const ChangePassword = () => {
                 )}
               </button>
             </div>
+            {fieldErrors.confirmPassword && (
+              <p className="mt-1 text-xs text-red-500 font-medium">
+                {fieldErrors.confirmPassword}
+              </p>
+            )}
           </div>
 
           <button

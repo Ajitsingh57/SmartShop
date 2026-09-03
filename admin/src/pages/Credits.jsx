@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { FileSpreadsheet, Printer, Search } from "lucide-react";
+import { toast } from "react-toastify";
 import { creditsApi, paymentsApi } from "../services/api";
 import { exportToCSV, printReportPDF } from "../utils/exportReports";
 
@@ -27,6 +28,7 @@ const Credits = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [fieldErrors, setFieldErrors] = useState({});
 
   const [extendModal, setExtendModal] = useState(false);
   const [extendDueDate, setExtendDueDate] = useState("");
@@ -174,20 +176,31 @@ const Credits = () => {
     const base = credit?.rawDueDate ? new Date(credit.rawDueDate) : new Date();
     setExtendDueDate(addDaysToDate(base, 15));
     setExtendReason("");
+    setFieldErrors({});
+    setError("");
     setExtendModal(true);
   };
 
   const handleExtendSubmit = async (e) => {
     e.preventDefault();
     if (!selectedCredit) return;
+    setFieldErrors({});
+
+    const newFieldErrors = {};
 
     if (!extendDueDate) {
-      setError("Please select a new due date.");
-      return;
+      newFieldErrors.extendDueDate = "Please select a new due date.";
     }
 
     if (!extendReason.trim()) {
-      setError("Please provide a reason for the extension.");
+      newFieldErrors.extendReason = "Please provide a reason for the extension.";
+    }
+
+    if (Object.keys(newFieldErrors).length > 0) {
+      setFieldErrors(newFieldErrors);
+      const firstMsg = Object.values(newFieldErrors)[0];
+      setError(firstMsg);
+      toast.error(firstMsg);
       return;
     }
 
@@ -196,18 +209,23 @@ const Credits = () => {
       setError("");
       setSuccess("");
 
-      await creditsApi.extendDueDate(selectedCredit.id, {
+      const res = await creditsApi.extendDueDate(selectedCredit.id, {
         newDueDate: extendDueDate,
         reason: extendReason.trim(),
       });
 
-      setSuccess("Credit due date extended successfully.");
+      const msg = res?.message || "Credit due date extended successfully.";
+      setSuccess(msg);
+      toast.success(msg);
       setExtendModal(false);
       setSelectedCredit(null);
       await loadCreditsData();
     } catch (err) {
       console.error("Extend due date error:", err);
-      setError(err?.message || "Failed to extend due date.");
+      const msg = err?.message || "Failed to extend due date.";
+      setError(msg);
+      if (err?.errors) setFieldErrors(err.errors);
+      toast.error(msg);
     } finally {
       setExtending(false);
     }
@@ -736,6 +754,7 @@ const Credits = () => {
                         const cur = extendDueDate ? new Date(extendDueDate) : new Date();
                         cur.setDate(cur.getDate() - 1);
                         setExtendDueDate(getLocalDateString(cur));
+                        if (fieldErrors.extendDueDate) setFieldErrors((prev) => ({ ...prev, extendDueDate: "" }));
                       }}
                       className="rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 py-2 text-xs font-bold text-zinc-300 hover:border-zinc-700 hover:text-white"
                     >
@@ -748,13 +767,18 @@ const Credits = () => {
                       min={addDaysToDate(selectedCredit?.rawDueDate || new Date(), 1)}
                       max={addDaysToDate(new Date(), 365)}
                       value={extendDueDate}
-                      onChange={(e) => setExtendDueDate(e.target.value)}
+                      onChange={(e) => {
+                        setExtendDueDate(e.target.value);
+                        if (fieldErrors.extendDueDate) setFieldErrors((prev) => ({ ...prev, extendDueDate: "" }));
+                      }}
                       onClick={(e) => {
                         try {
                           e.target.showPicker?.();
                         } catch {}
                       }}
-                      className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-xs font-semibold text-white outline-none focus:border-amber-500 cursor-pointer"
+                      className={`w-full rounded-lg border bg-zinc-900 px-3 py-2 text-xs font-semibold text-white outline-none cursor-pointer ${
+                        fieldErrors.extendDueDate ? "border-red-500 ring-1 ring-red-500" : "border-zinc-700 focus:border-amber-500"
+                      }`}
                       style={{ colorScheme: "dark" }}
                     />
 
@@ -764,12 +788,16 @@ const Credits = () => {
                         const cur = extendDueDate ? new Date(extendDueDate) : new Date();
                         cur.setDate(cur.getDate() + 1);
                         setExtendDueDate(getLocalDateString(cur));
+                        if (fieldErrors.extendDueDate) setFieldErrors((prev) => ({ ...prev, extendDueDate: "" }));
                       }}
                       className="rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 py-2 text-xs font-bold text-zinc-300 hover:border-zinc-700 hover:text-white"
                     >
                       +1d
                     </button>
                   </div>
+                  {fieldErrors.extendDueDate && (
+                    <p className="mt-1 text-xs text-red-500 font-medium">{fieldErrors.extendDueDate}</p>
+                  )}
 
                   {/* Quick Jump Chips */}
                   <div className="flex flex-wrap items-center gap-1 mt-2">
@@ -789,6 +817,7 @@ const Credits = () => {
                             ? new Date(selectedCredit.rawDueDate)
                             : new Date();
                           setExtendDueDate(addDaysToDate(base, chip.days));
+                          if (fieldErrors.extendDueDate) setFieldErrors((prev) => ({ ...prev, extendDueDate: "" }));
                         }}
                         className="rounded border border-zinc-800 bg-zinc-900 px-2 py-0.5 text-[10px] text-zinc-400 hover:border-amber-500/40 hover:text-amber-300"
                       >
@@ -805,9 +834,17 @@ const Credits = () => {
                     required
                     placeholder="Reason for extending credit due date..."
                     value={extendReason}
-                    onChange={(e) => setExtendReason(e.target.value)}
-                    className="w-full rounded-lg border border-zinc-700 bg-zinc-900 p-2.5 text-xs text-white outline-none focus:border-amber-500"
+                    onChange={(e) => {
+                      setExtendReason(e.target.value);
+                      if (fieldErrors.extendReason) setFieldErrors((prev) => ({ ...prev, extendReason: "" }));
+                    }}
+                    className={`w-full rounded-lg border bg-zinc-900 p-2.5 text-xs text-white outline-none ${
+                      fieldErrors.extendReason ? "border-red-500 ring-1 ring-red-500" : "border-zinc-700 focus:border-amber-500"
+                    }`}
                   />
+                  {fieldErrors.extendReason && (
+                    <p className="mt-1 text-xs text-red-500 font-medium">{fieldErrors.extendReason}</p>
+                  )}
                 </div>
 
                 <div className="flex gap-3 pt-2">

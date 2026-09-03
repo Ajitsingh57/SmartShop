@@ -20,6 +20,7 @@ import {
   X,
   RefreshCw,
 } from "lucide-react";
+import { toast } from "react-toastify";
 import api from "../services/api";
 
 const Payments = () => {
@@ -57,6 +58,7 @@ const Payments = () => {
 
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [fieldErrors, setFieldErrors] = useState({});
 
   // Load customer pending credits, payment history, and gateway settings
   useEffect(() => {
@@ -266,20 +268,29 @@ const Payments = () => {
   const validatePayment = () => {
     setError("");
     setSuccess("");
+    setFieldErrors({});
 
     if (targetMaxAmount <= 0) {
-      setError("You currently have no outstanding credit debt.");
+      const msg = "You currently have no outstanding credit debt.";
+      setError(msg);
+      toast.info(msg);
       return false;
     }
 
     const paymentAmount = Number(amount);
     if (!Number.isFinite(paymentAmount) || paymentAmount <= 0) {
-      setError("Please enter a valid payment amount greater than ₹0.");
+      const msg = "Please enter a valid payment amount greater than ₹0.";
+      setError(msg);
+      setFieldErrors({ amount: msg });
+      toast.error(msg);
       return false;
     }
 
     if (paymentAmount > targetMaxAmount) {
-      setError(`Maximum payable amount is ₹${formatMoney(targetMaxAmount)}.`);
+      const msg = `Maximum payable amount is ₹${formatMoney(targetMaxAmount)}.`;
+      setError(msg);
+      setFieldErrors({ amount: msg });
+      toast.error(msg);
       return false;
     }
 
@@ -296,7 +307,10 @@ const Payments = () => {
 
     if (paymentMethod === "upi") {
       if (!transactionId.trim() && !paymentProof) {
-        setError("Please enter UPI UTR / Transaction ID or upload a screenshot.");
+        const msg = "Please enter UPI UTR / Transaction ID or upload a payment screenshot.";
+        setError(msg);
+        setFieldErrors({ transactionId: msg });
+        toast.error(msg);
         return;
       }
     }
@@ -305,6 +319,7 @@ const Payments = () => {
       setSubmitting(true);
       setError("");
       setSuccess("");
+      setFieldErrors({});
 
       const targetCreditId =
         selectedCredit === "auto" || !selectedCredit
@@ -335,12 +350,13 @@ const Payments = () => {
       });
 
       const isPartial = Number(amount) < targetMaxAmount;
-      setSuccess(
+      const successMsg =
         response.data?.message ||
-          `${isPartial ? "Partial" : "Full"} payment claim of ₹${formatMoney(
-            amount
-          )} submitted for verification!`
-      );
+        `${isPartial ? "Partial" : "Full"} payment claim of ₹${formatMoney(
+          amount
+        )} submitted for verification!`;
+      setSuccess(successMsg);
+      toast.success(successMsg);
 
       setAmount("");
       setTransactionId("");
@@ -352,9 +368,14 @@ const Payments = () => {
       await loadPaymentPage();
     } catch (err) {
       console.error("Payment claim error:", err);
-      setError(
-        err.response?.data?.message || err.message || "Unable to submit payment."
-      );
+      const msg = err.response?.data?.message || err.message || "Unable to submit payment.";
+      setError(msg);
+      if (err.response?.data?.errors) {
+        setFieldErrors(err.response.data.errors);
+      } else if (err.errors) {
+        setFieldErrors(err.errors);
+      }
+      toast.error(msg);
     } finally {
       setSubmitting(false);
     }
@@ -721,11 +742,21 @@ const Payments = () => {
                     max={targetMaxAmount}
                     step="1"
                     value={amount}
-                    onChange={handleAmountChange}
+                    onChange={(e) => {
+                      handleAmountChange(e);
+                      if (fieldErrors.amount) setFieldErrors((prev) => ({ ...prev, amount: "" }));
+                    }}
                     placeholder="Enter amount to pay"
-                    className="w-full rounded-xl border border-zinc-700 bg-zinc-950 pl-8 pr-4 py-2.5 text-sm font-bold text-white outline-none transition focus:border-[var(--app-accent)]"
+                    className={`w-full rounded-xl border bg-zinc-950 pl-8 pr-4 py-2.5 text-sm font-bold text-white outline-none transition ${
+                      fieldErrors.amount ? "border-red-500 ring-1 ring-red-500" : "border-zinc-700 focus:border-[var(--app-accent)]"
+                    }`}
                   />
                 </div>
+                {fieldErrors.amount && (
+                  <p className="mt-1 text-xs text-red-500 font-medium">
+                    {fieldErrors.amount}
+                  </p>
+                )}
 
                 {/* Quick Percentage Chips */}
                 <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
@@ -850,10 +881,20 @@ const Payments = () => {
                       <input
                         type="text"
                         value={transactionId}
-                        onChange={(e) => setTransactionId(e.target.value)}
+                        onChange={(e) => {
+                          setTransactionId(e.target.value);
+                          if (fieldErrors.transactionId) setFieldErrors((prev) => ({ ...prev, transactionId: "" }));
+                        }}
                         placeholder="e.g. 324109823412"
-                        className="w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3.5 py-2 text-xs text-white outline-none focus:border-[var(--app-accent)]"
+                        className={`w-full rounded-xl border bg-zinc-950 px-3.5 py-2 text-xs text-white outline-none ${
+                          fieldErrors.transactionId ? "border-red-500 ring-1 ring-red-500" : "border-zinc-700 focus:border-[var(--app-accent)]"
+                        }`}
                       />
+                      {fieldErrors.transactionId && (
+                        <p className="mt-1 text-xs text-red-500 font-medium">
+                          {fieldErrors.transactionId}
+                        </p>
+                      )}
                     </div>
 
                     <div>

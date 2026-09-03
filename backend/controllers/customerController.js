@@ -6,6 +6,7 @@ import Sale from "../models/saleModel.js";
 import Return from "../models/returnModel.js";
 import { calculateCustomerTrustScoreAndLimits, syncCustomerTrustAndLimits } from "../utils/trustScoreEngine.js";
 import { logAdminActivity } from "../utils/activityLogger.js";
+import { isValidName, isValidPhone, isValidEmail, sendValidationError } from "../utils/helpers.js";
 
 // Fetch customer profile for authenticated user
 export const getMyProfile = async (req, res) => {
@@ -47,31 +48,27 @@ export const updateMyProfile = async (req, res) => {
         }
 
         if (name !== undefined) {
-            const trimmedName = String(name).trim();
-            if (!trimmedName) {
-                return res.status(400).json({
-                    success: false,
-                    message: "Name cannot be empty"
+            if (!isValidName(name)) {
+                return sendValidationError(res, "Please enter a valid full name (letters and spaces only, min 2 characters)", {
+                    name: "Please enter a valid full name (letters and spaces only)"
                 });
             }
-            user.name = trimmedName;
+            user.name = name.trim();
         }
 
         // Add email only if user didn't have one
         if (email !== undefined) {
             const trimmedEmail = String(email).trim().toLowerCase();
-            if (!trimmedEmail) {
-                return res.status(400).json({
-                    success: false,
-                    message: "Email cannot be empty"
+            if (!isValidEmail(trimmedEmail)) {
+                return sendValidationError(res, "Please enter a valid email address (e.g. name@example.com)", {
+                    email: "Please enter a valid email address"
                 });
             }
 
             if (user.email) {
                 if (trimmedEmail !== user.email) {
-                    return res.status(400).json({
-                        success: false,
-                        message: "Existing email cannot be changed"
+                    return sendValidationError(res, "Registered email address cannot be changed", {
+                        email: "Existing email cannot be modified"
                     });
                 }
             } else {
@@ -83,7 +80,8 @@ export const updateMyProfile = async (req, res) => {
                 if (existingUser) {
                     return res.status(409).json({
                         success: false,
-                        message: "Email already exists"
+                        message: "This email address is already registered with another account.",
+                        errors: { email: "This email address is already registered" }
                     });
                 }
                 user.email = trimmedEmail;
@@ -92,19 +90,17 @@ export const updateMyProfile = async (req, res) => {
 
         // Add phone only if user didn't have one
         if (phone !== undefined) {
-            const trimmedPhone = String(phone).trim();
-            if (!trimmedPhone) {
-                return res.status(400).json({
-                    success: false,
-                    message: "Phone number cannot be empty"
+            const trimmedPhone = String(phone).trim().replace(/[\s\-()]/g, "");
+            if (!isValidPhone(trimmedPhone)) {
+                return sendValidationError(res, "Please enter a valid 10-digit mobile number", {
+                    phone: "Please enter a valid 10-digit mobile number"
                 });
             }
 
             if (user.phone) {
                 if (trimmedPhone !== user.phone) {
-                    return res.status(400).json({
-                        success: false,
-                        message: "Existing phone number cannot be changed"
+                    return sendValidationError(res, "Registered mobile number cannot be changed", {
+                        phone: "Existing phone number cannot be modified"
                     });
                 }
             } else {
@@ -116,7 +112,8 @@ export const updateMyProfile = async (req, res) => {
                 if (existingUser) {
                     return res.status(409).json({
                         success: false,
-                        message: "Phone number already exists"
+                        message: "This mobile number is already registered with another account.",
+                        errors: { phone: "This mobile number is already registered" }
                     });
                 }
                 user.phone = trimmedPhone;

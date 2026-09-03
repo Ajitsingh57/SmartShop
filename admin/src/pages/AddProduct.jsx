@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { productsApi, categoriesApi } from "../services/api";
 import { Plus, FolderTree, X, RefreshCw, AlertTriangle } from "lucide-react";
+import { toast } from "react-toastify";
+import { productsApi, categoriesApi } from "../services/api";
 
 const AddProduct = () => {
   const navigate = useNavigate();
@@ -19,6 +20,7 @@ const AddProduct = () => {
   const [image, setImage] = useState(null);
   const [preview, setPreview] = useState("");
   const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState({});
   const [saving, setSaving] = useState(false);
 
   // Dynamic categories from backend
@@ -84,12 +86,15 @@ const AddProduct = () => {
         setShowCategoryModal(false);
         setNewCatName("");
         setNewCatDesc("");
+        toast.success(`Category "${createdName}" created!`);
       } else {
         throw new Error(res?.message || "Failed to create category");
       }
     } catch (err) {
       console.error("Inline category create error:", err);
-      setCatModalError(err?.message || "Failed to create category");
+      const msg = err?.message || "Failed to create category";
+      setCatModalError(msg);
+      toast.error(msg);
     } finally {
       setCreatingCat(false);
     }
@@ -111,6 +116,9 @@ const AddProduct = () => {
       [name]: value,
     }));
     if (error) setError("");
+    if (fieldErrors[name]) {
+      setFieldErrors((prev) => ({ ...prev, [name]: "" }));
+    }
   };
 
   const handleImageChange = (e) => {
@@ -118,12 +126,18 @@ const AddProduct = () => {
     if (!file) return;
 
     if (!file.type.startsWith("image/")) {
-      setError("Please select a valid image file.");
+      const msg = "Please select a valid image file (PNG, JPG, JPEG, WebP).";
+      setError(msg);
+      setFieldErrors((prev) => ({ ...prev, image: msg }));
+      toast.error(msg);
       return;
     }
 
     if (file.size > 5 * 1024 * 1024) {
-      setError("Image size should be less than 5 MB.");
+      const msg = "Image size should be less than 5 MB.";
+      setError(msg);
+      setFieldErrors((prev) => ({ ...prev, image: msg }));
+      toast.error(msg);
       return;
     }
 
@@ -135,6 +149,7 @@ const AddProduct = () => {
     setImage(file);
     setPreview(imageUrl);
     setError("");
+    setFieldErrors((prev) => ({ ...prev, image: "" }));
   };
 
   const removeImage = () => {
@@ -151,15 +166,16 @@ const AddProduct = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
+    setFieldErrors({});
+
+    const newFieldErrors = {};
 
     if (!formData.name.trim()) {
-      setError("Please enter the product name.");
-      return;
+      newFieldErrors.name = "Please enter the product name.";
     }
 
     if (!formData.category) {
-      setError("Please select a category.");
-      return;
+      newFieldErrors.category = "Please select a category.";
     }
 
     if (
@@ -167,8 +183,7 @@ const AddProduct = () => {
       Number.isNaN(Number(formData.price)) ||
       Number(formData.price) <= 0
     ) {
-      setError("Please enter a valid product price.");
-      return;
+      newFieldErrors.price = "Please enter a valid product price greater than ₹0.";
     }
 
     if (
@@ -176,25 +191,29 @@ const AddProduct = () => {
       Number.isNaN(Number(formData.stock)) ||
       Number(formData.stock) < 0
     ) {
-      setError("Please enter a valid stock quantity.");
-      return;
+      newFieldErrors.stock = "Please enter a valid stock quantity (0 or more).";
     }
 
     if (!formData.unit.trim()) {
-      setError("Please enter the product unit.");
-      return;
+      newFieldErrors.unit = "Please enter the product unit (e.g. pcs, kg, litre, packet).";
     }
 
     if (
       formData.lowStockLimit !== "" &&
       (Number.isNaN(Number(formData.lowStockLimit)) || Number(formData.lowStockLimit) < 0)
     ) {
-      setError("Low stock limit cannot be negative.");
-      return;
+      newFieldErrors.lowStockLimit = "Low stock alert limit cannot be negative.";
     }
 
     if (!image) {
-      setError("Please select a product image.");
+      newFieldErrors.image = "Please select a product image.";
+    }
+
+    if (Object.keys(newFieldErrors).length > 0) {
+      setFieldErrors(newFieldErrors);
+      const firstMsg = Object.values(newFieldErrors)[0];
+      setError(firstMsg);
+      toast.error(firstMsg);
       return;
     }
 
@@ -221,10 +240,14 @@ const AddProduct = () => {
         throw new Error(response.message || "Unable to add product.");
       }
 
+      toast.success(response?.message || "Product added successfully!");
       navigate("/products");
     } catch (err) {
       console.error("Add product error:", err);
-      setError(err?.message || "Unable to add product. Please try again.");
+      const msg = err?.message || "Unable to add product. Please try again.";
+      setError(msg);
+      if (err?.errors) setFieldErrors(err.errors);
+      toast.error(msg);
     } finally {
       setSaving(false);
     }
@@ -287,7 +310,7 @@ const AddProduct = () => {
                 <div className="space-y-5">
                   <div>
                     <label htmlFor="name" className="mb-2 block text-sm font-medium text-zinc-300">
-                      Product Name
+                      Product Name <span className="text-red-400">*</span>
                     </label>
                     <input
                       id="name"
@@ -297,13 +320,20 @@ const AddProduct = () => {
                       onChange={handleChange}
                       placeholder="Enter product name"
                       disabled={saving}
-                      className="w-full rounded-lg border px-4 py-3 text-sm text-white outline-none placeholder:text-zinc-600 transition focus:ring-1 disabled:cursor-not-allowed disabled:opacity-60"
+                      className={`w-full rounded-lg border px-4 py-3 text-sm text-white outline-none placeholder:text-zinc-600 transition focus:ring-1 disabled:cursor-not-allowed disabled:opacity-60 ${
+                        fieldErrors.name ? "border-red-500 ring-1 ring-red-500" : ""
+                      }`}
                       style={{
-                        borderColor: "var(--app-border)",
+                        borderColor: fieldErrors.name ? "#ef4444" : "var(--app-border)",
                         backgroundColor: "var(--app-surface-light)",
                         "--tw-ring-color": "var(--app-accent-soft)",
                       }}
                     />
+                    {fieldErrors.name && (
+                      <p className="mt-1 text-xs text-red-500 font-medium">
+                        {fieldErrors.name}
+                      </p>
+                    )}
                   </div>
 
                   <div>
@@ -332,9 +362,11 @@ const AddProduct = () => {
                       value={formData.category}
                       onChange={handleChange}
                       disabled={saving || loadingCategories}
-                      className="w-full rounded-lg border px-4 py-3 text-sm text-zinc-200 outline-none transition focus:ring-1 disabled:cursor-not-allowed disabled:opacity-60"
+                      className={`w-full rounded-lg border px-4 py-3 text-sm text-zinc-200 outline-none transition focus:ring-1 disabled:cursor-not-allowed disabled:opacity-60 ${
+                        fieldErrors.category ? "border-red-500 ring-1 ring-red-500" : ""
+                      }`}
                       style={{
-                        borderColor: "var(--app-border)",
+                        borderColor: fieldErrors.category ? "#ef4444" : "var(--app-border)",
                         backgroundColor: "var(--app-surface-light)",
                         "--tw-ring-color": "var(--app-accent-soft)",
                       }}
@@ -348,12 +380,17 @@ const AddProduct = () => {
                         </option>
                       ))}
                     </select>
+                    {fieldErrors.category && (
+                      <p className="mt-1 text-xs text-red-500 font-medium">
+                        {fieldErrors.category}
+                      </p>
+                    )}
                   </div>
 
                   <div className="grid gap-5 sm:grid-cols-2">
                     <div>
                       <label htmlFor="price" className="mb-2 block text-sm font-medium text-zinc-300">
-                        Selling Price
+                        Selling Price <span className="text-red-400">*</span>
                       </label>
                       <div className="relative">
                         <span
@@ -372,19 +409,26 @@ const AddProduct = () => {
                           onChange={handleChange}
                           placeholder="0"
                           disabled={saving}
-                          className="w-full rounded-lg border py-3 pl-9 pr-4 text-sm text-white outline-none placeholder:text-zinc-600 transition focus:ring-1 disabled:cursor-not-allowed disabled:opacity-60"
+                          className={`w-full rounded-lg border py-3 pl-9 pr-4 text-sm text-white outline-none placeholder:text-zinc-600 transition focus:ring-1 disabled:cursor-not-allowed disabled:opacity-60 ${
+                            fieldErrors.price ? "border-red-500 ring-1 ring-red-500" : ""
+                          }`}
                           style={{
-                            borderColor: "var(--app-border)",
+                            borderColor: fieldErrors.price ? "#ef4444" : "var(--app-border)",
                             backgroundColor: "var(--app-surface-light)",
                             "--tw-ring-color": "var(--app-accent-soft)",
                           }}
                         />
                       </div>
+                      {fieldErrors.price && (
+                        <p className="mt-1 text-xs text-red-500 font-medium">
+                          {fieldErrors.price}
+                        </p>
+                      )}
                     </div>
 
                     <div>
                       <label htmlFor="stock" className="mb-2 block text-sm font-medium text-zinc-300">
-                        Stock Quantity
+                        Stock Quantity <span className="text-red-400">*</span>
                       </label>
                       <input
                         id="stock"
@@ -396,19 +440,26 @@ const AddProduct = () => {
                         onChange={handleChange}
                         placeholder="0"
                         disabled={saving}
-                        className="w-full rounded-lg border px-4 py-3 text-sm text-white outline-none placeholder:text-zinc-600 transition focus:ring-1 disabled:cursor-not-allowed disabled:opacity-60"
+                        className={`w-full rounded-lg border px-4 py-3 text-sm text-white outline-none placeholder:text-zinc-600 transition focus:ring-1 disabled:cursor-not-allowed disabled:opacity-60 ${
+                          fieldErrors.stock ? "border-red-500 ring-1 ring-red-500" : ""
+                        }`}
                         style={{
-                          borderColor: "var(--app-border)",
+                          borderColor: fieldErrors.stock ? "#ef4444" : "var(--app-border)",
                           backgroundColor: "var(--app-surface-light)",
                           "--tw-ring-color": "var(--app-accent-soft)",
                         }}
                       />
+                      {fieldErrors.stock && (
+                        <p className="mt-1 text-xs text-red-500 font-medium">
+                          {fieldErrors.stock}
+                        </p>
+                      )}
                     </div>
                   </div>
 
                   <div>
                     <label htmlFor="unit" className="mb-2 block text-sm font-medium text-zinc-300">
-                      Unit
+                      Unit <span className="text-red-400">*</span>
                     </label>
                     <input
                       id="unit"
@@ -418,13 +469,20 @@ const AddProduct = () => {
                       onChange={handleChange}
                       placeholder="e.g. pcs, kg, litre"
                       disabled={saving}
-                      className="w-full rounded-lg border px-4 py-3 text-sm text-white outline-none placeholder:text-zinc-600 transition focus:ring-1 disabled:cursor-not-allowed disabled:opacity-60"
+                      className={`w-full rounded-lg border px-4 py-3 text-sm text-white outline-none placeholder:text-zinc-600 transition focus:ring-1 disabled:cursor-not-allowed disabled:opacity-60 ${
+                        fieldErrors.unit ? "border-red-500 ring-1 ring-red-500" : ""
+                      }`}
                       style={{
-                        borderColor: "var(--app-border)",
+                        borderColor: fieldErrors.unit ? "#ef4444" : "var(--app-border)",
                         backgroundColor: "var(--app-surface-light)",
                         "--tw-ring-color": "var(--app-accent-soft)",
                       }}
                     />
+                    {fieldErrors.unit && (
+                      <p className="mt-1 text-xs text-red-500 font-medium">
+                        {fieldErrors.unit}
+                      </p>
+                    )}
                   </div>
 
                   <div>
@@ -441,13 +499,20 @@ const AddProduct = () => {
                       onChange={handleChange}
                       placeholder="e.g. 5"
                       disabled={saving}
-                      className="w-full rounded-lg border px-4 py-3 text-sm text-white outline-none placeholder:text-zinc-600 transition focus:ring-1 disabled:cursor-not-allowed disabled:opacity-60"
+                      className={`w-full rounded-lg border px-4 py-3 text-sm text-white outline-none placeholder:text-zinc-600 transition focus:ring-1 disabled:cursor-not-allowed disabled:opacity-60 ${
+                        fieldErrors.lowStockLimit ? "border-red-500 ring-1 ring-red-500" : ""
+                      }`}
                       style={{
-                        borderColor: "var(--app-border)",
+                        borderColor: fieldErrors.lowStockLimit ? "#ef4444" : "var(--app-border)",
                         backgroundColor: "var(--app-surface-light)",
                         "--tw-ring-color": "var(--app-accent-soft)",
                       }}
                     />
+                    {fieldErrors.lowStockLimit && (
+                      <p className="mt-1 text-xs text-red-500 font-medium">
+                        {fieldErrors.lowStockLimit}
+                      </p>
+                    )}
                   </div>
 
                   <div>
@@ -491,15 +556,20 @@ const AddProduct = () => {
               <div
                 className="rounded-xl border p-5"
                 style={{
-                  borderColor: "var(--app-border)",
+                  borderColor: fieldErrors.image ? "#ef4444" : "var(--app-border)",
                   backgroundColor: "var(--app-surface)",
                 }}
               >
                 <div className="mb-5">
-                  <h2 className="text-base font-semibold text-white">Product Image</h2>
+                  <h2 className="text-base font-semibold text-white">Product Image <span className="text-red-400">*</span></h2>
                   <p className="mt-1 text-xs" style={{ color: "var(--app-text-muted)" }}>
                     Upload a clear image of the product.
                   </p>
+                  {fieldErrors.image && (
+                    <p className="mt-2 text-xs text-red-500 font-medium">
+                      {fieldErrors.image}
+                    </p>
+                  )}
                 </div>
 
                 {preview ? (

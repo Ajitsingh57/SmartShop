@@ -1,6 +1,7 @@
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import User from "../models/userModel.js";
+import { sendValidationError } from "../utils/helpers.js";
 
 const JWT_SECRET = process.env.JWT_SECRET;
 const RESET_TOKEN_EXPIRES = "15m";
@@ -10,25 +11,23 @@ export const changePassword = async (req, res) => {
     try {
         const { currentPassword, newPassword } = req.body;
 
-        if (!currentPassword || !newPassword) {
-            return res.status(400).json({
-                success: false,
-                message: "Current password and new password are required"
-            });
+        const errors = {};
+        if (!currentPassword) {
+            errors.currentPassword = "Please enter your current password";
+        }
+        if (!newPassword) {
+            errors.newPassword = "Please enter your new password";
+        } else if (newPassword.length < 6) {
+            errors.newPassword = "New password must be at least 6 characters long";
         }
 
-        if (newPassword.length < 6) {
-            return res.status(400).json({
-                success: false,
-                message: "New password must be at least 6 characters"
-            });
+        if (currentPassword && newPassword && currentPassword === newPassword) {
+            errors.newPassword = "New password must be different from your current password";
         }
 
-        if (currentPassword === newPassword) {
-            return res.status(400).json({
-                success: false,
-                message: "New password must be different from current password"
-            });
+        if (Object.keys(errors).length > 0) {
+            const firstMsg = Object.values(errors)[0];
+            return sendValidationError(res, firstMsg, errors);
         }
 
         const user = await User.findById(req.user._id);
@@ -42,7 +41,7 @@ export const changePassword = async (req, res) => {
         if (!user.isActive) {
             return res.status(403).json({
                 success: false,
-                message: "This account is inactive"
+                message: "This account is currently inactive"
             });
         }
 
@@ -50,7 +49,10 @@ export const changePassword = async (req, res) => {
         if (!isMatch) {
             return res.status(401).json({
                 success: false,
-                message: "Current password is incorrect"
+                message: "Current password is incorrect. Please try again.",
+                errors: {
+                    currentPassword: "Incorrect current password"
+                }
             });
         }
 
@@ -76,9 +78,8 @@ export const forgotPassword = async (req, res) => {
         const { identifier } = req.body;
 
         if (!identifier || !String(identifier).trim()) {
-            return res.status(400).json({
-                success: false,
-                message: "Email or phone number is required"
+            return sendValidationError(res, "Please enter your registered email, mobile number, or username", {
+                identifier: "Please enter your registered email, mobile number, or username"
             });
         }
 
@@ -107,7 +108,8 @@ export const forgotPassword = async (req, res) => {
         if (!user.isActive) {
             return res.status(403).json({
                 success: false,
-                message: "This account is inactive"
+                message: "This account is currently disabled. Please contact the administrator.",
+                errors: { identifier: "Account is disabled" }
             });
         }
 
@@ -145,18 +147,19 @@ export const resetPassword = async (req, res) => {
     try {
         const { resetToken, newPassword } = req.body;
 
-        if (!resetToken || !newPassword) {
-            return res.status(400).json({
-                success: false,
-                message: "Reset token and new password are required"
-            });
+        const errors = {};
+        if (!resetToken) {
+            errors.resetToken = "Reset token is missing or invalid";
+        }
+        if (!newPassword) {
+            errors.newPassword = "Please enter your new password";
+        } else if (newPassword.length < 6) {
+            errors.newPassword = "New password must be at least 6 characters long";
         }
 
-        if (newPassword.length < 6) {
-            return res.status(400).json({
-                success: false,
-                message: "New password must be at least 6 characters"
-            });
+        if (Object.keys(errors).length > 0) {
+            const firstMsg = Object.values(errors)[0];
+            return sendValidationError(res, firstMsg, errors);
         }
 
         if (!JWT_SECRET) {
@@ -169,14 +172,16 @@ export const resetPassword = async (req, res) => {
         } catch {
             return res.status(400).json({
                 success: false,
-                message: "Invalid or expired reset token"
+                message: "Your reset link/token has expired or is invalid. Please request a new one.",
+                errors: { resetToken: "Invalid or expired token" }
             });
         }
 
         if (payload.type !== "password_reset" || !payload.id) {
             return res.status(400).json({
                 success: false,
-                message: "Invalid reset token"
+                message: "Invalid password reset token",
+                errors: { resetToken: "Invalid reset token" }
             });
         }
 
@@ -191,7 +196,7 @@ export const resetPassword = async (req, res) => {
         if (!user.isActive) {
             return res.status(403).json({
                 success: false,
-                message: "This account is inactive"
+                message: "This account is currently inactive"
             });
         }
 
@@ -203,7 +208,8 @@ export const resetPassword = async (req, res) => {
         ) {
             return res.status(400).json({
                 success: false,
-                message: "Reset token has already been used or has expired"
+                message: "This reset token has already been used or has expired. Please request a new one.",
+                errors: { resetToken: "Token expired or already used" }
             });
         }
 

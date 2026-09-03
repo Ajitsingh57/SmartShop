@@ -23,6 +23,7 @@ import {
   Eye,
   SlidersHorizontal,
 } from "lucide-react";
+import { toast } from "react-toastify";
 import { productRequestsApi } from "../services/api";
 
 const ProductRequests = () => {
@@ -105,17 +106,21 @@ const ProductRequests = () => {
       setError("");
       setSuccess("");
 
-      await productRequestsApi.updateStatus(selectedRequest._id, {
+      const res = await productRequestsApi.updateStatus(selectedRequest._id, {
         status: newStatus,
         adminNote: adminNote.trim(),
       });
 
-      setSuccess(`Request for "${selectedRequest.productName}" updated to ${newStatus}.`);
+      const msg = res?.message || `Request for "${selectedRequest.productName}" updated to ${newStatus}.`;
+      setSuccess(msg);
+      toast.success(msg);
       setSelectedRequest(null);
       await fetchRequests();
     } catch (err) {
       console.error("Update request status error:", err);
-      setError(err?.message || "Failed to update request status.");
+      const msg = err?.message || "Failed to update request status.";
+      setError(msg);
+      toast.error(msg);
     } finally {
       setUpdating(false);
     }
@@ -129,12 +134,16 @@ const ProductRequests = () => {
 
     try {
       setError("");
-      await productRequestsApi.delete(id);
-      setSuccess("Product request deleted successfully.");
+      const res = await productRequestsApi.delete(id);
+      const msg = res?.message || "Product request deleted successfully.";
+      setSuccess(msg);
+      toast.success(msg);
       await fetchRequests();
     } catch (err) {
       console.error("Delete request error:", err);
-      setError(err?.message || "Failed to delete product request.");
+      const msg = err?.message || "Failed to delete product request.";
+      setError(msg);
+      toast.error(msg);
     }
   };
 

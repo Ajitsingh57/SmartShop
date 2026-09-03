@@ -1,6 +1,7 @@
 import Product from "../models/productModel.js";
 import cloudinary from "../config/cloudinary.js";
 import { logAdminActivity } from "../utils/activityLogger.js";
+import { sendValidationError } from "../utils/helpers.js";
 
 // Add new product with optional image upload
 export async function addProduct(req, res) {
@@ -15,39 +16,35 @@ export async function addProduct(req, res) {
             description
         } = req.body;
 
-        if (!name || price === undefined || stock === undefined || !unit) {
-            return res.status(400).json({
-                success: false,
-                message: "Name, price, stock and unit are required"
-            });
+        const errors = {};
+
+        if (!name || !name.trim()) {
+            errors.name = "Please enter the product name";
         }
 
-        if (!name.trim()) {
-            return res.status(400).json({
-                success: false,
-                message: "Product name cannot be empty"
-            });
+        if (price === undefined || price === null || price === "" || Number.isNaN(Number(price)) || Number(price) <= 0) {
+            errors.price = "Product price must be greater than 0";
         }
 
-        if (Number.isNaN(Number(price)) || Number(price) < 0) {
-            return res.status(400).json({
-                success: false,
-                message: "Price cannot be negative or invalid"
-            });
+        if (stock === undefined || stock === null || stock === "" || Number.isNaN(Number(stock)) || Number(stock) < 0) {
+            errors.stock = "Stock quantity cannot be negative";
         }
 
-        if (Number.isNaN(Number(stock)) || Number(stock) < 0) {
-            return res.status(400).json({
-                success: false,
-                message: "Stock cannot be negative or invalid"
-            });
+        if (!unit || !String(unit).trim()) {
+            errors.unit = "Please select or enter a unit (e.g. kg, pcs, packet)";
         }
 
-        if (lowStockLimit !== undefined && (Number.isNaN(Number(lowStockLimit)) || Number(lowStockLimit) < 0)) {
-            return res.status(400).json({
-                success: false,
-                message: "Low stock limit cannot be negative or invalid"
-            });
+        if (!category || !String(category).trim()) {
+            errors.category = "Please select a product category";
+        }
+
+        if (lowStockLimit !== undefined && lowStockLimit !== "" && (Number.isNaN(Number(lowStockLimit)) || Number(lowStockLimit) < 0)) {
+            errors.lowStockLimit = "Low stock alert limit cannot be negative";
+        }
+
+        if (Object.keys(errors).length > 0) {
+            const firstMsg = Object.values(errors)[0];
+            return sendValidationError(res, firstMsg, errors);
         }
 
         let imageUrl = "";
@@ -175,24 +172,27 @@ export async function updateProduct(req, res) {
 
         if (name !== undefined) {
             if (typeof name !== "string" || !name.trim()) {
-                return res.status(400).json({
-                    success: false,
-                    message: "Product name cannot be empty"
+                return sendValidationError(res, "Product name cannot be empty", {
+                    name: "Please enter the product name"
                 });
             }
             product.name = name.trim();
         }
 
         if (category !== undefined) {
+            if (!String(category).trim()) {
+                return sendValidationError(res, "Please select a product category", {
+                    category: "Please select a product category"
+                });
+            }
             product.category = String(category).trim() || "General";
         }
 
         if (price !== undefined) {
             const newPrice = Number(price);
-            if (Number.isNaN(newPrice) || newPrice < 0) {
-                return res.status(400).json({
-                    success: false,
-                    message: "Price cannot be negative or invalid"
+            if (Number.isNaN(newPrice) || newPrice <= 0) {
+                return sendValidationError(res, "Product price must be greater than 0", {
+                    price: "Product price must be greater than 0"
                 });
             }
             product.price = newPrice;
@@ -201,24 +201,27 @@ export async function updateProduct(req, res) {
         if (stock !== undefined) {
             const newStock = Number(stock);
             if (Number.isNaN(newStock) || newStock < 0) {
-                return res.status(400).json({
-                    success: false,
-                    message: "Stock cannot be negative or invalid"
+                return sendValidationError(res, "Stock quantity cannot be negative", {
+                    stock: "Stock quantity cannot be negative"
                 });
             }
             product.stock = newStock;
         }
 
         if (unit !== undefined) {
+            if (!String(unit).trim()) {
+                return sendValidationError(res, "Unit is required", {
+                    unit: "Please select or enter a unit"
+                });
+            }
             product.unit = unit;
         }
 
         if (lowStockLimit !== undefined) {
             const newLimit = Number(lowStockLimit);
             if (Number.isNaN(newLimit) || newLimit < 0) {
-                return res.status(400).json({
-                    success: false,
-                    message: "Low stock limit cannot be negative or invalid"
+                return sendValidationError(res, "Low stock limit cannot be negative", {
+                    lowStockLimit: "Low stock alert limit cannot be negative"
                 });
             }
             product.lowStockLimit = newLimit;

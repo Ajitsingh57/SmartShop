@@ -5,7 +5,7 @@ import Customer from "../models/customerModel.js";
 import PaymentSetting from "../models/paymentSettingModel.js";
 import razorpay from "../config/razorpay.js";
 import cloudinary from "../config/cloudinary.js";
-import { runTransaction } from "../utils/helpers.js";
+import { runTransaction, sendValidationError } from "../utils/helpers.js";
 import { syncCustomerTrustAndLimits } from "../utils/trustScoreEngine.js";
 import { logAdminActivity } from "../utils/activityLogger.js";
 
@@ -168,18 +168,22 @@ export async function createPayment(req, res) {
 
     const paymentProofFile = req.file;
 
-    if (!creditId || amount === undefined || amount === null || !paymentMethod) {
-      return res.status(400).json({
-        success: false,
-        message: "Credit, amount and payment method are required",
-      });
+    const errors = {};
+    if (!creditId) {
+      errors.creditId = "Please select a credit record";
     }
 
-    if (!PAYMENT_METHODS.includes(paymentMethod)) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid payment method",
-      });
+    if (amount === undefined || amount === null || amount === "" || Number.isNaN(Number(amount)) || Number(amount) <= 0) {
+      errors.amount = "Payment amount must be greater than 0";
+    }
+
+    if (!paymentMethod || !PAYMENT_METHODS.includes(paymentMethod)) {
+      errors.paymentMethod = "Please select a valid payment method (Cash or UPI)";
+    }
+
+    if (Object.keys(errors).length > 0) {
+      const firstMsg = Object.values(errors)[0];
+      return sendValidationError(res, firstMsg, errors);
     }
 
     const { credit, pendingAmount, error } = await getCreditForPayment(
@@ -190,16 +194,14 @@ export async function createPayment(req, res) {
       return res.status(error.status).json({
         success: false,
         message: error.message,
+        errors: { creditId: error.message }
       });
     }
 
     const paymentAmount = getAmount(amount);
     const amountError = validatePaymentAmount(paymentAmount, pendingAmount);
     if (amountError) {
-      return res.status(400).json({
-        success: false,
-        message: amountError,
-      });
+      return sendValidationError(res, amountError, { amount: amountError });
     }
 
     if (isCustomer(req.user.role) && !ensureCustomerOwnsCredit(credit, req.user._id)) {

@@ -6,7 +6,7 @@ import Return from "../models/returnModel.js";
 import Product from "../models/productModel.js";
 import Activity from "../models/activityModel.js";
 import { logAdminActivity } from "../utils/activityLogger.js";
-import { isValidName, isValidPhone, isValidUsername } from "../utils/helpers.js";
+import { isValidName, isValidPhone, isValidUsername, sendValidationError } from "../utils/helpers.js";
 
 // Fetch all admin accounts (superadmin only)
 export const getAllAdmins = async (req, res) => {
@@ -114,9 +114,8 @@ export const updateMyAdminProfile = async (req, res) => {
 
         if (name !== undefined) {
             if (!isValidName(name)) {
-                return res.status(400).json({
-                    success: false,
-                    message: "Please enter a valid full name (letters only, min 2 characters, no numbers)"
+                return sendValidationError(res, "Please enter a valid full name (letters and spaces only, min 2 characters)", {
+                    name: "Please enter a valid full name (letters and spaces only)"
                 });
             }
             user.name = name.trim();
@@ -125,9 +124,8 @@ export const updateMyAdminProfile = async (req, res) => {
         if (phone !== undefined) {
             const normalizedPhone = phone ? phone.trim().replace(/[\s\-()]/g, "") : "";
             if (normalizedPhone && !isValidPhone(normalizedPhone)) {
-                return res.status(400).json({
-                    success: false,
-                    message: "Please enter a valid 10-digit mobile number (digits only)"
+                return sendValidationError(res, "Please enter a valid 10-digit mobile number", {
+                    phone: "Please enter a valid 10-digit mobile number"
                 });
             }
             user.phone = normalizedPhone || undefined;
@@ -157,32 +155,30 @@ export const createAdmin = async (req, res) => {
     try {
         const { name, username, password } = req.body;
 
+        const errors = {};
         if (!name || !isValidName(name)) {
-            return res.status(400).json({
-                success: false,
-                message: "Please enter a valid name (letters only, min 2 characters, no numbers)"
-            });
+            errors.name = "Please enter a valid name (letters and spaces only, min 2 characters)";
         }
 
         if (!username || !isValidUsername(username)) {
-            return res.status(400).json({
-                success: false,
-                message: "Username must be 3-30 characters with letters and numbers (no special characters)"
-            });
+            errors.username = "Username must be 3-30 characters with letters and numbers (no special characters)";
         }
 
         if (!password || password.length < 6) {
-            return res.status(400).json({
-                success: false,
-                message: "Password must be at least 6 characters long"
-            });
+            errors.password = "Password must be at least 6 characters long";
+        }
+
+        if (Object.keys(errors).length > 0) {
+            const firstMsg = Object.values(errors)[0];
+            return sendValidationError(res, firstMsg, errors);
         }
 
         const existingUser = await User.findOne({ username: username.trim() });
         if (existingUser) {
             return res.status(409).json({
                 success: false,
-                message: "Username already exists"
+                message: "This username is already taken. Please choose another username.",
+                errors: { username: "This username is already taken" }
             });
         }
 
@@ -238,17 +234,15 @@ export const updateAdmin = async (req, res) => {
         }
 
         if (name === undefined && username === undefined && password === undefined) {
-            return res.status(400).json({
-                success: false,
-                message: "Nothing to update"
+            return sendValidationError(res, "No changes provided to update", {
+                general: "Please enter at least one field to update"
             });
         }
 
         if (name !== undefined) {
             if (!isValidName(name)) {
-                return res.status(400).json({
-                    success: false,
-                    message: "Please enter a valid name (letters only, min 2 characters, no numbers)"
+                return sendValidationError(res, "Please enter a valid full name (letters and spaces only, min 2 characters)", {
+                    name: "Please enter a valid full name (letters and spaces only)"
                 });
             }
             admin.name = name.trim();
@@ -256,9 +250,8 @@ export const updateAdmin = async (req, res) => {
 
         if (username !== undefined) {
             if (!isValidUsername(username)) {
-                return res.status(400).json({
-                    success: false,
-                    message: "Username must be 3-30 characters with letters and numbers (no special characters)"
+                return sendValidationError(res, "Username must be 3-30 characters with letters and numbers (no special characters)", {
+                    username: "Username must be 3-30 characters (letters and numbers only)"
                 });
             }
 
@@ -270,7 +263,8 @@ export const updateAdmin = async (req, res) => {
             if (existingUser) {
                 return res.status(409).json({
                     success: false,
-                    message: "Username already exists"
+                    message: "This username is already taken. Please choose another username.",
+                    errors: { username: "This username is already taken" }
                 });
             }
 
@@ -279,9 +273,8 @@ export const updateAdmin = async (req, res) => {
 
         if (password !== undefined && password) {
             if (password.length < 6) {
-                return res.status(400).json({
-                    success: false,
-                    message: "Password must be at least 6 characters long"
+                return sendValidationError(res, "Password must be at least 6 characters long", {
+                    password: "Password must be at least 6 characters long"
                 });
             }
             admin.password = await bcrypt.hash(password, 10);

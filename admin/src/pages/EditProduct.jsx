@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { productsApi, categoriesApi } from "../services/api";
 import { Plus, X, RefreshCw, AlertTriangle } from "lucide-react";
+import { toast } from "react-toastify";
+import { productsApi, categoriesApi } from "../services/api";
 
 const EditProduct = () => {
   const { id } = useParams();
@@ -10,6 +11,7 @@ const EditProduct = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState({});
 
   // Dynamic categories list
   const [categories, setCategories] = useState([]);
@@ -126,12 +128,15 @@ const EditProduct = () => {
         setShowCategoryModal(false);
         setNewCatName("");
         setNewCatDesc("");
+        toast.success(`Category "${createdName}" created!`);
       } else {
         throw new Error(res?.message || "Failed to create category");
       }
     } catch (err) {
       console.error("Inline category create error:", err);
-      setCatModalError(err?.message || "Failed to create category");
+      const msg = err?.message || "Failed to create category";
+      setCatModalError(msg);
+      toast.error(msg);
     } finally {
       setCreatingCat(false);
     }
@@ -140,6 +145,10 @@ const EditProduct = () => {
   // Handle inputs and dynamic availability on stock changes
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
+    if (error) setError("");
+    if (fieldErrors[name]) {
+      setFieldErrors((prev) => ({ ...prev, [name]: "" }));
+    }
 
     setForm((prev) => {
       if (name === "stock") {
@@ -204,19 +213,24 @@ const EditProduct = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
+    setFieldErrors({});
+
+    const newFieldErrors = {};
 
     if (!form.name.trim()) {
-      setError("Product name is required.");
-      return;
+      newFieldErrors.name = "Please enter the product name.";
+    }
+
+    if (!form.category) {
+      newFieldErrors.category = "Please select a category.";
     }
 
     if (
       form.price === "" ||
       Number.isNaN(Number(form.price)) ||
-      Number(form.price) < 0
+      Number(form.price) <= 0
     ) {
-      setError("Please enter a valid price.");
-      return;
+      newFieldErrors.price = "Please enter a valid product price greater than ₹0.";
     }
 
     if (
@@ -224,20 +238,25 @@ const EditProduct = () => {
       Number.isNaN(Number(form.stock)) ||
       Number(form.stock) < 0
     ) {
-      setError("Please enter a valid stock.");
-      return;
+      newFieldErrors.stock = "Please enter a valid stock quantity (0 or more).";
     }
 
     if (!form.unit.trim()) {
-      setError("Unit is required.");
-      return;
+      newFieldErrors.unit = "Please enter the product unit (e.g. pcs, kg, litre, packet).";
     }
 
     if (
       form.lowStockLimit !== "" &&
       (Number.isNaN(Number(form.lowStockLimit)) || Number(form.lowStockLimit) < 0)
     ) {
-      setError("Low stock limit cannot be negative.");
+      newFieldErrors.lowStockLimit = "Low stock alert limit cannot be negative.";
+    }
+
+    if (Object.keys(newFieldErrors).length > 0) {
+      setFieldErrors(newFieldErrors);
+      const firstMsg = Object.values(newFieldErrors)[0];
+      setError(firstMsg);
+      toast.error(firstMsg);
       return;
     }
 
@@ -269,10 +288,14 @@ const EditProduct = () => {
         throw new Error(response.message || "Unable to update product.");
       }
 
+      toast.success(response?.message || "Product updated successfully!");
       navigate("/products");
     } catch (err) {
       console.error("Update product error:", err);
-      setError(err?.message || "Unable to update product. Please try again.");
+      const msg = err?.message || "Unable to update product. Please try again.";
+      setError(msg);
+      if (err?.errors) setFieldErrors(err.errors);
+      toast.error(msg);
     } finally {
       setSaving(false);
     }
@@ -389,13 +412,14 @@ const EditProduct = () => {
             />
 
             <div className="grid gap-4 p-4 sm:grid-cols-2">
-              <FormField label="Product Name" required>
+              <FormField label="Product Name" required error={fieldErrors.name}>
                 <Input
                   type="text"
                   name="name"
                   value={form.name}
                   onChange={handleChange}
                   placeholder="e.g. Basmati Rice"
+                  hasError={!!fieldErrors.name}
                 />
               </FormField>
 
@@ -424,8 +448,10 @@ const EditProduct = () => {
                   value={form.category}
                   onChange={handleChange}
                   disabled={saving || loadingCategories}
-                  className="h-10 w-full rounded-xl border bg-zinc-950/60 px-3 text-sm text-zinc-200 outline-none transition focus:border-[var(--app-accent)] focus:ring-1 focus:ring-[var(--app-accent)]"
-                  style={{ borderColor: "var(--app-border)" }}
+                  className={`h-10 w-full rounded-xl border bg-zinc-950/60 px-3 text-sm text-zinc-200 outline-none transition focus:border-[var(--app-accent)] focus:ring-1 focus:ring-[var(--app-accent)] ${
+                    fieldErrors.category ? "border-red-500 ring-1 ring-red-500" : ""
+                  }`}
+                  style={{ borderColor: fieldErrors.category ? "#ef4444" : "var(--app-border)" }}
                 >
                   <option value="">
                     {loadingCategories ? "Loading categories..." : "Select category"}
@@ -436,9 +462,14 @@ const EditProduct = () => {
                     </option>
                   ))}
                 </select>
+                {fieldErrors.category && (
+                  <p className="mt-1 text-xs text-red-500 font-medium">
+                    {fieldErrors.category}
+                  </p>
+                )}
               </div>
 
-              <FormField label="Price" required>
+              <FormField label="Price" required error={fieldErrors.price}>
                 <div className="relative">
                   <span
                     className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-medium"
@@ -455,11 +486,12 @@ const EditProduct = () => {
                     onChange={handleChange}
                     placeholder="0.00"
                     className="pl-8"
+                    hasError={!!fieldErrors.price}
                   />
                 </div>
               </FormField>
 
-              <FormField label="Stock" required>
+              <FormField label="Stock" required error={fieldErrors.stock}>
                 <Input
                   type="number"
                   name="stock"
@@ -468,23 +500,25 @@ const EditProduct = () => {
                   value={form.stock}
                   onChange={handleChange}
                   placeholder="0"
+                  hasError={!!fieldErrors.stock}
                 />
                 <p className="mt-1.5 text-[10px] text-zinc-600">
                   Stock 0 automatically marks the product unavailable.
                 </p>
               </FormField>
 
-              <FormField label="Unit" required>
+              <FormField label="Unit" required error={fieldErrors.unit}>
                 <Input
                   type="text"
                   name="unit"
                   value={form.unit}
                   onChange={handleChange}
                   placeholder="pcs, kg, litre..."
+                  hasError={!!fieldErrors.unit}
                 />
               </FormField>
 
-              <FormField label="Low Stock Limit">
+              <FormField label="Low Stock Limit" error={fieldErrors.lowStockLimit}>
                 <Input
                   type="number"
                   name="lowStockLimit"
@@ -493,6 +527,7 @@ const EditProduct = () => {
                   value={form.lowStockLimit}
                   onChange={handleChange}
                   placeholder="e.g. 5"
+                  hasError={!!fieldErrors.lowStockLimit}
                 />
               </FormField>
 
@@ -795,7 +830,7 @@ const SectionHeader = ({ title, description }) => {
   );
 };
 
-const FormField = ({ label, required = false, children }) => {
+const FormField = ({ label, required = false, error, children }) => {
   return (
     <div>
       <label className="mb-1.5 block text-[11px] font-semibold text-zinc-400">
@@ -803,23 +838,34 @@ const FormField = ({ label, required = false, children }) => {
         {required && <span className="ml-1 text-red-400">*</span>}
       </label>
       {children}
+      {error && (
+        <p className="mt-1 text-xs text-red-500 font-medium">
+          {error}
+        </p>
+      )}
     </div>
   );
 };
 
-const Input = ({ className = "", ...props }) => {
+const Input = ({ className = "", hasError = false, ...props }) => {
   return (
     <input
       {...props}
-      className={`h-10 w-full rounded-xl border bg-zinc-950/60 px-3.5 text-sm text-zinc-200 outline-none transition placeholder:text-zinc-700 focus:bg-zinc-950 ${className}`}
-      style={{ borderColor: "var(--app-border)" }}
+      className={`h-10 w-full rounded-xl border bg-zinc-950/60 px-3.5 text-sm text-zinc-200 outline-none transition placeholder:text-zinc-700 focus:bg-zinc-950 ${
+        hasError ? "border-red-500 ring-1 ring-red-500" : ""
+      } ${className}`}
+      style={{ borderColor: hasError ? "#ef4444" : "var(--app-border)" }}
       onFocus={(e) => {
-        e.currentTarget.style.borderColor = "var(--app-accent)";
-        e.currentTarget.style.boxShadow = "0 0 0 2px var(--app-accent-soft)";
+        if (!hasError) {
+          e.currentTarget.style.borderColor = "var(--app-accent)";
+          e.currentTarget.style.boxShadow = "0 0 0 2px var(--app-accent-soft)";
+        }
       }}
       onBlur={(e) => {
-        e.currentTarget.style.borderColor = "var(--app-border)";
-        e.currentTarget.style.boxShadow = "none";
+        if (!hasError) {
+          e.currentTarget.style.borderColor = "var(--app-border)";
+          e.currentTarget.style.boxShadow = "none";
+        }
       }}
     />
   );

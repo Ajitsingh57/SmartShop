@@ -2,7 +2,7 @@ import ProductRequest from "../models/productRequestModel.js";
 import Product from "../models/productModel.js";
 import cloudinary from "../config/cloudinary.js";
 import { logAdminActivity } from "../utils/activityLogger.js";
-import { isValidName, isValidPhone } from "../utils/helpers.js";
+import { isValidName, isValidPhone, sendValidationError } from "../utils/helpers.js";
 
 // Customer submits a product request (restock or new product) with optional image
 export async function createProductRequest(req, res) {
@@ -26,40 +26,32 @@ export async function createProductRequest(req, res) {
     const finalPhone = (customerPhone?.trim() || loggedInUser?.phone || "").replace(/[\s\-()]/g, "");
     const finalEmail = customerEmail?.trim() || loggedInUser?.email || "";
 
+    const errors = {};
+
     if (!finalName || !isValidName(finalName)) {
-      return res.status(400).json({
-        success: false,
-        message: "Please enter a valid customer name (letters only, min 2 characters, no numbers)",
-      });
+      errors.customerName = "Please enter your name (letters and spaces only, min 2 characters)";
     }
 
     if (!finalPhone || !isValidPhone(finalPhone)) {
-      return res.status(400).json({
-        success: false,
-        message: "Please enter a valid 10-digit customer mobile number",
-      });
+      errors.customerPhone = "Please enter a valid 10-digit mobile number";
     }
 
     if (!productName || !productName.trim()) {
-      return res.status(400).json({
-        success: false,
-        message: "Product name is required",
-      });
+      errors.productName = "Please enter the requested product name";
     }
 
     const qty = Number(requestedQuantity);
     if (!Number.isFinite(qty) || qty <= 0) {
-      return res.status(400).json({
-        success: false,
-        message: "Requested quantity must be a positive number",
-      });
+      errors.requestedQuantity = "Quantity must be greater than 0";
     }
 
     if (!unit || !unit.trim()) {
-      return res.status(400).json({
-        success: false,
-        message: "Unit (e.g. kg, pcs, packet) is required",
-      });
+      errors.unit = "Please select or enter a unit (e.g. kg, pcs, packet)";
+    }
+
+    if (Object.keys(errors).length > 0) {
+      const firstMsg = Object.values(errors)[0];
+      return sendValidationError(res, firstMsg, errors);
     }
 
     let resolvedCategory = category?.trim() || "General";

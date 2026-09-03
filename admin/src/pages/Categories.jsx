@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { categoriesApi } from "../services/api";
 import {
   FolderTree,
   Plus,
@@ -16,6 +15,8 @@ import {
   X,
   ExternalLink,
 } from "lucide-react";
+import { toast } from "react-toastify";
+import { categoriesApi } from "../services/api";
 
 const Categories = () => {
   const navigate = useNavigate();
@@ -36,7 +37,7 @@ const Categories = () => {
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [modalError, setModalError] = useState("");
-  const [successToast, setSuccessToast] = useState("");
+  const [fieldErrors, setFieldErrors] = useState({});
 
   // Fetch categories from backend
   const fetchCategories = async () => {
@@ -61,14 +62,6 @@ const Categories = () => {
   useEffect(() => {
     fetchCategories();
   }, []);
-
-  // Show auto-dismiss success toast
-  const showToast = (msg) => {
-    setSuccessToast(msg);
-    setTimeout(() => {
-      setSuccessToast("");
-    }, 4000);
-  };
 
   // Filtered categories
   const filteredCategories = useMemo(() => {
@@ -100,6 +93,7 @@ const Categories = () => {
     setFormName("");
     setFormDescription("");
     setModalError("");
+    setFieldErrors({});
     setAddModalOpen(true);
   };
 
@@ -109,6 +103,7 @@ const Categories = () => {
     setFormName(cat.name || "");
     setFormDescription(cat.description || "");
     setModalError("");
+    setFieldErrors({});
     setEditModalOpen(true);
   };
 
@@ -122,8 +117,13 @@ const Categories = () => {
   // Handle Add Category Submit
   const handleAddSubmit = async (e) => {
     e.preventDefault();
+    setFieldErrors({});
+
     if (!formName.trim()) {
-      setModalError("Please enter a category name");
+      const msg = "Please enter a category name.";
+      setModalError(msg);
+      setFieldErrors({ name: msg });
+      toast.error(msg);
       return;
     }
 
@@ -138,14 +138,18 @@ const Categories = () => {
 
       if (res?.success) {
         setAddModalOpen(false);
-        showToast(`Category "${res.category?.name || formName}" added successfully!`);
+        const msg = `Category "${res.category?.name || formName}" added successfully!`;
+        toast.success(msg);
         fetchCategories();
       } else {
         throw new Error(res?.message || "Failed to create category");
       }
     } catch (err) {
       console.error("Create category error:", err);
-      setModalError(err?.message || "Failed to create category");
+      const msg = err?.message || "Failed to create category";
+      setModalError(msg);
+      if (err?.errors) setFieldErrors(err.errors);
+      toast.error(msg);
     } finally {
       setSubmitting(false);
     }
@@ -155,8 +159,13 @@ const Categories = () => {
   const handleEditSubmit = async (e) => {
     e.preventDefault();
     if (!selectedCategory?._id) return;
+    setFieldErrors({});
+
     if (!formName.trim()) {
-      setModalError("Please enter a category name");
+      const msg = "Please enter a category name.";
+      setModalError(msg);
+      setFieldErrors({ name: msg });
+      toast.error(msg);
       return;
     }
 
@@ -171,14 +180,18 @@ const Categories = () => {
 
       if (res?.success) {
         setEditModalOpen(false);
-        showToast(`Category "${res.category?.name || formName}" updated successfully!`);
+        const msg = `Category "${res.category?.name || formName}" updated successfully!`;
+        toast.success(msg);
         fetchCategories();
       } else {
         throw new Error(res?.message || "Failed to update category");
       }
     } catch (err) {
       console.error("Update category error:", err);
-      setModalError(err?.message || "Failed to update category");
+      const msg = err?.message || "Failed to update category";
+      setModalError(msg);
+      if (err?.errors) setFieldErrors(err.errors);
+      toast.error(msg);
     } finally {
       setSubmitting(false);
     }
@@ -196,14 +209,17 @@ const Categories = () => {
 
       if (res?.success) {
         setDeleteModalOpen(false);
-        showToast(`Category "${selectedCategory.name}" deleted successfully!`);
+        const msg = `Category "${selectedCategory.name}" deleted successfully!`;
+        toast.success(msg);
         fetchCategories();
       } else {
         throw new Error(res?.message || "Failed to delete category");
       }
     } catch (err) {
       console.error("Delete category error:", err);
-      setModalError(err?.message || "Failed to delete category");
+      const msg = err?.message || "Failed to delete category";
+      setModalError(msg);
+      toast.error(msg);
     } finally {
       setSubmitting(false);
     }
@@ -629,16 +645,26 @@ const Categories = () => {
                 <input
                   type="text"
                   value={formName}
-                  onChange={(e) => setFormName(e.target.value)}
+                  onChange={(e) => {
+                    setFormName(e.target.value);
+                    if (fieldErrors.name) setFieldErrors((prev) => ({ ...prev, name: "" }));
+                  }}
                   placeholder="e.g. Dairy & Bakery"
                   autoFocus
                   disabled={submitting}
-                  className="w-full rounded-lg border px-3.5 py-2.5 text-sm text-white placeholder-zinc-600 outline-none transition focus:border-[var(--app-accent)] focus:ring-1 focus:ring-[var(--app-accent)] disabled:opacity-50"
+                  className={`w-full rounded-lg border px-3.5 py-2.5 text-sm text-white placeholder-zinc-600 outline-none transition disabled:opacity-50 ${
+                    fieldErrors.name ? "border-red-500 ring-1 ring-red-500" : "focus:border-[var(--app-accent)] focus:ring-1 focus:ring-[var(--app-accent)]"
+                  }`}
                   style={{
-                    borderColor: "var(--app-border)",
+                    borderColor: fieldErrors.name ? "#ef4444" : "var(--app-border)",
                     backgroundColor: "var(--app-surface-light)",
                   }}
                 />
+                {fieldErrors.name && (
+                  <p className="mt-1 text-xs text-red-500 font-medium">
+                    {fieldErrors.name}
+                  </p>
+                )}
               </div>
 
               <div>
@@ -735,15 +761,25 @@ const Categories = () => {
                 <input
                   type="text"
                   value={formName}
-                  onChange={(e) => setFormName(e.target.value)}
+                  onChange={(e) => {
+                    setFormName(e.target.value);
+                    if (fieldErrors.name) setFieldErrors((prev) => ({ ...prev, name: "" }));
+                  }}
                   placeholder="Category Name"
                   disabled={submitting}
-                  className="w-full rounded-lg border px-3.5 py-2.5 text-sm text-white placeholder-zinc-600 outline-none transition focus:border-[var(--app-accent)] focus:ring-1 focus:ring-[var(--app-accent)] disabled:opacity-50"
+                  className={`w-full rounded-lg border px-3.5 py-2.5 text-sm text-white placeholder-zinc-600 outline-none transition disabled:opacity-50 ${
+                    fieldErrors.name ? "border-red-500 ring-1 ring-red-500" : "focus:border-[var(--app-accent)] focus:ring-1 focus:ring-[var(--app-accent)]"
+                  }`}
                   style={{
-                    borderColor: "var(--app-border)",
+                    borderColor: fieldErrors.name ? "#ef4444" : "var(--app-border)",
                     backgroundColor: "var(--app-surface-light)",
                   }}
                 />
+                {fieldErrors.name && (
+                  <p className="mt-1 text-xs text-red-500 font-medium">
+                    {fieldErrors.name}
+                  </p>
+                )}
                 {selectedCategory.productCount > 0 && formName.trim() !== selectedCategory.name && (
                   <p className="mt-1.5 text-[11px] text-amber-400/90 leading-tight">
                     💡 Changing this name will automatically update all {selectedCategory.productCount} product(s) in this category.

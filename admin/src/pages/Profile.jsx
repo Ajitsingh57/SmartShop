@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { toast } from "react-toastify";
 import { adminsApi, authStorage } from "../services/api";
 import {
   isValidName,
@@ -20,6 +21,7 @@ const Profile = () => {
 
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState({});
 
   // Load real admin profile from backend
   const loadAdminProfile = async () => {
@@ -89,13 +91,23 @@ const Profile = () => {
 
   const handleUpdateProfile = async (e) => {
     e.preventDefault();
+    setFieldErrors({});
+
+    const newFieldErrors = {};
+
     if (!form.name.trim() || !isValidName(form.name)) {
-      setError("Please enter a valid full name (letters only, min 2 characters, no numbers).");
-      return;
+      newFieldErrors.name = "Please enter a valid full name (letters only, min 2 characters).";
     }
 
     if (form.phone.trim() && !isValidPhone(form.phone)) {
-      setError("Please enter a valid 10-digit mobile number (digits only).");
+      newFieldErrors.phone = "Please enter a valid 10-digit mobile number.";
+    }
+
+    if (Object.keys(newFieldErrors).length > 0) {
+      setFieldErrors(newFieldErrors);
+      const firstMsg = Object.values(newFieldErrors)[0];
+      setError(firstMsg);
+      toast.error(firstMsg);
       return;
     }
 
@@ -109,12 +121,17 @@ const Profile = () => {
         phone: form.phone.trim() ? form.phone.trim().replace(/[\s\-()]/g, "") : "",
       });
 
-      setMessage(response?.message || "Profile updated successfully.");
+      const successMsg = response?.message || "Profile updated successfully.";
+      setMessage(successMsg);
+      toast.success(successMsg);
       setEditing(false);
       await loadAdminProfile();
     } catch (err) {
       console.error("Update admin profile error:", err);
-      setError(err?.message || "Failed to update profile.");
+      const msg = err?.message || "Failed to update profile.";
+      setError(msg);
+      if (err?.errors) setFieldErrors(err.errors);
+      toast.error(msg);
     } finally {
       setSaving(false);
     }
@@ -287,10 +304,20 @@ const Profile = () => {
                     required
                     placeholder="Full name (letters only)..."
                     value={form.name}
-                    onChange={(e) => setForm({ ...form, name: sanitizeNameInput(e.target.value) })}
-                    className="w-full rounded-lg border p-3 text-sm text-white outline-none"
-                    style={{ borderColor: "var(--app-border)", backgroundColor: "var(--app-surface-light)" }}
+                    onChange={(e) => {
+                      setForm({ ...form, name: sanitizeNameInput(e.target.value) });
+                      if (fieldErrors.name) setFieldErrors((prev) => ({ ...prev, name: "" }));
+                    }}
+                    className={`w-full rounded-lg border p-3 text-sm text-white outline-none ${
+                      fieldErrors.name ? "border-red-500 ring-1 ring-red-500" : ""
+                    }`}
+                    style={{ borderColor: fieldErrors.name ? "#ef4444" : "var(--app-border)", backgroundColor: "var(--app-surface-light)" }}
                   />
+                  {fieldErrors.name && (
+                    <p className="mt-1 text-xs text-red-500 font-medium">
+                      {fieldErrors.name}
+                    </p>
+                  )}
                 </div>
 
                 <div>
@@ -300,10 +327,20 @@ const Profile = () => {
                     maxLength={10}
                     placeholder="Enter 10-digit mobile number..."
                     value={form.phone}
-                    onChange={(e) => setForm({ ...form, phone: sanitizePhoneInput(e.target.value) })}
-                    className="w-full rounded-lg border p-3 text-sm text-white outline-none"
-                    style={{ borderColor: "var(--app-border)", backgroundColor: "var(--app-surface-light)" }}
+                    onChange={(e) => {
+                      setForm({ ...form, phone: sanitizePhoneInput(e.target.value) });
+                      if (fieldErrors.phone) setFieldErrors((prev) => ({ ...prev, phone: "" }));
+                    }}
+                    className={`w-full rounded-lg border p-3 text-sm text-white outline-none ${
+                      fieldErrors.phone ? "border-red-500 ring-1 ring-red-500" : ""
+                    }`}
+                    style={{ borderColor: fieldErrors.phone ? "#ef4444" : "var(--app-border)", backgroundColor: "var(--app-surface-light)" }}
                   />
+                  {fieldErrors.phone && (
+                    <p className="mt-1 text-xs text-red-500 font-medium">
+                      {fieldErrors.phone}
+                    </p>
+                  )}
                 </div>
 
                 <div className="flex gap-3 pt-2">

@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Eye, EyeOff, ArrowLeft, CheckCircle2 } from "lucide-react";
+import { toast } from "react-toastify";
 import { authApi } from "../services/api";
 import { isValidEmail, isValidPhone } from "../utils/validators";
 
@@ -21,26 +22,35 @@ const ForgotPassword = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [fieldErrors, setFieldErrors] = useState({});
 
   // Step 1: Request password reset verification token
   const handleRequestToken = async (e) => {
     e.preventDefault();
     setError("");
     setSuccess("");
+    setFieldErrors({});
 
     const trimmedId = identifier.trim();
+    const newFieldErrors = {};
+
     if (!trimmedId) {
-      setError("Please enter your registered email or 10-digit phone number.");
-      return;
+      newFieldErrors.identifier = "Please enter your registered email or 10-digit phone number.";
+    } else {
+      const isDigitsOnly = /^[\d+\-\s]+$/.test(trimmedId);
+      if (isDigitsOnly && !isValidPhone(trimmedId)) {
+        newFieldErrors.identifier = "Please enter a valid 10-digit mobile number.";
+      }
+      if (trimmedId.includes("@") && !isValidEmail(trimmedId)) {
+        newFieldErrors.identifier = "Please enter a valid email address.";
+      }
     }
 
-    const isDigitsOnly = /^[\d+\-\s]+$/.test(trimmedId);
-    if (isDigitsOnly && !isValidPhone(trimmedId)) {
-      setError("Please enter a valid 10-digit mobile number.");
-      return;
-    }
-    if (trimmedId.includes("@") && !isValidEmail(trimmedId)) {
-      setError("Please enter a valid email address.");
+    if (Object.keys(newFieldErrors).length > 0) {
+      setFieldErrors(newFieldErrors);
+      const firstMsg = Object.values(newFieldErrors)[0];
+      setError(firstMsg);
+      toast.error(firstMsg);
       return;
     }
 
@@ -56,17 +66,22 @@ const ForgotPassword = () => {
         setUserPreview(response.user);
         setStep(2);
         setSuccess("Account verified. Please enter your new password.");
+        toast.success("Account verified. Please enter your new password.");
       } else {
-        setSuccess(
-          response.message ||
-            "If an account exists with this credential, instructions have been prepared."
-        );
+        const msg = response.message || "If an account exists with this credential, instructions have been prepared.";
+        setSuccess(msg);
+        toast.info(msg);
       }
     } catch (err) {
       console.error("Forgot password error:", err);
-      setError(
-        err?.message || "Unable to find your account. Please check your credentials."
-      );
+      const msg = err?.message || "Unable to find your account. Please check your credentials.";
+      setError(msg);
+      if (err?.errors && Object.keys(err.errors).length > 0) {
+        setFieldErrors(err.errors);
+      } else {
+        setFieldErrors({ identifier: msg });
+      }
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
@@ -77,19 +92,27 @@ const ForgotPassword = () => {
     e.preventDefault();
     setError("");
     setSuccess("");
+    setFieldErrors({});
+
+    const newFieldErrors = {};
 
     if (!newPassword) {
-      setError("Please enter your new password.");
-      return;
+      newFieldErrors.newPassword = "Please enter your new password.";
+    } else if (newPassword.length < 6) {
+      newFieldErrors.newPassword = "Password must be at least 6 characters long.";
     }
 
-    if (newPassword.length < 6) {
-      setError("Password must be at least 6 characters long.");
-      return;
+    if (newPassword && confirmPassword && newPassword !== confirmPassword) {
+      newFieldErrors.confirmPassword = "Passwords do not match.";
+    } else if (!confirmPassword) {
+      newFieldErrors.confirmPassword = "Please confirm your new password.";
     }
 
-    if (newPassword !== confirmPassword) {
-      setError("Passwords do not match.");
+    if (Object.keys(newFieldErrors).length > 0) {
+      setFieldErrors(newFieldErrors);
+      const firstMsg = Object.values(newFieldErrors)[0];
+      setError(firstMsg);
+      toast.error(firstMsg);
       return;
     }
 
@@ -101,17 +124,23 @@ const ForgotPassword = () => {
         newPassword,
       });
 
-      setSuccess(
-        response?.message ||
-          "Password updated successfully! Redirecting to login..."
-      );
+      const successMsg = response?.message || "Password updated successfully! Redirecting to login...";
+      setSuccess(successMsg);
+      toast.success(successMsg);
 
       setTimeout(() => {
         navigate("/login", { replace: true });
       }, 1500);
     } catch (err) {
       console.error("Reset password error:", err);
-      setError(err?.message || "Unable to reset password. Please try again.");
+      const msg = err?.message || "Unable to reset password. Please try again.";
+      setError(msg);
+      if (err?.errors && Object.keys(err.errors).length > 0) {
+        setFieldErrors(err.errors);
+      } else {
+        setFieldErrors({ newPassword: msg });
+      }
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
@@ -147,43 +176,15 @@ const ForgotPassword = () => {
             className="text-3xl font-bold tracking-tight sm:text-4xl"
             style={{ color: "var(--app-text)" }}
           >
-            {step === 1 ? "Forgot Password" : "Reset Password"}
+            {step === 1 ? "Forgot Password" : "Set New Password"}
           </h1>
 
           <p className="mt-2 text-sm" style={{ color: "var(--app-text-muted)" }}>
             {step === 1
-              ? "Recover access to your SmartShop account"
-              : `Set a new password for ${userPreview?.name || "your account"}`}
+              ? "Enter registered details to recover account access"
+              : `Resetting credentials for ${userPreview?.name || "your account"}`}
           </p>
         </div>
-
-        {error && (
-          <div
-            className="mb-5 rounded-lg border px-4 py-3 text-sm leading-5"
-            style={{
-              borderColor: "rgba(239,68,68,0.20)",
-              backgroundColor: "rgba(239,68,68,0.05)",
-              color: "#f87171",
-            }}
-            role="alert"
-          >
-            {error}
-          </div>
-        )}
-
-        {success && (
-          <div
-            className="mb-5 rounded-lg border px-4 py-3 text-sm leading-5"
-            style={{
-              borderColor: "rgba(34,197,94,0.20)",
-              backgroundColor: "rgba(34,197,94,0.05)",
-              color: "#4ade80",
-            }}
-            role="status"
-          >
-            {success}
-          </div>
-        )}
 
         {/* Step 1: Identifier Entry */}
         {step === 1 && (
@@ -205,25 +206,37 @@ const ForgotPassword = () => {
                 onChange={(e) => {
                   setIdentifier(e.target.value);
                   if (error) setError("");
+                  if (fieldErrors.identifier) setFieldErrors((prev) => ({ ...prev, identifier: "" }));
                 }}
                 required
                 autoComplete="username"
                 disabled={loading}
-                className="w-full rounded-lg border px-4 py-3 text-sm outline-none transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-60"
+                className={`w-full rounded-lg border px-4 py-3 text-sm outline-none transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-60 ${
+                  fieldErrors.identifier ? "border-red-500 ring-1 ring-red-500" : ""
+                }`}
                 style={{
-                  borderColor: "var(--app-border)",
+                  borderColor: fieldErrors.identifier ? "#ef4444" : "var(--app-border)",
                   backgroundColor: "var(--app-surface-light)",
                   color: "var(--app-text)",
                 }}
                 onFocus={(e) => {
-                  e.currentTarget.style.borderColor = "var(--app-accent-border)";
-                  e.currentTarget.style.boxShadow = "0 0 0 1px var(--app-accent-soft)";
+                  if (!fieldErrors.identifier) {
+                    e.currentTarget.style.borderColor = "var(--app-accent-border)";
+                    e.currentTarget.style.boxShadow = "0 0 0 1px var(--app-accent-soft)";
+                  }
                 }}
                 onBlur={(e) => {
-                  e.currentTarget.style.borderColor = "var(--app-border)";
-                  e.currentTarget.style.boxShadow = "none";
+                  if (!fieldErrors.identifier) {
+                    e.currentTarget.style.borderColor = "var(--app-border)";
+                    e.currentTarget.style.boxShadow = "none";
+                  }
                 }}
               />
+              {fieldErrors.identifier && (
+                <p className="mt-1 text-xs text-red-500 font-medium">
+                  {fieldErrors.identifier}
+                </p>
+              )}
             </div>
 
             <button
@@ -269,32 +282,40 @@ const ForgotPassword = () => {
                   onChange={(e) => {
                     setNewPassword(e.target.value);
                     if (error) setError("");
+                    if (fieldErrors.newPassword) setFieldErrors((prev) => ({ ...prev, newPassword: "" }));
                   }}
                   required
                   autoComplete="new-password"
                   disabled={loading}
-                  className="w-full rounded-lg border px-4 py-2.5 pr-20 text-sm outline-none transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-60"
+                  className={`w-full rounded-lg border px-4 py-2.5 pr-11 text-sm outline-none transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-60 ${
+                    fieldErrors.newPassword ? "border-red-500 ring-1 ring-red-500" : ""
+                  }`}
                   style={{
-                    borderColor: "var(--app-border)",
+                    borderColor: fieldErrors.newPassword ? "#ef4444" : "var(--app-border)",
                     backgroundColor: "var(--app-surface-light)",
                     color: "var(--app-text)",
                   }}
                   onFocus={(e) => {
-                    e.currentTarget.style.borderColor = "var(--app-accent-border)";
-                    e.currentTarget.style.boxShadow = "0 0 0 1px var(--app-accent-soft)";
+                    if (!fieldErrors.newPassword) {
+                      e.currentTarget.style.borderColor = "var(--app-accent-border)";
+                      e.currentTarget.style.boxShadow = "0 0 0 1px var(--app-accent-soft)";
+                    }
                   }}
                   onBlur={(e) => {
-                    e.currentTarget.style.borderColor = "var(--app-border)";
-                    e.currentTarget.style.boxShadow = "none";
+                    if (!fieldErrors.newPassword) {
+                      e.currentTarget.style.borderColor = "var(--app-border)";
+                      e.currentTarget.style.boxShadow = "none";
+                    }
                   }}
                 />
 
                 <button
                   type="button"
                   onClick={() => setShowNewPassword((prev) => !prev)}
-                  disabled={loading}
+                  tabIndex={-1}
                   aria-label={showNewPassword ? "Hide password" : "Show password"}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 rounded-md p-1 text-zinc-400 transition-colors hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-zinc-400 transition-colors hover:text-zinc-200"
+                  style={{ color: "var(--app-text-muted)" }}
                 >
                   {showNewPassword ? (
                     <EyeOff className="h-4 w-4" />
@@ -303,6 +324,11 @@ const ForgotPassword = () => {
                   )}
                 </button>
               </div>
+              {fieldErrors.newPassword && (
+                <p className="mt-1 text-xs text-red-500 font-medium">
+                  {fieldErrors.newPassword}
+                </p>
+              )}
             </div>
 
             <div>
@@ -323,32 +349,40 @@ const ForgotPassword = () => {
                   onChange={(e) => {
                     setConfirmPassword(e.target.value);
                     if (error) setError("");
+                    if (fieldErrors.confirmPassword) setFieldErrors((prev) => ({ ...prev, confirmPassword: "" }));
                   }}
                   required
                   autoComplete="new-password"
                   disabled={loading}
-                  className="w-full rounded-lg border px-4 py-2.5 pr-20 text-sm outline-none transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-60"
+                  className={`w-full rounded-lg border px-4 py-2.5 pr-11 text-sm outline-none transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-60 ${
+                    fieldErrors.confirmPassword ? "border-red-500 ring-1 ring-red-500" : ""
+                  }`}
                   style={{
-                    borderColor: "var(--app-border)",
+                    borderColor: fieldErrors.confirmPassword ? "#ef4444" : "var(--app-border)",
                     backgroundColor: "var(--app-surface-light)",
                     color: "var(--app-text)",
                   }}
                   onFocus={(e) => {
-                    e.currentTarget.style.borderColor = "var(--app-accent-border)";
-                    e.currentTarget.style.boxShadow = "0 0 0 1px var(--app-accent-soft)";
+                    if (!fieldErrors.confirmPassword) {
+                      e.currentTarget.style.borderColor = "var(--app-accent-border)";
+                      e.currentTarget.style.boxShadow = "0 0 0 1px var(--app-accent-soft)";
+                    }
                   }}
                   onBlur={(e) => {
-                    e.currentTarget.style.borderColor = "var(--app-border)";
-                    e.currentTarget.style.boxShadow = "none";
+                    if (!fieldErrors.confirmPassword) {
+                      e.currentTarget.style.borderColor = "var(--app-border)";
+                      e.currentTarget.style.boxShadow = "none";
+                    }
                   }}
                 />
 
                 <button
                   type="button"
                   onClick={() => setShowConfirmPassword((prev) => !prev)}
-                  disabled={loading}
+                  tabIndex={-1}
                   aria-label={showConfirmPassword ? "Hide password" : "Show password"}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 rounded-md p-1 text-zinc-400 transition-colors hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-zinc-400 transition-colors hover:text-zinc-200"
+                  style={{ color: "var(--app-text-muted)" }}
                 >
                   {showConfirmPassword ? (
                     <EyeOff className="h-4 w-4" />
@@ -357,6 +391,11 @@ const ForgotPassword = () => {
                   )}
                 </button>
               </div>
+              {fieldErrors.confirmPassword && (
+                <p className="mt-1 text-xs text-red-500 font-medium">
+                  {fieldErrors.confirmPassword}
+                </p>
+              )}
             </div>
 
             <button

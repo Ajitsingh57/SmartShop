@@ -39,7 +39,12 @@ api.interceptors.response.use(
       authStorage.clear();
     }
 
-    return Promise.reject(new Error(message));
+    const customError = new Error(message);
+    customError.status = status;
+    customError.errors = error.response?.data?.errors || {};
+    customError.response = error.response;
+
+    return Promise.reject(customError);
   }
 );
 
