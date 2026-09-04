@@ -6,16 +6,20 @@
 :root {
   --app-bg: #050811;
   --app-text: #f1f5f9;
+  --app-text-muted: #94a3b8;
 
   --app-accent: #f97316;
   --app-accent-hover: #ea580c;
 
-  --app-accent-soft: rgba(249, 115, 22, 0.10);
-  --app-accent-border: rgba(249, 115, 22, 0.20);
+  --app-accent-soft: rgba(249, 115, 22, 0.12);
+  --app-accent-border: rgba(249, 115, 22, 0.25);
+  --app-accent-glow: rgba(249, 115, 22, 0.35);
 
   --app-surface: #09090b;
-  --app-surface-light: #18181b;
+  --app-surface-light: #13151b;
+  --app-surface-elevated: #181b24;
   --app-border: #27272a;
+  --app-border-light: rgba(255, 255, 255, 0.08);
 }
 
 /* reset defaults */
@@ -30,6 +34,8 @@ html {
   min-height: 100%;
   background: var(--app-bg);
   transition: background-color 0.4s ease;
+  scroll-behavior: smooth;
+  overflow-x: hidden;
 }
 
 /* body typography and theme */
@@ -40,6 +46,7 @@ body {
   color: var(--app-text);
   overflow-x: hidden;
   transition: background-color 0.4s ease, color 0.4s ease;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .font-display {
@@ -54,48 +61,109 @@ body {
 #root {
   min-height: 100vh;
   background-color: var(--app-bg);
-  transition: background-color 0.4s ease;
+  display: flex;
+  flex-direction: column;
+  overflow-x: hidden;
 }
 
-/* theme utility classes */
-.theme-bg {
-  background-color: var(--app-bg);
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(5, 8, 17, 0.8);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--app-accent);
 }
 
-.theme-surface {
-  background-color: var(--app-surface);
+/* Glassmorphism & UI Design Tokens */
+.glass-panel {
+  background: rgba(19, 21, 27, 0.7);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--app-border-light);
 }
 
-.theme-surface-light {
-  background-color: var(--app-surface-light);
+.glass-card {
+  background: linear-gradient(135deg, rgba(24, 27, 36, 0.75) 0%, rgba(9, 9, 11, 0.85) 100%);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid var(--app-border-light);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.theme-border {
-  border-color: var(--app-border);
-}
-
-.theme-text {
-  color: var(--app-text);
-}
-
-.theme-accent {
-  color: var(--app-accent);
-}
-
-.theme-accent-bg {
-  background-color: var(--app-accent);
-}
-
-.theme-accent-soft {
-  background-color: var(--app-accent-soft);
-}
-
-.theme-accent-border {
+.glass-card:hover {
   border-color: var(--app-accent-border);
+  box-shadow: 0 12px 30px -10px rgba(0, 0, 0, 0.6), 0 0 25px -5px var(--app-accent-soft);
+  transform: translateY(-2px);
 }
 
-.theme-accent-hover:hover {
-  color: var(--app-accent-hover);
+.glow-pill {
+  background: var(--app-accent-soft);
+  color: var(--app-accent);
+  border: 1px solid var(--app-accent-border);
+  box-shadow: 0 0 15px -3px var(--app-accent-soft);
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, var(--app-accent) 0%, #ea580c 100%);
+  color: #ffffff;
+  font-weight: 600;
+  box-shadow: 0 4px 14px -2px rgba(249, 115, 22, 0.4);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.btn-primary:hover {
+  box-shadow: 0 6px 20px -2px rgba(249, 115, 22, 0.6);
+  transform: translateY(-1px);
+}
+.btn-primary:active {
+  transform: translateY(0px) scale(0.98);
+}
+
+/* Micro-animations */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulseGlow {
+  0%, 100% {
+    opacity: 0.4;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(1.06);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-pulse-glow {
+  animation: pulseGlow 4s ease-in-out infinite;
+}
+
+/* Hide scrollbar utility */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
 
 /* print optimizations */

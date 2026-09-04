@@ -6,10 +6,10 @@ import {
   Package,
   SlidersHorizontal,
   RefreshCw,
-  ArrowUpDown,
   CheckCircle2,
   Sparkles,
   PlusCircle,
+  Tag,
 } from "lucide-react";
 import ProductCard from "../components/ProductCard";
 import ProductRequestModal from "../components/ProductRequestModal";
@@ -19,7 +19,7 @@ const Products = () => {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [submittedSearch, setSubmittedSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [error, setError] = useState("");
 
   const [sortBy, setSortBy] = useState("featured"); // "featured", "price-low", "price-high", "name-asc"
@@ -32,6 +32,14 @@ const Products = () => {
   // Product request modal state
   const [requestModalOpen, setRequestModalOpen] = useState(false);
   const [selectedRequestProduct, setSelectedRequestProduct] = useState(null);
+
+  // Live debounced search (250ms)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search.trim());
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [search]);
 
   // Fetch full inventory catalog from backend
   useEffect(() => {
@@ -98,14 +106,9 @@ const Products = () => {
     setSearchParams(newParams);
   };
 
-  const handleSearch = (event) => {
-    event.preventDefault();
-    setSubmittedSearch(search.trim());
-  };
-
   const clearFilters = () => {
     setSearch("");
-    setSubmittedSearch("");
+    setDebouncedSearch("");
     setSortBy("featured");
     setInStockOnly(false);
     handleCategorySelect("All");
@@ -116,7 +119,7 @@ const Products = () => {
     const list = products.filter((product) => {
       const productName = String(product?.name || "").toLowerCase();
       const productCategory = String(product?.category || "");
-      const searchText = submittedSearch.toLowerCase();
+      const searchText = debouncedSearch.toLowerCase();
 
       const matchesSearch =
         !searchText || productName.includes(searchText);
@@ -147,10 +150,10 @@ const Products = () => {
       if (stockA !== stockB) return stockB - stockA;
       return new Date(b?.createdAt || 0) - new Date(a?.createdAt || 0);
     });
-  }, [products, submittedSearch, selectedCategory, inStockOnly, sortBy]);
+  }, [products, debouncedSearch, selectedCategory, inStockOnly, sortBy]);
 
-  const handleOpenNewRequest = () => {
-    setSelectedRequestProduct(null);
+  const handleOpenNewRequest = (defaultName = "") => {
+    setSelectedRequestProduct(defaultName ? { name: defaultName } : null);
     setRequestModalOpen(true);
   };
 
@@ -169,7 +172,7 @@ const Products = () => {
               <Sparkles className="h-3.5 w-3.5" />
               <span>Smart Inventory & Customer Requests</span>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
+            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white font-display">
               Shop Catalog & Availability
             </h1>
             <p className="mt-1 text-xs sm:text-sm text-zinc-400 max-w-xl">
@@ -179,10 +182,10 @@ const Products = () => {
 
           <button
             type="button"
-            onClick={handleOpenNewRequest}
-            className="inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-amber-500 to-amber-600 px-5 py-3 text-xs sm:text-sm font-bold text-black shadow-[0_0_20px_rgba(245,158,11,0.3)] transition hover:from-amber-400 hover:to-amber-500 active:scale-95 shrink-0"
+            onClick={() => handleOpenNewRequest()}
+            className="inline-flex items-center justify-center gap-2 rounded-2xl btn-primary px-5 py-3 text-xs sm:text-sm font-bold shadow-lg transition active:scale-95 shrink-0"
           >
-            <PlusCircle className="h-4 w-4 text-black" />
+            <PlusCircle className="h-4 w-4" />
             <span>Request a Product</span>
           </button>
         </div>
@@ -192,16 +195,16 @@ const Products = () => {
       <div className="space-y-4 rounded-2xl border border-white/[0.08] bg-zinc-900/40 p-4 backdrop-blur-md">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
           {/* Category Pill Navigation */}
-          <div className="flex flex-wrap items-center gap-1.5 overflow-x-auto pb-1 max-w-full">
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 max-w-full no-scrollbar">
             {availableCategories.map((cat) => (
               <button
                 key={cat.name}
                 type="button"
                 onClick={() => handleCategorySelect(cat.name)}
-                className={`rounded-xl px-3 py-1.5 text-xs font-semibold transition ${
+                className={`shrink-0 rounded-xl px-3.5 py-1.5 text-xs font-semibold transition ${
                   selectedCategory === cat.name
                     ? "bg-[var(--app-accent)] text-white shadow-md"
-                    : "bg-zinc-900/80 text-zinc-400 hover:bg-zinc-800 hover:text-white"
+                    : "bg-zinc-900/80 text-zinc-400 hover:bg-zinc-800 hover:text-white border border-white/5"
                 }`}
               >
                 {cat.name} ({cat.count})
@@ -240,10 +243,7 @@ const Products = () => {
             </div>
 
             {/* Search Input */}
-            <form
-              onSubmit={handleSearch}
-              className="relative flex w-full sm:w-64 items-center"
-            >
+            <div className="relative flex w-full sm:w-64 items-center">
               <div className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500">
                 <Search className="h-4 w-4" />
               </div>
@@ -261,21 +261,21 @@ const Products = () => {
                   type="button"
                   onClick={() => {
                     setSearch("");
-                    setSubmittedSearch("");
+                    setDebouncedSearch("");
                   }}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white"
                 >
                   <X className="h-3.5 w-3.5" />
                 </button>
               )}
-            </form>
+            </div>
           </div>
         </div>
 
         {/* Active Filter Tags & Reset */}
-        {(selectedCategory !== "All" || submittedSearch || inStockOnly || sortBy !== "featured") && (
+        {(selectedCategory !== "All" || debouncedSearch || inStockOnly || sortBy !== "featured") && (
           <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-white/5">
-            <span className="text-xs text-zinc-500 font-medium">Active filters:</span>
+            <span className="text-xs text-zinc-400 font-medium">Active filters:</span>
             {selectedCategory !== "All" && (
               <span className="inline-flex items-center gap-1 rounded-lg border border-[var(--app-accent-border)] bg-[var(--app-accent-soft)] px-2.5 py-1 text-xs font-medium text-[var(--app-accent)]">
                 Category: {selectedCategory}
@@ -288,14 +288,14 @@ const Products = () => {
                 </button>
               </span>
             )}
-            {submittedSearch && (
+            {debouncedSearch && (
               <span className="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-zinc-800 px-2.5 py-1 text-xs font-medium text-zinc-300">
-                Search: "{submittedSearch}"
+                Search: "{debouncedSearch}"
                 <button
                   type="button"
                   onClick={() => {
                     setSearch("");
-                    setSubmittedSearch("");
+                    setDebouncedSearch("");
                   }}
                   className="hover:text-white"
                 >
@@ -328,9 +328,13 @@ const Products = () => {
 
       {/* Loading state */}
       {loading && (
-        <div className="py-16 text-center text-zinc-500">
-          <RefreshCw className="mx-auto mb-2 h-8 w-8 animate-spin text-[var(--app-accent)]" />
-          <p className="text-sm font-medium">Loading inventory...</p>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 sm:gap-6 py-4">
+          {[1, 2, 3, 4, 5, 6, 7, 8].map((n) => (
+            <div
+              key={n}
+              className="h-80 animate-pulse rounded-2xl border border-white/5 bg-zinc-900/60 p-4"
+            />
+          ))}
         </div>
       )}
 
@@ -358,8 +362,8 @@ const Products = () => {
           <p className="mt-1 text-xs text-zinc-600">Please check back later or request a product.</p>
           <button
             type="button"
-            onClick={handleOpenNewRequest}
-            className="mt-4 rounded-xl bg-amber-500 px-4 py-2 text-xs font-bold text-black hover:bg-amber-400"
+            onClick={() => handleOpenNewRequest()}
+            className="mt-4 rounded-xl btn-primary px-4 py-2 text-xs font-bold"
           >
             Request a Product
           </button>
@@ -371,9 +375,9 @@ const Products = () => {
         <div className="rounded-2xl border border-white/5 bg-zinc-900/40 py-16 text-center">
           <SlidersHorizontal className="mx-auto mb-2 h-8 w-8 text-zinc-600" />
           <p className="text-sm font-semibold text-zinc-300">No matching products found</p>
-          <p className="mt-1 text-xs text-zinc-500">
-            {submittedSearch
-              ? `No products match "${submittedSearch}" in our catalog.`
+          <p className="mt-1 text-xs text-zinc-400">
+            {debouncedSearch
+              ? `No products match "${debouncedSearch}" in our catalog.`
               : "Try switching filters or selecting a different category."}
           </p>
           <div className="mt-4 flex items-center justify-center gap-3">
@@ -386,13 +390,10 @@ const Products = () => {
             </button>
             <button
               type="button"
-              onClick={() => {
-                setProductName(submittedSearch || "");
-                handleOpenNewRequest();
-              }}
-              className="rounded-xl bg-amber-500 px-4 py-2 text-xs font-bold text-black hover:bg-amber-400"
+              onClick={() => handleOpenNewRequest(debouncedSearch || "")}
+              className="rounded-xl btn-primary px-4 py-2 text-xs font-bold"
             >
-              Request "{submittedSearch || "This Product"}"
+              Request "{debouncedSearch || "This Product"}"
             </button>
           </div>
         </div>

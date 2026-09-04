@@ -1,12 +1,14 @@
-import React from "react";
-import { Routes, Route, Navigate } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
 import Navbar from "./components/Navbar";
+import Sidebar from "./components/Sidebar";
 import Footer from "./components/Footer";
 import ProtectedRoute from "./components/ProtectedRoute";
 import SuperAdminRoute from "./components/SuperAdminRoute";
+import { authStorage } from "./services/api";
 
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
@@ -31,8 +33,49 @@ import Categories from "./pages/Categories";
 import ProductRequests from "./pages/ProductRequests";
 
 const App = () => {
+  const [user, setUser] = useState(() => authStorage.getUser());
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem("smartshop_admin_sidebar_collapsed") === "true";
+    } catch {
+      return false;
+    }
+  });
+  const location = useLocation();
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("smartshop_admin_sidebar_collapsed", sidebarCollapsed);
+    } catch (e) {
+      console.error(e);
+    }
+  }, [sidebarCollapsed]);
+
+  useEffect(() => {
+    const syncUser = () => {
+      setUser(authStorage.getUser());
+    };
+
+    syncUser();
+    window.addEventListener("auth-changed", syncUser);
+    window.addEventListener("storage", syncUser);
+
+    return () => {
+      window.removeEventListener("auth-changed", syncUser);
+      window.removeEventListener("storage", syncUser);
+    };
+  }, [location.pathname]);
+
+  // Automatically close mobile sidebar drawer on route navigation
+  useEffect(() => {
+    setSidebarOpen(false);
+  }, [location.pathname]);
+
+  const isLoginPage = location.pathname === "/login";
+
   return (
-    <div className="flex min-h-screen flex-col bg-zinc-950">
+    <div className="flex min-h-screen bg-zinc-950 text-zinc-100 font-sans selection:bg-[var(--app-accent)] selection:text-white">
       <ToastContainer
         position="top-right"
         autoClose={3500}
@@ -45,21 +88,39 @@ const App = () => {
         pauseOnHover
         theme="dark"
       />
-      <Navbar />
-      <main className="flex-1 pt-8">
-        <Routes>
-          {/* Public authentication */}
-          <Route path="/login" element={<Login />} />
 
-          {/* Protected admin routes */}
-          <Route
-            path="/dashboard"
-            element={
-              <ProtectedRoute>
-                <Dashboard />
-              </ProtectedRoute>
-            }
-          />
+      {/* Render Sidebar only for authenticated admin views */}
+      {user && !isLoginPage && (
+        <Sidebar
+          isOpen={sidebarOpen}
+          setIsOpen={setSidebarOpen}
+          isCollapsed={sidebarCollapsed}
+          setIsCollapsed={setSidebarCollapsed}
+          user={user}
+        />
+      )}
+
+      {/* Main Content Area */}
+      <div className="flex flex-1 flex-col min-w-0 overflow-x-hidden">
+        <Navbar
+          onToggleSidebar={() => setSidebarOpen((prev) => !prev)}
+          onToggleCollapse={() => setSidebarCollapsed((prev) => !prev)}
+          isCollapsed={sidebarCollapsed}
+        />
+        <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8 max-w-[1600px] w-full mx-auto">
+          <Routes>
+            {/* Public authentication */}
+            <Route path="/login" element={<Login />} />
+
+            {/* Protected admin routes */}
+            <Route
+              path="/dashboard"
+              element={
+                <ProtectedRoute>
+                  <Dashboard />
+                </ProtectedRoute>
+              }
+            />
           <Route
             path="/customers"
             element={
@@ -241,12 +302,12 @@ const App = () => {
 
           {/* Fallback navigation redirect */}
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
-          <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
       </main>
       <Footer />
     </div>
-  );
+  </div>
+);
 };
 
 export default App;

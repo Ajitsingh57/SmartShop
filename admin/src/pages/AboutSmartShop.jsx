@@ -3,14 +3,8 @@ import { Link } from "react-router-dom";
 
 const AboutSmartShop = () => {
   return (
-    <div
-      className="w-full px-4 py-6 sm:px-6 md:px-10 lg:px-12"
-      style={{
-        backgroundColor: "var(--app-bg)",
-        color: "var(--app-text)",
-      }}
-    >
-      <div className="mx-auto max-w-7xl">
+    <div className="w-full space-y-6">
+      <div>
         <Link
           to="/settings"
           className="mb-5 inline-flex items-center gap-2 text-xs font-medium transition-colors"

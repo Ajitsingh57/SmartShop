@@ -64,14 +64,8 @@ const HelpSupport = () => {
   };
 
   return (
-    <div
-      className="min-h-screen w-full px-4 py-6 sm:px-6 md:px-10 lg:px-12"
-      style={{
-        backgroundColor: "var(--app-bg)",
-        color: "var(--app-text)",
-      }}
-    >
-      <div className="mx-auto max-w-7xl">
+    <div className="w-full space-y-6">
+      <div>
         {/* Support hero section */}
         <div
           className="relative mb-6 overflow-hidden rounded-2xl border p-6 sm:p-8 shadow-[0_10px_40px_rgba(0,0,0,0.35)]"

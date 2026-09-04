@@ -669,15 +669,8 @@ const CustomerProfile = () => {
   };
 
   return (
-    <div
-      className="min-h-screen w-full px-4 py-6 sm:px-6 md:px-10 lg:px-12"
-      style={{
-        backgroundColor: "var(--app-bg)",
-        color: "var(--app-text)",
-      }}
-    >
-      <div className="mx-auto max-w-7xl space-y-5">
-        {/* Navigation & Actions Topbar */}
+    <div className="w-full space-y-5">
+      {/* Navigation & Actions Topbar */}
         <div className="flex flex-wrap items-center justify-between gap-3">
           <Link
             to="/customers"
@@ -1593,7 +1586,6 @@ const CustomerProfile = () => {
           </div>
         )}
       </div>
-    </div>
   );
 };
 

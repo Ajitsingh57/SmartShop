@@ -254,15 +254,8 @@ const AddProduct = () => {
   };
 
   return (
-    <div
-      className="min-h-screen w-full px-4 py-6 sm:px-6 md:px-10 lg:px-12"
-      style={{
-        backgroundColor: "var(--app-bg)",
-        color: "var(--app-text)",
-      }}
-    >
-      <div className="mx-auto max-w-5xl">
-        <div className="mb-7">
+    <div className="w-full max-w-5xl space-y-6">
+      <div className="mb-7">
           <div className="mb-3 flex items-center gap-2 text-sm">
             <Link
               to="/products"
@@ -702,7 +695,6 @@ const AddProduct = () => {
             </div>
           </div>
         </form>
-      </div>
 
       {/* Quick Add Category Modal */}
       {showCategoryModal && (

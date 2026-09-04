@@ -1,20 +1,23 @@
 import React, { useEffect, useState } from "react";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
-  NavLink,
-  useLocation,
-  useNavigate,
-} from "react-router-dom";
+  Menu,
+  ShoppingCart,
+  User,
+  LogOut,
+  Sparkles,
+  ExternalLink,
+  Shield,
+  Layers,
+} from "lucide-react";
 import { authStorage } from "../services/api";
 import Logo from "./Logo";
 
-const Navbar = () => {
-  const [menuOpen, setMenuOpen] = useState(false);
+const Navbar = ({ onToggleSidebar, onToggleCollapse, isCollapsed }) => {
   const [user, setUser] = useState(() => authStorage.getUser());
-
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Synchronize authenticated user state with token expiration checks
   useEffect(() => {
     const syncUser = () => {
       const currentUser = authStorage.getUser();
@@ -31,181 +34,107 @@ const Navbar = () => {
     };
   }, [location.pathname]);
 
-  // Close mobile drawer on route navigation
-  useEffect(() => {
-    setMenuOpen(false);
-  }, [location.pathname]);
-
-  const navItems = [
-    { name: "Dashboard", path: "/dashboard" },
-    { name: "Customers", path: "/customers" },
-    { name: "Products", path: "/products" },
-    { name: "Requests", path: "/product-requests" },
-    { name: "Sales", path: "/sales" },
-    { name: "Payments", path: "/payments" },
-    { name: "Credits", path: "/credits" },
-    { name: "Returns", path: "/returns" },
-    { name: "Transactions", path: "/transactions" },
-    { name: "Settings", path: "/settings" },
-  ];
-
-  const isSuperAdmin = user?.role?.toLowerCase() === "superadmin";
-
   const handleLogout = () => {
     authStorage.clear();
     setUser(null);
-    setMenuOpen(false);
     navigate("/login");
   };
 
-  const linkClass = ({ isActive }) =>
-    `relative text-[14px] 2xl:text-[15px] font-medium transition-all duration-300 ${
-      isActive
-        ? "text-white after:w-full"
-        : "text-zinc-400 hover:text-white after:w-0"
-    } after:absolute after:left-0 after:-bottom-2 after:h-[2px] after:w-0 after:rounded-full after:transition-all after:duration-300 after:bg-[var(--app-accent)] hover:after:w-full`;
+  // If user is not logged in (e.g. on /login page), show minimal clean login top bar
+  if (!user) {
+    return (
+      <header className="sticky top-0 z-30 border-b border-white/5 bg-zinc-950/80 px-4 py-3 shadow-md backdrop-blur-xl">
+        <div className="mx-auto flex max-w-7xl items-center justify-between">
+          <NavLink to="/login" className="transition-transform active:scale-95">
+            <Logo size="sm" showBadge badgeText="Admin Portal" />
+          </NavLink>
+
+          <a
+            href="http://localhost:5173"
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-3.5 py-1.5 text-xs font-semibold text-zinc-300 hover:bg-white/10 hover:text-white transition"
+          >
+            <span>Customer View</span>
+            <ExternalLink className="h-3 w-3" />
+          </a>
+        </div>
+      </header>
+    );
+  }
 
   return (
-    <nav
-      className="sticky top-0 z-50 border-b border-white/5 bg-zinc-950/75 px-4 py-3.5 shadow-[0_4px_30px_rgba(0,0,0,0.5)] backdrop-blur-2xl sm:px-6 md:px-8 lg:px-12"
-    >
-      <div className="flex items-center justify-between">
-        {/* Brand logo */}
-        <NavLink to={user ? "/dashboard" : "/login"} className="transition-transform active:scale-95">
-          <Logo size="sm" showBadge badgeText="Admin" />
-        </NavLink>
+    <header className="sticky top-0 z-30 border-b border-white/5 bg-zinc-950/80 px-4 py-3 shadow-[0_4px_25px_rgba(0,0,0,0.4)] backdrop-blur-2xl sm:px-6">
+      <div className="flex items-center justify-between gap-3">
+        {/* Left: Mobile Sidebar Trigger, Desktop Sidebar Toggle & Status */}
+        <div className="flex items-center gap-3">
+          {/* Mobile hamburger (< 1024px) */}
+          <button
+            type="button"
+            onClick={onToggleSidebar}
+            className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-zinc-900/80 text-white lg:hidden hover:border-white/20 hover:bg-zinc-800 transition active:scale-95"
+            aria-label="Toggle sidebar navigation"
+          >
+            <Menu className="h-5 w-5" />
+          </button>
 
-        {/* Desktop navigation items (Shown ONLY when admin is logged in) */}
-        <div className="hidden items-center gap-5 2xl:gap-7 xl:flex">
-          {user ? (
-            <>
-              {navItems.map((item) => (
-                <NavLink key={item.path} to={item.path} className={linkClass}>
-                  {item.name}
-                </NavLink>
-              ))}
+          {/* Desktop sidebar expand / collapse trigger (>= 1024px) */}
+          <button
+            type="button"
+            onClick={onToggleCollapse}
+            className="hidden lg:flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-zinc-900/80 text-zinc-300 hover:text-white hover:border-[var(--app-accent-border)] hover:bg-zinc-800 transition active:scale-95 shadow-sm"
+            title={isCollapsed ? "Expand Side Menu" : "Collapse Side Menu"}
+            aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+          >
+            <Menu className="h-4.5 w-4.5" />
+          </button>
 
-              {isSuperAdmin && (
-                <NavLink to="/admins" className={linkClass}>
-                  Admins
-                </NavLink>
-              )}
+          <div className="lg:hidden">
+            <Logo size="sm" showBadge badgeText="Admin" />
+          </div>
 
-              <div className="ml-2 flex items-center gap-3">
-                <NavLink
-                  to="/profile"
-                  className="max-w-[130px] truncate text-xs font-medium text-zinc-300 transition-colors hover:text-[var(--app-accent)]"
-                  title="View Profile"
-                >
-                  {user.name || user.username || "Admin"}
-                </NavLink>
-
-                <button
-                  type="button"
-                  onClick={handleLogout}
-                  className="rounded-lg border border-zinc-800 bg-zinc-900/80 px-3 py-1.5 text-xs font-semibold text-zinc-300 transition-all hover:border-red-500/40 hover:bg-red-500/10 hover:text-red-400"
-                >
-                  Logout
-                </button>
-              </div>
-            </>
-          ) : (
-            <NavLink
-              to="/login"
-              className="rounded-lg bg-[var(--app-accent)] px-4 py-2 text-xs font-bold text-white transition hover:opacity-90"
-            >
-              Admin Login
-            </NavLink>
-          )}
-        </div>
-
-        {/* Mobile & Tablet menu trigger toggle */}
-        <button
-          type="button"
-          onClick={() => setMenuOpen(!menuOpen)}
-          className="flex h-10 w-10 items-center justify-center rounded-lg border border-white/10 bg-zinc-900/70 text-white xl:hidden backdrop-blur-md transition hover:border-white/20 hover:bg-zinc-900/90"
-          aria-label="Toggle navigation menu"
-        >
-          <span className="text-xl">{menuOpen ? "✕" : "☰"}</span>
-        </button>
-      </div>
-
-      {/* Mobile & Tablet Drawer Menu */}
-      <div
-        className={`overflow-hidden transition-all duration-300 xl:hidden ${
-          menuOpen ? "max-h-[85vh] pt-4 opacity-100" : "max-h-0 pt-0 opacity-0"
-        }`}
-      >
-        <div className="rounded-2xl border border-white/10 bg-zinc-950/65 p-4 shadow-[0_12px_40px_rgba(0,0,0,0.6)] backdrop-blur-2xl max-h-[80vh] overflow-y-auto">
-          <div className="flex flex-col items-center gap-1.5">
-            {user ? (
-              <>
-                {navItems.map((item) => (
-                  <NavLink
-                    key={item.path}
-                    to={item.path}
-                    onClick={() => setMenuOpen(false)}
-                    className={({ isActive }) =>
-                      `w-full max-w-[280px] rounded-lg px-4 py-2.5 text-center text-sm font-medium transition-all duration-200 ${
-                        isActive
-                          ? "bg-[var(--app-accent-soft)] text-[var(--app-accent)] font-semibold border border-[var(--app-accent-border)] backdrop-blur-sm"
-                          : "text-zinc-300 hover:bg-white/10 hover:text-white"
-                      }`
-                    }
-                  >
-                    {item.name}
-                  </NavLink>
-                ))}
-
-                {isSuperAdmin && (
-                  <NavLink
-                    to="/admins"
-                    onClick={() => setMenuOpen(false)}
-                    className={({ isActive }) =>
-                      `w-full max-w-[280px] rounded-lg px-4 py-2.5 text-center text-sm font-medium transition-all duration-200 ${
-                        isActive
-                          ? "bg-[var(--app-accent-soft)] text-[var(--app-accent)] font-semibold border border-[var(--app-accent-border)] backdrop-blur-sm"
-                          : "text-zinc-300 hover:bg-white/10 hover:text-white"
-                      }`
-                    }
-                  >
-                    Admins Management
-                  </NavLink>
-                )}
-
-                <div className="mt-3 w-full max-w-[280px] border-t border-white/10 pt-3">
-                  <NavLink
-                    to="/profile"
-                    onClick={() => setMenuOpen(false)}
-                    className="mb-2 block rounded-lg bg-white/[0.05] border border-white/5 px-4 py-2.5 text-center text-sm font-medium text-zinc-300 backdrop-blur-md transition-colors hover:bg-[var(--app-accent-soft)] hover:text-[var(--app-accent)]"
-                  >
-                    My Profile ({user.name || user.username || "Admin"})
-                  </NavLink>
-
-                  <button
-                    type="button"
-                    onClick={handleLogout}
-                    className="w-full rounded-lg border border-zinc-700/60 bg-zinc-900/60 px-4 py-2.5 text-center text-sm font-medium text-zinc-300 backdrop-blur-md transition-all hover:border-red-500/40 hover:bg-red-500/10 hover:text-red-400"
-                  >
-                    Logout
-                  </button>
-                </div>
-              </>
-            ) : (
-              <div className="w-full max-w-[280px] pt-1">
-                <NavLink
-                  to="/login"
-                  onClick={() => setMenuOpen(false)}
-                  className="block w-full rounded-xl bg-[var(--app-accent)] px-4 py-3 text-center text-sm font-bold text-white shadow-lg"
-                >
-                  Admin Login
-                </NavLink>
-              </div>
-            )}
+          {/* Live Store Status Pill */}
+          <div className="hidden sm:inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-950/40 px-3 py-1 text-[11px] font-semibold text-emerald-400 backdrop-blur-md">
+            <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_#34d399]" />
+            <span>Store Live & Active</span>
           </div>
         </div>
+
+        {/* Right: Quick Action Shortcuts & Profile */}
+        <div className="flex items-center gap-2.5">
+          {/* Quick POS Sale Button */}
+          <NavLink
+            to="/sales"
+            className="inline-flex items-center gap-1.5 rounded-xl btn-primary px-3.5 py-2 text-xs font-bold shadow-md transition active:scale-95"
+          >
+            <ShoppingCart className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">New Bill</span>
+            <span className="text-[10px] bg-black/20 rounded px-1 hidden md:inline">F2</span>
+          </NavLink>
+
+          {/* Quick Profile Link */}
+          <NavLink
+            to="/profile"
+            className="flex items-center gap-2 rounded-xl border border-white/10 bg-zinc-900/80 px-3 py-1.5 text-xs font-semibold text-zinc-300 hover:border-[var(--app-accent-border)] hover:text-white transition"
+          >
+            <User className="h-3.5 w-3.5 text-[var(--app-accent)]" />
+            <span className="max-w-[100px] truncate hidden sm:inline">
+              {user.name || user.username || "Admin"}
+            </span>
+          </NavLink>
+
+          {/* Logout Shortcut */}
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="flex h-9 w-9 items-center justify-center rounded-xl border border-zinc-800 bg-zinc-900/80 text-zinc-400 hover:border-red-500/40 hover:bg-red-500/10 hover:text-red-400 transition"
+            title="Sign out"
+          >
+            <LogOut className="h-4 w-4" />
+          </button>
+        </div>
       </div>
-    </nav>
+    </header>
   );
 };
 

@@ -100,18 +100,11 @@ const AdminActivity = () => {
   };
 
   return (
-    <div
-      className="min-h-screen w-full px-4 py-6 sm:px-6 md:px-10 lg:px-12"
-      style={{
-        backgroundColor: "var(--app-bg)",
-        color: "var(--app-text)",
-      }}
-    >
-      <div className="mx-auto max-w-7xl">
-        {/* Header */}
-        <div className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-white sm:text-3xl">Admin Activity Audit</h1>
+    <div className="w-full space-y-6">
+      {/* Header */}
+      <div className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-white sm:text-3xl">Admin Activity Audit</h1>
             <p className="mt-1 text-sm text-zinc-400">
               Complete chronological audit trail of all actions performed across the store.
             </p>
@@ -257,7 +250,6 @@ const AdminActivity = () => {
           </div>
         )}
       </div>
-    </div>
   );
 };
 

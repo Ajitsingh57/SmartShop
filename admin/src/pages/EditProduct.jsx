@@ -351,14 +351,8 @@ const EditProduct = () => {
   const stockZero = currentStock === 0;
 
   return (
-    <div
-      className="min-h-[calc(100vh-73px)] w-full px-4 py-5 sm:px-6 lg:px-8"
-      style={{
-        backgroundColor: "var(--app-bg)",
-        color: "var(--app-text)",
-      }}
-    >
-      <div className="mx-auto max-w-3xl">
+    <div className="w-full max-w-4xl space-y-6">
+      <div>
         <div className="mb-5">
           <button
             type="button"

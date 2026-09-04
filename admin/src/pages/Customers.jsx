@@ -263,12 +263,8 @@ const Customers = () => {
   };
 
   return (
-    <div
-      className="min-h-[calc(100vh-73px)] w-full px-4 py-7 text-white transition-colors duration-500 sm:px-6 md:px-10 lg:px-12"
-      style={{ backgroundColor: "var(--app-bg)" }}
-    >
-      <div className="mx-auto max-w-7xl">
-        {/* Header */}
+    <div className="w-full space-y-6 text-white">
+      {/* Header */}
         <div className="mb-8 flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <div className="mb-2 flex items-center gap-2 text-sm">
@@ -615,7 +611,6 @@ const Customers = () => {
           </div>
         )}
       </div>
-    </div>
   );
 };
 

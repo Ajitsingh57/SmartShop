@@ -206,15 +206,8 @@ const Products = () => {
   };
 
   return (
-    <div
-      className="min-h-[calc(100vh-73px)] w-full px-4 py-6 sm:px-6 md:px-10 lg:px-12"
-      style={{
-        backgroundColor: "var(--app-bg)",
-        color: "var(--app-text)",
-      }}
-    >
-      <div className="mx-auto max-w-7xl">
-        <div className="mb-7 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+    <div className="w-full space-y-6">
+      <div className="mb-7 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <p className="mb-1 text-sm font-medium" style={{ color: "var(--app-accent)" }}>
               Inventory Management
@@ -721,7 +714,6 @@ const Products = () => {
           )}
         </div>
       </div>
-    </div>
   );
 };
 

@@ -258,7 +258,7 @@ const Profile = () => {
   const currentPhone = user?.phone || null;
 
   return (
-    <div className="w-full px-4 sm:px-6 md:px-[50px]">
+    <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8 pb-16">
       <div
         className="mx-auto max-w-4xl rounded-xl border border-white/5 p-5 text-white shadow-[0_10px_40px_rgba(0,0,0,0.5)] sm:rounded-[16px] sm:p-8 md:p-10"
         style={{

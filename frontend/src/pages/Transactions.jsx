@@ -406,7 +406,7 @@ const Transactions = () => {
   ];
 
   return (
-    <div className="w-full px-4 sm:px-6 md:px-[50px] pb-16">
+    <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8 pb-16">
       {/* Page Header */}
       <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
         <div>

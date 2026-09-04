@@ -239,15 +239,8 @@ const Categories = () => {
   };
 
   return (
-    <div
-      className="min-h-[calc(100vh-73px)] w-full px-3.5 py-4 sm:px-6 md:px-8 lg:px-12 sm:py-6"
-      style={{
-        backgroundColor: "var(--app-bg)",
-        color: "var(--app-text)",
-      }}
-    >
-      <div className="mx-auto max-w-7xl">
-        {/* Breadcrumb Navigation */}
+    <div className="w-full space-y-6">
+      {/* Breadcrumb Navigation */}
         <div className="mb-3 sm:mb-4 flex items-center gap-1.5 sm:gap-2 text-xs font-medium text-zinc-400">
           <button
             type="button"
@@ -573,7 +566,6 @@ const Categories = () => {
             })}
           </div>
         )}
-      </div>
 
       {/* ========================================================================= */}
       {/* ADD CATEGORY MODAL (Mobile Bottom Sheet & Tablet/Desktop Center Modal) */}

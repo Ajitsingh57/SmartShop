@@ -80,14 +80,8 @@ const About = () => {
   );
 
   return (
-    <div
-      className="min-h-screen w-full px-4 py-6 sm:px-6 md:px-10 lg:px-12"
-      style={{
-        backgroundColor: "var(--app-bg)",
-        color: "var(--app-text)",
-      }}
-    >
-      <div className="mx-auto max-w-6xl">
+    <div className="w-full space-y-6">
+      <div>
         <div className="mb-8">
           <Link
             to="/settings"
