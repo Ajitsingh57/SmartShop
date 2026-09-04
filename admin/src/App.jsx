@@ -102,12 +102,14 @@ const App = () => {
 
       {/* Main Content Area */}
       <div className="flex flex-1 flex-col min-w-0 overflow-x-hidden">
-        <Navbar
-          onToggleSidebar={() => setSidebarOpen((prev) => !prev)}
-          onToggleCollapse={() => setSidebarCollapsed((prev) => !prev)}
-          isCollapsed={sidebarCollapsed}
-        />
-        <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8 max-w-[1600px] w-full mx-auto">
+        {user && !isLoginPage && (
+          <Navbar
+            onToggleSidebar={() => setSidebarOpen((prev) => !prev)}
+            onToggleCollapse={() => setSidebarCollapsed((prev) => !prev)}
+            isCollapsed={sidebarCollapsed}
+          />
+        )}
+        <main className={`flex-1 ${!user || isLoginPage ? "" : "px-4 py-6 sm:px-6 lg:px-8 max-w-[1600px]"} w-full mx-auto`}>
           <Routes>
             {/* Public authentication */}
             <Route path="/login" element={<Login />} />

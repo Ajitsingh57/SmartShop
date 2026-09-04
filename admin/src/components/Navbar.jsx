@@ -40,27 +40,9 @@ const Navbar = ({ onToggleSidebar, onToggleCollapse, isCollapsed }) => {
     navigate("/login");
   };
 
-  // If user is not logged in (e.g. on /login page), show minimal clean login top bar
+  // If user is not logged in (e.g. on /login page), do not render any navbar
   if (!user) {
-    return (
-      <header className="sticky top-0 z-30 border-b border-white/5 bg-zinc-950/80 px-4 py-3 shadow-md backdrop-blur-xl">
-        <div className="mx-auto flex max-w-7xl items-center justify-between">
-          <NavLink to="/login" className="transition-transform active:scale-95">
-            <Logo size="sm" showBadge badgeText="Admin Portal" />
-          </NavLink>
-
-          <a
-            href="http://localhost:5173"
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-3.5 py-1.5 text-xs font-semibold text-zinc-300 hover:bg-white/10 hover:text-white transition"
-          >
-            <span>Customer View</span>
-            <ExternalLink className="h-3 w-3" />
-          </a>
-        </div>
-      </header>
-    );
+    return null;
   }
 
   return (
