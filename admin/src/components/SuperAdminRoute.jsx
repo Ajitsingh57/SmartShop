@@ -29,16 +29,24 @@ const SuperAdminRoute = ({ children }) => {
   }
 
   const user = authStorage.getUser();
-  let role = (user?.role || "").toLowerCase().trim();
+  const jwtPayload = parseJwt(token);
 
-  if (!role) {
-    const jwtPayload = parseJwt(token);
-    if (jwtPayload?.role) {
-      role = String(jwtPayload.role).toLowerCase().trim();
-    }
-  }
+  const rawRole =
+    user?.rawRole ||
+    user?.role ||
+    jwtPayload?.role ||
+    "";
 
-  if (role !== "superadmin") {
+  const normalized = String(rawRole || "")
+    .toLowerCase()
+    .replace(/[\s_-]/g, "");
+
+  const isSuperAdmin =
+    normalized === "superadmin" ||
+    normalized === "superadministrator" ||
+    normalized.includes("superadmin");
+
+  if (!isSuperAdmin) {
     return <Navigate to="/dashboard" replace />;
   }
 
