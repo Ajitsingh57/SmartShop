@@ -20,6 +20,7 @@ import {
   ChevronRight,
   Sparkles,
   ExternalLink,
+  X,
 } from "lucide-react";
 import Logo from "./Logo";
 import { authStorage } from "../services/api";
@@ -125,6 +126,17 @@ const Sidebar = ({
             ) : (
               <ChevronLeft className="h-4 w-4 group-hover:-translate-x-0.5 transition-transform" />
             )}
+          </button>
+
+          {/* Mobile close / shrink drawer toggle (< 1024px) */}
+          <button
+            type="button"
+            onClick={() => setIsOpen?.(false)}
+            className="flex lg:hidden h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-zinc-900/90 text-zinc-300 hover:text-white hover:border-red-500/30 hover:bg-red-500/10 transition active:scale-95 shadow-sm"
+            title="Close / Shrink Menu"
+            aria-label="Close sidebar"
+          >
+            <X className="h-4 w-4" />
           </button>
         </div>
 
