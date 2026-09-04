@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Eye, EyeOff } from "lucide-react";
 import { toast } from "react-toastify";
 import { authApi, authStorage } from "../services/api";
+import Logo from "../components/Logo";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -107,18 +108,12 @@ const Login = () => {
           background: `radial-gradient(circle at top right, var(--app-accent-soft), transparent 60%), linear-gradient(135deg, var(--app-surface-light) 0%, var(--app-surface) 100%)`,
         }}
       >
-        <div className="mb-8 text-center">
-          <div
-            className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full text-2xl font-bold text-white shadow-lg transition-all duration-300"
-            style={{
-              backgroundColor: "var(--app-accent)",
-              boxShadow: "0 10px 25px var(--app-accent-soft)",
-            }}
-          >
-            S
+        <div className="mb-8 text-center flex flex-col items-center">
+          <div className="mb-4">
+            <Logo size="lg" showText={false} />
           </div>
 
-          <h1 className="text-3xl font-bold tracking-tight sm:text-4xl" style={{ color: "var(--app-text)" }}>
+          <h1 className="text-3xl font-display font-extrabold tracking-tight sm:text-4xl" style={{ color: "var(--app-text)" }}>
             Admin Login
           </h1>
 

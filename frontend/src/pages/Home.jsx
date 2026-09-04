@@ -169,7 +169,7 @@ const Home = () => {
             Smart Retail & Inventory
           </span>
 
-          <h1 className="mb-4 text-3xl font-black tracking-tight text-white sm:text-5xl md:text-6xl">
+          <h1 className="mb-4 text-3xl font-display font-black tracking-tight text-white sm:text-5xl md:text-6xl">
             Welcome to SmartShop<span style={{ color: "var(--app-accent)" }}>.</span>
           </h1>
 

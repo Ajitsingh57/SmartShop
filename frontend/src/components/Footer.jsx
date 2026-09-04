@@ -1,5 +1,6 @@
 import React from "react";
 import { Link } from "react-router-dom";
+import Logo from "./Logo";
 
 const Footer = () => {
   const currentYear = new Date().getFullYear();
@@ -19,19 +20,11 @@ const Footer = () => {
         {/* Mobile footer layout */}
         <div className="sm:hidden">
           <div className="flex items-start gap-3">
-            <div
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-sm font-bold"
-              style={{
-                backgroundColor: "var(--app-accent-soft)",
-                color: "var(--app-accent)",
-              }}
-            >
-              S
-            </div>
+            <Logo size="xs" showText={false} />
 
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-x-2">
-                <h2 className="text-sm font-bold text-white">SmartShop</h2>
+                <span className="text-sm font-bold text-white font-display">SmartShop</span>
                 <span className="text-xs text-zinc-700">|</span>
                 <span className="text-xs text-zinc-500">Customer & Credit Portal</span>
               </div>
@@ -82,18 +75,10 @@ const Footer = () => {
         <div className="hidden sm:block lg:hidden">
           <div className="flex items-center justify-between gap-8">
             <div className="flex min-w-0 items-center gap-3">
-              <div
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-sm font-bold"
-                style={{
-                  backgroundColor: "var(--app-accent-soft)",
-                  color: "var(--app-accent)",
-                }}
-              >
-                S
-              </div>
+              <Logo size="xs" showText={false} />
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
-                  <h2 className="text-sm font-bold text-white">SmartShop</h2>
+                  <span className="text-sm font-bold text-white font-display">SmartShop</span>
                   <span className="text-xs text-zinc-700">|</span>
                   <span className="text-xs text-zinc-500">Customer & Credit Portal</span>
                 </div>
@@ -145,18 +130,10 @@ const Footer = () => {
         {/* Desktop footer layout */}
         <div className="hidden lg:flex lg:items-center lg:justify-between lg:gap-8">
           <div className="flex min-w-0 items-center gap-3">
-            <div
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-sm font-bold"
-              style={{
-                backgroundColor: "var(--app-accent-soft)",
-                color: "var(--app-accent)",
-              }}
-            >
-              S
-            </div>
+            <Logo size="xs" showText={false} />
             <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <h2 className="text-sm font-bold text-white">SmartShop</h2>
+                <span className="text-sm font-bold text-white font-display">SmartShop</span>
                 <span className="text-xs text-zinc-700">|</span>
                 <span className="text-xs text-zinc-500">Customer & Credit Portal</span>
               </div>

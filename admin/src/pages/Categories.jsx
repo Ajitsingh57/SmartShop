@@ -247,24 +247,6 @@ const Categories = () => {
       }}
     >
       <div className="mx-auto max-w-7xl">
-        {/* Toast Notification */}
-        {successToast && (
-          <div className="fixed bottom-4 left-4 right-4 sm:left-auto sm:right-6 sm:bottom-6 z-50 flex items-center justify-between gap-3 rounded-xl border border-emerald-500/30 bg-emerald-950/95 p-3.5 sm:px-4 sm:py-3 text-xs sm:text-sm font-medium text-emerald-200 shadow-2xl backdrop-blur-xl animate-in fade-in slide-in-from-bottom-5">
-            <div className="flex items-center gap-2.5 min-w-0">
-              <CheckCircle2 className="h-4 w-4 sm:h-5 sm:w-5 text-emerald-400 shrink-0" />
-              <span className="truncate">{successToast}</span>
-            </div>
-            <button
-              type="button"
-              onClick={() => setSuccessToast("")}
-              className="ml-2 text-emerald-400 hover:text-white shrink-0"
-              aria-label="Close alert"
-            >
-              ✕
-            </button>
-          </div>
-        )}
-
         {/* Breadcrumb Navigation */}
         <div className="mb-3 sm:mb-4 flex items-center gap-1.5 sm:gap-2 text-xs font-medium text-zinc-400">
           <button

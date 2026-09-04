@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { authStorage } from "../services/api";
+import Logo from "./Logo";
 
 const Navbar = () => {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -66,16 +67,8 @@ const Navbar = () => {
     <nav className="sticky top-0 z-50 border-b border-white/5 bg-zinc-950/75 px-4 py-3.5 shadow-[0_4px_30px_rgba(0,0,0,0.5)] backdrop-blur-2xl sm:px-6 md:px-8 lg:px-12">
       <div className="flex items-center justify-between">
         {/* Brand logo */}
-        <NavLink to="/" className="flex items-center gap-2">
-          <div
-            className="flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-full bg-[var(--app-accent)] text-base sm:text-lg font-bold text-white shadow-lg"
-            style={{ boxShadow: "0 10px 25px var(--app-accent-soft)" }}
-          >
-            S
-          </div>
-          <span className="text-xl font-bold tracking-tight text-white sm:text-2xl">
-            SmartShop<span className="text-[var(--app-accent)]">.</span>
-          </span>
+        <NavLink to="/" className="transition-transform active:scale-95">
+          <Logo size="sm" />
         </NavLink>
 
         {/* Desktop navigation (lg and above) */}
