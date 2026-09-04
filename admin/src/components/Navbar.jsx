@@ -48,7 +48,7 @@ const Navbar = ({ onToggleSidebar, onToggleCollapse, isCollapsed }) => {
   return (
     <header className="sticky top-0 z-30 border-b border-white/5 bg-zinc-950/80 px-4 py-3 shadow-[0_4px_25px_rgba(0,0,0,0.4)] backdrop-blur-2xl sm:px-6">
       <div className="flex items-center justify-between gap-3">
-        {/* Left: Mobile Sidebar Trigger, Desktop Sidebar Toggle & Status */}
+        {/* Left: Mobile Sidebar Trigger & Status */}
         <div className="flex items-center gap-3">
           {/* Mobile hamburger (< 1024px) */}
           <button
@@ -58,17 +58,6 @@ const Navbar = ({ onToggleSidebar, onToggleCollapse, isCollapsed }) => {
             aria-label="Toggle sidebar navigation"
           >
             <Menu className="h-5 w-5" />
-          </button>
-
-          {/* Desktop sidebar expand / collapse trigger (>= 1024px) */}
-          <button
-            type="button"
-            onClick={onToggleCollapse}
-            className="hidden lg:flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-zinc-900/80 text-zinc-300 hover:text-white hover:border-[var(--app-accent-border)] hover:bg-zinc-800 transition active:scale-95 shadow-sm"
-            title={isCollapsed ? "Expand Side Menu" : "Collapse Side Menu"}
-            aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-          >
-            <Menu className="h-4.5 w-4.5" />
           </button>
 
           <div className="lg:hidden">

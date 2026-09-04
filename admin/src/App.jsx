@@ -75,7 +75,11 @@ const App = () => {
   const isLoginPage = location.pathname === "/login";
 
   return (
-    <div className="flex min-h-screen bg-zinc-950 text-zinc-100 font-sans selection:bg-[var(--app-accent)] selection:text-white">
+    <div
+      className={`flex ${
+        !user || isLoginPage ? "min-h-screen" : "h-screen"
+      } w-full overflow-hidden bg-zinc-950 text-zinc-100 font-sans selection:bg-[var(--app-accent)] selection:text-white`}
+    >
       <ToastContainer
         position="top-right"
         autoClose={3500}
@@ -101,7 +105,7 @@ const App = () => {
       )}
 
       {/* Main Content Area */}
-      <div className="flex flex-1 flex-col min-w-0 overflow-x-hidden">
+      <div className="flex flex-1 flex-col h-screen min-w-0 overflow-hidden bg-zinc-950">
         {user && !isLoginPage && (
           <Navbar
             onToggleSidebar={() => setSidebarOpen((prev) => !prev)}
@@ -109,8 +113,13 @@ const App = () => {
             isCollapsed={sidebarCollapsed}
           />
         )}
-        <main className={`flex-1 ${!user || isLoginPage ? "" : "px-4 py-6 sm:px-6 lg:px-8 max-w-[1600px]"} w-full mx-auto`}>
-          <Routes>
+        <div className="flex-1 overflow-y-auto flex flex-col justify-between">
+          <main
+            className={`flex-1 ${
+              !user || isLoginPage ? "" : "px-4 py-6 sm:px-6 lg:px-8 max-w-[1600px]"
+            } w-full mx-auto`}
+          >
+            <Routes>
             {/* Public authentication */}
             <Route path="/login" element={<Login />} />
 
@@ -309,6 +318,7 @@ const App = () => {
       <Footer />
     </div>
   </div>
+</div>
 );
 };
 
