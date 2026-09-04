@@ -22,6 +22,7 @@ import {
   Activity,
   BarChart3,
   PieChart,
+  ShieldCheck,
 } from "lucide-react";
 import {
   customersApi,
@@ -387,6 +388,11 @@ const Dashboard = () => {
       ? "Good afternoon"
       : "Good evening";
 
+  const isSuperAdmin =
+    String(currentUser?.role || authStorage.getUser()?.role || "")
+      .toLowerCase()
+      .replace(/[\s_-]/g, "") === "superadmin";
+
   return (
     <div className="w-full space-y-6 animate-fade-in">
       {/* ========================================================================= */}
@@ -405,6 +411,13 @@ const Dashboard = () => {
                 <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_#34d399]" />
                 <span>Store POS Online & Active</span>
               </span>
+
+              {isSuperAdmin && (
+                <span className="inline-flex items-center gap-1 rounded-full border border-purple-500/30 bg-purple-950/60 px-2.5 py-0.5 text-[11px] font-bold text-purple-300">
+                  <ShieldCheck className="h-3 w-3 text-purple-400" />
+                  <span>Super Administrator</span>
+                </span>
+              )}
 
               <span className="hidden sm:inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-2.5 py-0.5 text-[11px] font-medium text-zinc-400">
                 <Clock className="h-3 w-3 text-zinc-500" />
@@ -433,6 +446,16 @@ const Dashboard = () => {
               <RefreshCw className={`h-4 w-4 text-[var(--app-accent)] ${refreshing ? "animate-spin" : ""}`} />
               <span className="hidden sm:inline">{refreshing ? "Syncing..." : "Sync Data"}</span>
             </button>
+
+            {isSuperAdmin && (
+              <Link
+                to="/admins"
+                className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-purple-500/30 bg-purple-500/10 px-3.5 py-2.5 text-xs sm:text-sm font-semibold text-purple-300 hover:bg-purple-500/20 hover:border-purple-500/50 transition active:scale-95 shadow-sm"
+              >
+                <ShieldCheck className="h-4 w-4 text-purple-400" />
+                <span>Admin Accounts</span>
+              </Link>
+            )}
 
             <Link
               to="/credits"

@@ -25,6 +25,25 @@ import {
 import Logo from "./Logo";
 import { authStorage } from "../services/api";
 
+const parseJwt = (token) => {
+  try {
+    if (!token || typeof token !== "string") return null;
+    const parts = token.split(".");
+    if (parts.length !== 3) return null;
+    const base64Url = parts[1];
+    const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+    const jsonPayload = decodeURIComponent(
+      atob(base64)
+        .split("")
+        .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
+        .join("")
+    );
+    return JSON.parse(jsonPayload);
+  } catch {
+    return null;
+  }
+};
+
 const Sidebar = ({
   isOpen,
   setIsOpen,
@@ -33,7 +52,15 @@ const Sidebar = ({
   user,
 }) => {
   const navigate = useNavigate();
-  const isSuperAdmin = user?.role?.toLowerCase() === "superadmin";
+
+  // Robust Super Admin Detection (User State + Storage + JWT Token fallback)
+  const token = authStorage.getToken();
+  const rawRole =
+    user?.role ||
+    authStorage.getUser()?.role ||
+    (token ? parseJwt(token)?.role : "");
+  const normalizedRole = String(rawRole || "").toLowerCase().replace(/[\s_-]/g, "");
+  const isSuperAdmin = normalizedRole === "superadmin";
 
   const handleLogout = () => {
     authStorage.clear();
@@ -69,14 +96,19 @@ const Sidebar = ({
       label: "Operations",
       items: [
         { name: "Returns / Refunds", path: "/returns", icon: RotateCcw },
-        ...(isSuperAdmin
-          ? [
-              { name: "Admins Staff", path: "/admins", icon: ShieldCheck },
-              { name: "Activity Log", path: "/admin-activity", icon: History },
-            ]
-          : []),
       ],
     },
+    ...(isSuperAdmin
+      ? [
+          {
+            label: "Super Admin",
+            items: [
+              { name: "Admin Accounts", path: "/admins", icon: ShieldCheck, highlight: true },
+              { name: "System Activity Log", path: "/admin-activity", icon: History },
+            ],
+          },
+        ]
+      : []),
     {
       label: "System",
       items: [
