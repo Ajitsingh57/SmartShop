@@ -265,23 +265,6 @@ const Home = () => {
           <p className="mx-auto max-w-xl text-sm leading-relaxed text-zinc-300 sm:text-base md:text-lg">
             {timeContext.subhead}
           </p>
-
-          <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
-            <Link
-              to="/products"
-              className="inline-flex items-center gap-2 rounded-xl btn-primary px-6 py-3 text-sm font-bold shadow-lg"
-            >
-              <Sparkles className="h-4 w-4" />
-              Browse All Products
-            </Link>
-
-            <Link
-              to="/settings/help-support"
-              className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-5 py-3 text-sm font-semibold text-zinc-200 backdrop-blur-md transition-all hover:bg-white/10 hover:text-white"
-            >
-              How It Works
-            </Link>
-          </div>
         </div>
       </div>
 

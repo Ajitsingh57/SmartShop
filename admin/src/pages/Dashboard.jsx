@@ -396,15 +396,14 @@ const Dashboard = () => {
   return (
     <div className="w-full space-y-6 animate-fade-in">
       {/* ========================================================================= */}
-      {/* 1. EXECUTIVE COMMAND HEADER & QUICK ACTIONS BAR                           */}
+      {/* 1. EXECUTIVE COMMAND HEADER                                               */}
       {/* ========================================================================= */}
-      <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl border border-white/10 bg-gradient-to-br from-zinc-900/95 via-zinc-900/80 to-zinc-950 p-5 sm:p-7 shadow-2xl backdrop-blur-xl">
+      <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl border border-white/10 bg-gradient-to-br from-zinc-900/95 via-zinc-900/80 to-zinc-950 p-6 sm:p-8 shadow-2xl backdrop-blur-xl">
         {/* Dynamic Background Glow Mesh */}
-        <div className="pointer-events-none absolute -right-16 -top-20 h-72 w-72 rounded-full bg-[var(--app-accent-soft)] blur-3xl opacity-75" />
-        <div className="pointer-events-none absolute left-1/3 -bottom-20 h-56 w-56 rounded-full bg-emerald-500/10 blur-3xl opacity-60" />
+        <div className="pointer-events-none absolute -right-16 -top-20 h-72 w-72 rounded-full bg-[var(--app-accent-soft)] blur-3xl opacity-70" />
+        <div className="pointer-events-none absolute left-1/3 -bottom-20 h-56 w-56 rounded-full bg-emerald-500/10 blur-3xl opacity-50" />
 
-        <div className="relative z-10 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
-          {/* Left: Store Status & Executive Greeting */}
+        <div className="relative z-10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2 mb-2.5">
               <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-950/60 px-3 py-1 text-[11px] font-bold text-emerald-400 shadow-sm backdrop-blur-md">
@@ -430,48 +429,21 @@ const Dashboard = () => {
             </h1>
 
             <p className="mt-1.5 text-xs sm:text-sm text-zinc-400 max-w-2xl leading-relaxed">
-              Real-time store control center. Monitor today's live revenue, track customer khata udhar balances, and manage inventory operations.
+              Real-time store control center. Monitor today's live revenue, track customer khata balances, and manage inventory operations.
             </p>
           </div>
 
-          {/* Right: Quick Action Command Deck */}
-          <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+          <div className="flex items-center gap-2 shrink-0 self-start sm:self-center">
             <button
               type="button"
               onClick={() => loadDashboardData(true)}
               disabled={refreshing}
-              className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-zinc-900/80 px-3.5 py-2.5 text-xs font-semibold text-zinc-300 hover:text-white hover:bg-zinc-800 transition active:scale-95 shadow-sm"
+              className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-zinc-900/80 px-4 py-2.5 text-xs font-semibold text-zinc-300 hover:text-white hover:bg-zinc-800 transition active:scale-95 shadow-sm"
               title="Refresh Dashboard Data"
             >
               <RefreshCw className={`h-4 w-4 text-[var(--app-accent)] ${refreshing ? "animate-spin" : ""}`} />
-              <span className="hidden sm:inline">{refreshing ? "Syncing..." : "Sync Data"}</span>
+              <span>{refreshing ? "Syncing..." : "Sync Live Data"}</span>
             </button>
-
-            {isSuperAdmin && (
-              <Link
-                to="/admins"
-                className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-purple-500/30 bg-purple-500/10 px-3.5 py-2.5 text-xs sm:text-sm font-semibold text-purple-300 hover:bg-purple-500/20 hover:border-purple-500/50 transition active:scale-95 shadow-sm"
-              >
-                <ShieldCheck className="h-4 w-4 text-purple-400" />
-                <span>Admin Accounts</span>
-              </Link>
-            )}
-
-            <Link
-              to="/credits"
-              className="inline-flex items-center justify-center gap-2 rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-2.5 text-xs sm:text-sm font-semibold text-rose-300 hover:bg-rose-500/20 hover:border-rose-500/50 transition active:scale-95 shadow-sm"
-            >
-              <CreditCard className="h-4 w-4 text-rose-400" />
-              <span>Khata Ledger</span>
-            </Link>
-
-            <Link
-              to="/sales"
-              className="inline-flex items-center justify-center gap-2 rounded-xl btn-primary px-5 py-2.5 text-xs sm:text-sm font-bold shadow-lg active:scale-95 transition"
-            >
-              <ShoppingCart className="h-4 w-4" />
-              <span>New POS Bill (F2)</span>
-            </Link>
           </div>
         </div>
       </div>
