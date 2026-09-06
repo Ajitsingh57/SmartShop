@@ -76,7 +76,7 @@ export default function App() {
         onToggleSidebar={() => setSidebarOpen((prev) => !prev)}
       />
 
-      <main className="flex-1 pt-6 sm:pt-8">
+      <main className="flex-1 pt-16 sm:pt-20">
         <Routes>
           {/* Public customer routes */}
           <Route path="/" element={<Home />} />

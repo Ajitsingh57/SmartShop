@@ -14,8 +14,46 @@ import Logo from "./Logo";
 
 const Navbar = ({ onToggleSidebar }) => {
   const [user, setUser] = useState(() => authStorage.getUser());
+  const [isVisible, setIsVisible] = useState(true);
   const location = useLocation();
   const navigate = useNavigate();
+
+  // Smart Auto-Hide Scroll Listener (Scroll Down = Hide, Scroll Up = Show)
+  useEffect(() => {
+    let lastScrollY = window.scrollY;
+    let ticking = false;
+
+    const handleScroll = () => {
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          const currentScrollY = window.scrollY;
+
+          // Always visible at the top of the page
+          if (currentScrollY <= 40) {
+            setIsVisible(true);
+          } else if (currentScrollY > lastScrollY && currentScrollY - lastScrollY > 8) {
+            // Scrolling down -> Hide on mobile
+            setIsVisible(false);
+          } else if (lastScrollY - currentScrollY > 6) {
+            // Scrolling up -> Reveal immediately
+            setIsVisible(true);
+          }
+
+          lastScrollY = Math.max(0, currentScrollY);
+          ticking = false;
+        });
+        ticking = true;
+      }
+    };
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  // Reset visibility upon route change
+  useEffect(() => {
+    setIsVisible(true);
+  }, [location.pathname]);
 
   // Synchronize authenticated customer state
   useEffect(() => {
@@ -65,7 +103,11 @@ const Navbar = ({ onToggleSidebar }) => {
     }`;
 
   return (
-    <header className="sticky top-0 z-40 border-b border-white/5 bg-zinc-950/80 px-3 py-2.5 sm:px-6 sm:py-3 shadow-[0_4px_25px_rgba(0,0,0,0.4)] backdrop-blur-2xl">
+    <header
+      className={`fixed top-0 left-0 right-0 z-40 border-b border-white/5 bg-zinc-950/85 px-3 py-2.5 sm:px-6 sm:py-3 shadow-[0_4px_25px_rgba(0,0,0,0.4)] backdrop-blur-2xl transition-transform duration-300 ease-in-out ${
+        isVisible ? "translate-y-0" : "-translate-y-full lg:translate-y-0"
+      }`}
+    >
       <div className="flex items-center justify-between gap-4 max-w-7xl mx-auto">
         {/* Left: Mobile Sidebar Trigger & Brand Logo */}
         <div className="flex items-center gap-2.5 sm:gap-4">
