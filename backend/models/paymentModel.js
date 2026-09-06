@@ -101,6 +101,11 @@ const paymentSchema = new mongoose.Schema(
   }
 );
 
+// Compound indexes for user payments, status workflows, and time-range filtering
+paymentSchema.index({ customerId: 1, createdAt: -1 });
+paymentSchema.index({ userId: 1, createdAt: -1 });
+paymentSchema.index({ status: 1, createdAt: -1 });
+
 const paymentModel = mongoose.models.Payment || mongoose.model("Payment", paymentSchema);
 
 export default paymentModel;

@@ -1,5 +1,6 @@
 import express from "express";
 import cors from "cors";
+import compression from "compression";
 import "dotenv/config";
 import { connectDB } from "./config/db.js";
 import dns from "node:dns";
@@ -22,6 +23,9 @@ dns.setServers([
 
 const app = express();
 const port = process.env.PORT || 5000;
+
+// Compress all HTTP response payloads
+app.use(compression());
 
 // Security response headers middleware
 app.use((req, res, next) => {

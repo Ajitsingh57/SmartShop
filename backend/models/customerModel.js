@@ -48,6 +48,11 @@ const customerSchema = new mongoose.Schema(
     }
 );
 
+// Indexes for sorting/filtering customers by financial metrics & trust score
+customerSchema.index({ trustScore: -1 });
+customerSchema.index({ pendingAmount: -1 });
+customerSchema.index({ totalPurchase: -1 });
+
 const customerModel = mongoose.models.Customer || mongoose.model("Customer", customerSchema);
 
 export default customerModel;

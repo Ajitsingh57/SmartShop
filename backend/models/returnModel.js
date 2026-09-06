@@ -113,6 +113,10 @@ const returnSchema = new mongoose.Schema(
     }
 );
 
+// Compound indexes for return logs and customer return lookups
+returnSchema.index({ customerId: 1, returnedAt: -1 });
+returnSchema.index({ adminId: 1, returnedAt: -1 });
+
 const returnModel = mongoose.models.Return || mongoose.model("Return", returnSchema);
 
 export default returnModel;

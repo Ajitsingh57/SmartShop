@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, lazy, Suspense } from "react";
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
@@ -10,27 +10,40 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import SuperAdminRoute from "./components/SuperAdminRoute";
 import { authStorage } from "./services/api";
 
-import Login from "./pages/Login";
-import Dashboard from "./pages/Dashboard";
-import Customers from "./pages/Customers";
-import Products from "./pages/Products";
-import Sales from "./pages/Sales";
-import Payments from "./pages/Payments";
-import Credits from "./pages/Credits";
-import Returns from "./pages/Returns";
-import Transactions from "./pages/Transactions";
-import Admins from "./pages/Admins";
-import Profile from "./pages/Profile";
-import Settings from "./pages/Settings";
-import HelpSupport from "./pages/HelpSupport";
-import AboutSmartShop from "./pages/AboutSmartShop";
-import About from "./pages/About";
-import AddProduct from "./pages/AddProduct";
-import AdminActivity from "./pages/AdminActivity";
-import EditProduct from "./pages/EditProduct";
-import CustomerProfile from "./pages/CustomerProfile";
-import Categories from "./pages/Categories";
-import ProductRequests from "./pages/ProductRequests";
+// Lazy-loaded admin pages for on-demand bundle splitting
+const Login = lazy(() => import("./pages/Login"));
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const Customers = lazy(() => import("./pages/Customers"));
+const Products = lazy(() => import("./pages/Products"));
+const Sales = lazy(() => import("./pages/Sales"));
+const Payments = lazy(() => import("./pages/Payments"));
+const Credits = lazy(() => import("./pages/Credits"));
+const Returns = lazy(() => import("./pages/Returns"));
+const Transactions = lazy(() => import("./pages/Transactions"));
+const Admins = lazy(() => import("./pages/Admins"));
+const Profile = lazy(() => import("./pages/Profile"));
+const Settings = lazy(() => import("./pages/Settings"));
+const HelpSupport = lazy(() => import("./pages/HelpSupport"));
+const AboutSmartShop = lazy(() => import("./pages/AboutSmartShop"));
+const About = lazy(() => import("./pages/About"));
+const AddProduct = lazy(() => import("./pages/AddProduct"));
+const AdminActivity = lazy(() => import("./pages/AdminActivity"));
+const EditProduct = lazy(() => import("./pages/EditProduct"));
+const CustomerProfile = lazy(() => import("./pages/CustomerProfile"));
+const Categories = lazy(() => import("./pages/Categories"));
+const ProductRequests = lazy(() => import("./pages/ProductRequests"));
+
+// Admin page fallback spinner
+function AdminPageLoader() {
+  return (
+    <div className="flex min-h-[60vh] w-full items-center justify-center">
+      <div className="relative flex flex-col items-center gap-3">
+        <div className="h-10 w-10 animate-spin rounded-full border-2 border-emerald-500/20 border-t-emerald-500" />
+        <span className="text-xs font-medium tracking-wider text-zinc-400">Loading module...</span>
+      </div>
+    </div>
+  );
+}
 
 const App = () => {
   const [user, setUser] = useState(() => authStorage.getUser());
@@ -119,35 +132,36 @@ const App = () => {
               !user || isLoginPage ? "" : "px-4 py-6 sm:px-6 lg:px-8 max-w-[1600px]"
             } w-full mx-auto`}
           >
-            <Routes>
-            {/* Public authentication */}
-            <Route path="/login" element={<Login />} />
+            <Suspense fallback={<AdminPageLoader />}>
+              <Routes>
+                {/* Public authentication */}
+                <Route path="/login" element={<Login />} />
 
-            {/* Protected admin routes */}
-            <Route
-              path="/dashboard"
-              element={
-                <ProtectedRoute>
-                  <Dashboard />
-                </ProtectedRoute>
-              }
-            />
-          <Route
-            path="/customers"
-            element={
-              <ProtectedRoute>
-                <Customers />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/customers/:id"
-            element={
-              <ProtectedRoute>
-                <CustomerProfile />
-              </ProtectedRoute>
-            }
-          />
+                {/* Protected admin routes */}
+                <Route
+                  path="/dashboard"
+                  element={
+                    <ProtectedRoute>
+                      <Dashboard />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/customers"
+                  element={
+                    <ProtectedRoute>
+                      <Customers />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/customers/:id"
+                  element={
+                    <ProtectedRoute>
+                      <CustomerProfile />
+                    </ProtectedRoute>
+                  }
+                />
           <Route
             path="/products"
             element={
@@ -314,8 +328,9 @@ const App = () => {
           {/* Fallback navigation redirect */}
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
         </Routes>
-      </main>
-      <Footer />
+      </Suspense>
+    </main>
+    <Footer />
     </div>
   </div>
 </div>

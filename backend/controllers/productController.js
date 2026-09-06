@@ -107,7 +107,7 @@ export async function addProduct(req, res) {
 // Fetch all active (non-deleted) products
 export async function getProducts(req, res) {
     try {
-        const products = await Product.find({ deleted: false }).sort({ createdAt: -1 });
+        const products = await Product.find({ deleted: false }).sort({ createdAt: -1 }).lean();
         return res.status(200).json({
             success: true,
             products
@@ -125,7 +125,7 @@ export async function getProducts(req, res) {
 export async function getProduct(req, res) {
     try {
         const { id } = req.params;
-        const product = await Product.findOne({ _id: id, deleted: false });
+        const product = await Product.findOne({ _id: id, deleted: false }).lean();
 
         if (!product) {
             return res.status(404).json({

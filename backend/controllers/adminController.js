@@ -11,7 +11,7 @@ import { isValidName, isValidPhone, isValidUsername, sendValidationError } from 
 // Fetch all admin accounts (superadmin only)
 export const getAllAdmins = async (req, res) => {
     try {
-        const admins = await User.find({ role: "admin" }).select("-password").sort({ createdAt: -1 });
+        const admins = await User.find({ role: "admin" }).select("-password").sort({ createdAt: -1 }).lean();
         res.status(200).json({
             success: true,
             count: admins.length,
@@ -30,7 +30,7 @@ export const getAllAdmins = async (req, res) => {
 export const getAdminById = async (req, res) => {
     try {
         const { id } = req.params;
-        const admin = await User.findOne({ _id: id, role: { $in: ["admin", "superadmin"] } }).select("-password");
+        const admin = await User.findOne({ _id: id, role: { $in: ["admin", "superadmin"] } }).select("-password").lean();
 
         if (!admin) {
             return res.status(404).json({
@@ -55,7 +55,7 @@ export const getAdminById = async (req, res) => {
 // Fetch logged-in administrator profile details and statistics
 export const getMyAdminProfile = async (req, res) => {
     try {
-        const user = await User.findById(req.user._id).select("-password");
+        const user = await User.findById(req.user._id).select("-password").lean();
         if (!user) {
             return res.status(404).json({
                 success: false,
@@ -404,7 +404,8 @@ export const getAdminActivities = async (req, res) => {
         const recordedActivities = await Activity.find()
             .populate("adminId", "name username email")
             .sort({ createdAt: -1 })
-            .limit(100);
+            .limit(100)
+            .lean();
 
         const activities = [];
 
@@ -434,27 +435,31 @@ export const getAdminActivities = async (req, res) => {
 
         // fallback synthesize recent sales, payments, returns, products if needed
         const [defaultAdmin, sales, payments, returns, products] = await Promise.all([
-            User.findOne({ role: { $in: ["admin", "superadmin"] }, isActive: true }).sort({ createdAt: 1 }),
+            User.findOne({ role: { $in: ["admin", "superadmin"] }, isActive: true }).sort({ createdAt: 1 }).lean(),
             Sale.find()
                 .populate("adminId", "name username email")
                 .populate("customerId")
                 .sort({ createdAt: -1 })
-                .limit(30),
+                .limit(30)
+                .lean(),
             Payment.find({ $or: [{ recordedBy: { $ne: null } }, { verifiedBy: { $ne: null } }, { status: { $in: ["approved", "rejected"] } }] })
                 .populate("recordedBy", "name username email")
                 .populate("verifiedBy", "name username email")
                 .populate("customerId")
                 .sort({ updatedAt: -1 })
-                .limit(30),
+                .limit(30)
+                .lean(),
             Return.find()
                 .populate("adminId", "name username email")
                 .sort({ returnedAt: -1 })
-                .limit(30),
+                .limit(30)
+                .lean(),
             Product.find()
                 .populate("updatedBy", "name username email")
                 .populate("createdBy", "name username email")
                 .sort({ updatedAt: -1 })
                 .limit(20)
+                .lean()
         ]);
 
         for (const sale of sales) {

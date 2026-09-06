@@ -348,7 +348,8 @@ export const getMySales = async (req, res) => {
             .populate("adminId", "name email role")
             .populate("creditId")
             .populate("items.productId", "name price category unit image")
-            .sort({ createdAt: -1 });
+            .sort({ createdAt: -1 })
+            .lean();
 
         return res.status(200).json({
             success: true,
@@ -367,9 +368,9 @@ export const getMySales = async (req, res) => {
 export const getCustomerSales = async (req, res) => {
     try {
         const { customerId } = req.params;
-        let customer = await Customer.findById(customerId);
+        let customer = await Customer.findById(customerId).lean();
         if (!customer) {
-            customer = await Customer.findOne({ userId: customerId });
+            customer = await Customer.findOne({ userId: customerId }).lean();
         }
 
         if (!customer) {
@@ -390,7 +391,8 @@ export const getCustomerSales = async (req, res) => {
             .populate("adminId", "name email role")
             .populate("creditId")
             .populate("items.productId", "name price category unit image")
-            .sort({ createdAt: -1 });
+            .sort({ createdAt: -1 })
+            .lean();
 
         return res.status(200).json({
             success: true,
@@ -419,7 +421,8 @@ export const getAllSales = async (req, res) => {
             .populate("adminId", "name email role")
             .populate("creditId")
             .populate("items.productId", "name price category unit image")
-            .sort({ createdAt: -1 });
+            .sort({ createdAt: -1 })
+            .lean();
 
         return res.status(200).json({
             success: true,
@@ -448,7 +451,8 @@ export const getSaleById = async (req, res) => {
             })
             .populate("adminId", "name email role")
             .populate("creditId")
-            .populate("items.productId", "name price category unit image");
+            .populate("items.productId", "name price category unit image")
+            .lean();
 
         if (!sale) {
             return res.status(404).json({

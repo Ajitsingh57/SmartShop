@@ -12,7 +12,8 @@ import { isValidName, isValidPhone, isValidEmail, sendValidationError } from "..
 export const getMyProfile = async (req, res) => {
     try {
         const customer = await Customer.findOne({ userId: req.user._id })
-            .populate("userId", "name email phone role isActive");
+            .populate("userId", "name email phone role isActive")
+            .lean();
 
         if (!customer) {
             return res.status(404).json({
@@ -201,72 +202,104 @@ export async function getAllCustomers(req, res) {
                 "userId",
                 "name username email phone role isActive deactivatedAt createdAt updatedAt"
             )
-            .sort({ createdAt: -1 });
+            .sort({ createdAt: -1 })
+            .lean();
 
-        const formattedCustomers = await Promise.all(
-            customers.map(async (customer) => {
-                const user = customer.userId;
+        const customerIds = customers.map((c) => c._id);
 
-                if (!user) {
-                    return {
-                        user: null,
-                        profile: {
-                            _id: customer._id,
-                            userId: customer.userId,
-                            totalPurchase: Number(customer.totalPurchase || 0),
-                            trustScore: Number(customer.trustScore || 0),
-                            maxBorrowAmount: Number(customer.maxBorrowAmount || 0),
-                            pendingAmount: Number(customer.pendingAmount || 0),
-                            manualBorrowLimit: Number(customer.manualBorrowLimit || 0)
-                        },
-                        credits: [],
-                        sales: [],
-                        returns: []
-                    };
-                }
+        // Fetch related records in single batch queries instead of N+1 database hits
+        const [allCredits, allSales, allReturns] = await Promise.all([
+            Credit.find({ customerId: { $in: customerIds } }).sort({ createdAt: -1 }).lean(),
+            Sale.find({ customerId: { $in: customerIds } }).sort({ createdAt: -1 }).lean(),
+            Return.find({ customerId: { $in: customerIds } }).sort({ createdAt: -1 }).lean()
+        ]);
 
-                const credits = await Credit.find({ customerId: customer._id }).sort({ createdAt: -1 });
-                const sales = await Sale.find({ customerId: customer._id }).sort({ createdAt: -1 });
-                const returns = await Return.find({ customerId: customer._id }).sort({ createdAt: -1 });
+        // Group related data in-memory by customerId for O(1) retrieval
+        const creditsMap = new Map();
+        const salesMap = new Map();
+        const returnsMap = new Map();
 
-                const autoLimit = Number(customer.maxBorrowAmount || 0);
-                const manualLimit = Number(customer.manualBorrowLimit || 0);
-                const effectiveLimit = manualLimit > 0 ? manualLimit : autoLimit;
-                const isManualOverride = manualLimit > 0;
+        for (const credit of allCredits) {
+            const cid = String(credit.customerId);
+            if (!creditsMap.has(cid)) creditsMap.set(cid, []);
+            creditsMap.get(cid).push(credit);
+        }
 
+        for (const sale of allSales) {
+            const cid = String(sale.customerId);
+            if (!salesMap.has(cid)) salesMap.set(cid, []);
+            salesMap.get(cid).push(sale);
+        }
+
+        for (const ret of allReturns) {
+            const cid = String(ret.customerId);
+            if (!returnsMap.has(cid)) returnsMap.set(cid, []);
+            returnsMap.get(cid).push(ret);
+        }
+
+        const formattedCustomers = customers.map((customer) => {
+            const user = customer.userId;
+            const cid = String(customer._id);
+
+            if (!user) {
                 return {
-                    user: {
-                        _id: user._id,
-                        name: user.name,
-                        username: user.username,
-                        email: user.email,
-                        phone: user.phone,
-                        role: user.role,
-                        isActive: user.isActive,
-                        deactivatedAt: user.deactivatedAt,
-                        createdAt: user.createdAt,
-                        updatedAt: user.updatedAt
-                    },
+                    user: null,
                     profile: {
                         _id: customer._id,
                         userId: customer.userId,
                         totalPurchase: Number(customer.totalPurchase || 0),
                         trustScore: Number(customer.trustScore || 0),
-                        maxBorrowAmount: autoLimit,
-                        autoBorrowLimit: autoLimit,
-                        manualBorrowLimit: manualLimit,
-                        effectiveBorrowLimit: effectiveLimit,
-                        isManualOverride,
+                        maxBorrowAmount: Number(customer.maxBorrowAmount || 0),
                         pendingAmount: Number(customer.pendingAmount || 0),
-                        createdAt: customer.createdAt,
-                        updatedAt: customer.updatedAt
+                        manualBorrowLimit: Number(customer.manualBorrowLimit || 0)
                     },
-                    credits,
-                    sales,
-                    returns
+                    credits: creditsMap.get(cid) || [],
+                    sales: salesMap.get(cid) || [],
+                    returns: returnsMap.get(cid) || []
                 };
-            })
-        );
+            }
+
+            const credits = creditsMap.get(cid) || [];
+            const sales = salesMap.get(cid) || [];
+            const returns = returnsMap.get(cid) || [];
+
+            const autoLimit = Number(customer.maxBorrowAmount || 0);
+            const manualLimit = Number(customer.manualBorrowLimit || 0);
+            const effectiveLimit = manualLimit > 0 ? manualLimit : autoLimit;
+            const isManualOverride = manualLimit > 0;
+
+            return {
+                user: {
+                    _id: user._id,
+                    name: user.name,
+                    username: user.username,
+                    email: user.email,
+                    phone: user.phone,
+                    role: user.role,
+                    isActive: user.isActive,
+                    deactivatedAt: user.deactivatedAt,
+                    createdAt: user.createdAt,
+                    updatedAt: user.updatedAt
+                },
+                profile: {
+                    _id: customer._id,
+                    userId: customer.userId,
+                    totalPurchase: Number(customer.totalPurchase || 0),
+                    trustScore: Number(customer.trustScore || 0),
+                    maxBorrowAmount: autoLimit,
+                    autoBorrowLimit: autoLimit,
+                    manualBorrowLimit: manualLimit,
+                    effectiveBorrowLimit: effectiveLimit,
+                    isManualOverride,
+                    pendingAmount: Number(customer.pendingAmount || 0),
+                    createdAt: customer.createdAt,
+                    updatedAt: customer.updatedAt
+                },
+                credits,
+                sales,
+                returns
+            };
+        });
 
         return res.status(200).json({
             success: true,
@@ -285,7 +318,7 @@ export async function getAllCustomers(req, res) {
 // Get customer credit history
 export const getMyCreditHistory = async (req, res) => {
     try {
-        const customer = await Customer.findOne({ userId: req.user._id });
+        const customer = await Customer.findOne({ userId: req.user._id }).lean();
         if (!customer) {
             return res.status(404).json({
                 success: false,
@@ -293,7 +326,7 @@ export const getMyCreditHistory = async (req, res) => {
             });
         }
 
-        const credits = await Credit.find({ customerId: customer._id }).sort({ createdAt: -1 });
+        const credits = await Credit.find({ customerId: customer._id }).sort({ createdAt: -1 }).lean();
 
         return res.status(200).json({
             success: true,
@@ -315,7 +348,8 @@ export const getMyPaymentHistory = async (req, res) => {
             .populate("creditId")
             .populate("recordedBy", "name email role")
             .populate("verifiedBy", "name email role")
-            .sort({ paidAt: -1 });
+            .sort({ paidAt: -1 })
+            .lean();
 
         return res.status(200).json({
             success: true,
@@ -333,7 +367,7 @@ export const getMyPaymentHistory = async (req, res) => {
 // Get customer sales history
 export const getMySaleHistory = async (req, res) => {
     try {
-        const customer = await Customer.findOne({ userId: req.user._id });
+        const customer = await Customer.findOne({ userId: req.user._id }).lean();
         if (!customer) {
             return res.status(404).json({
                 success: false,
@@ -344,7 +378,8 @@ export const getMySaleHistory = async (req, res) => {
         const sales = await Sale.find({ customerId: customer._id })
             .populate("adminId", "name email role")
             .populate("creditId")
-            .sort({ createdAt: -1 });
+            .sort({ createdAt: -1 })
+            .lean();
 
         return res.status(200).json({
             success: true,
@@ -362,7 +397,7 @@ export const getMySaleHistory = async (req, res) => {
 // Get customer return history
 export const getMyReturnHistory = async (req, res) => {
     try {
-        const customer = await Customer.findOne({ userId: req.user._id });
+        const customer = await Customer.findOne({ userId: req.user._id }).lean();
         if (!customer) {
             return res.status(404).json({
                 success: false,
@@ -373,7 +408,8 @@ export const getMyReturnHistory = async (req, res) => {
         const returns = await Return.find({ customerId: customer._id })
             .populate("saleId")
             .populate("adminId", "name email role")
-            .sort({ returnedAt: -1 });
+            .sort({ returnedAt: -1 })
+            .lean();
 
         return res.status(200).json({
             success: true,
@@ -395,7 +431,7 @@ export const getCustomerHistory = async (req, res) => {
         const customer = await Customer.findById(customerId).populate(
             "userId",
             "name username email phone role isActive createdAt updatedAt"
-        );
+        ).lean();
 
         if (!customer) {
             return res.status(404).json({
@@ -405,19 +441,22 @@ export const getCustomerHistory = async (req, res) => {
         }
 
         const [credits, payments, sales, returns] = await Promise.all([
-            Credit.find({ customerId }).sort({ createdAt: -1 }),
+            Credit.find({ customerId }).sort({ createdAt: -1 }).lean(),
             Payment.find({ customerId })
                 .populate("verifiedBy", "name email role")
                 .populate("recordedBy", "name email role")
-                .sort({ paidAt: -1 }),
+                .sort({ paidAt: -1 })
+                .lean(),
             Sale.find({ customerId })
                 .populate("adminId", "name email role")
                 .populate("creditId")
-                .sort({ createdAt: -1 }),
+                .sort({ createdAt: -1 })
+                .lean(),
             Return.find({ customerId })
                 .populate("saleId")
                 .populate("adminId", "name email role")
                 .sort({ returnedAt: -1 })
+                .lean()
         ]);
 
         const syncResult = await syncCustomerTrustAndLimits(customerId);

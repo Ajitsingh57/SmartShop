@@ -42,21 +42,25 @@ export async function getCategories(req, res) {
   try {
     await ensureDefaultCategories();
 
-    const categories = await Category.find().sort({ name: 1 }).lean();
+    const [categories, productCounts] = await Promise.all([
+      Category.find().sort({ name: 1 }).lean(),
+      Product.aggregate([
+        { $match: { deleted: false } },
+        { $group: { _id: "$category", count: { $sum: 1 } } }
+      ])
+    ]);
 
-    // Attach product count for each category
-    const categoriesWithCount = await Promise.all(
-      categories.map(async (cat) => {
-        const productCount = await Product.countDocuments({
-          category: cat.name,
-          deleted: false,
-        });
-        return {
-          ...cat,
-          productCount,
-        };
-      })
-    );
+    const countMap = new Map();
+    for (const item of productCounts) {
+      if (item._id) {
+        countMap.set(String(item._id).trim().toLowerCase(), item.count);
+      }
+    }
+
+    const categoriesWithCount = categories.map((cat) => ({
+      ...cat,
+      productCount: countMap.get(String(cat.name).trim().toLowerCase()) || 0,
+    }));
 
     return res.status(200).json({
       success: true,

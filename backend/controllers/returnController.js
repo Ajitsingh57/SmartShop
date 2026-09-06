@@ -329,7 +329,8 @@ export const getReturnById = async (req, res) => {
         const returnRecord = await Return.findById(id)
             .populate("saleId")
             .populate("customerId")
-            .populate("adminId", "name email role");
+            .populate("adminId", "name email role")
+            .lean();
 
         if (!returnRecord) {
             return res.status(404).json({
@@ -363,7 +364,7 @@ export const getReturnById = async (req, res) => {
 // Fetch logged-in customer's return list
 export const getMyReturns = async (req, res) => {
     try {
-        const customer = await Customer.findOne({ userId: req.user._id });
+        const customer = await Customer.findOne({ userId: req.user._id }).lean();
         if (!customer) {
             return res.status(404).json({
                 success: false,
@@ -374,7 +375,8 @@ export const getMyReturns = async (req, res) => {
         const returns = await Return.find({ customerId: customer._id })
             .populate("saleId")
             .populate("adminId", "name email role")
-            .sort({ returnedAt: -1 });
+            .sort({ returnedAt: -1 })
+            .lean();
 
         return res.status(200).json({
             success: true,
@@ -393,9 +395,9 @@ export const getMyReturns = async (req, res) => {
 export const getCustomerReturns = async (req, res) => {
     try {
         const { customerId } = req.params;
-        let customer = await Customer.findById(customerId);
+        let customer = await Customer.findById(customerId).lean();
         if (!customer) {
-            customer = await Customer.findOne({ userId: customerId });
+            customer = await Customer.findOne({ userId: customerId }).lean();
         }
 
         if (!customer) {
@@ -408,7 +410,8 @@ export const getCustomerReturns = async (req, res) => {
         const returns = await Return.find({ customerId: customer._id })
             .populate("saleId")
             .populate("adminId", "name email role")
-            .sort({ returnedAt: -1 });
+            .sort({ returnedAt: -1 })
+            .lean();
 
         return res.status(200).json({
             success: true,
@@ -445,7 +448,8 @@ export const getAllReturns = async (req, res) => {
                 }
             })
             .populate("adminId", "name email role")
-            .sort({ returnedAt: -1 });
+            .sort({ returnedAt: -1 })
+            .lean();
 
         return res.status(200).json({
             success: true,

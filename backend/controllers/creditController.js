@@ -118,7 +118,8 @@ export async function getMyCredits(req, res) {
         const userId = req.user._id;
         const credits = await Credit.find({ userId })
             .populate("customerId", "userId pendingAmount totalPurchase trustScore")
-            .sort({ createdAt: -1 });
+            .sort({ createdAt: -1 })
+            .lean();
 
         return res.status(200).json({
             success: true,
@@ -147,7 +148,8 @@ export async function getCreditById(req, res) {
 
         const credit = await Credit.findById(id)
             .populate("customerId")
-            .populate("userId", "name email phone role");
+            .populate("userId", "name email phone role")
+            .lean();
 
         if (!credit) {
             return res.status(404).json({
@@ -191,9 +193,9 @@ export async function getCustomerCredits(req, res) {
             });
         }
 
-        let customer = await Customer.findById(customerId);
+        let customer = await Customer.findById(customerId).lean();
         if (!customer) {
-            customer = await Customer.findOne({ userId: customerId });
+            customer = await Customer.findOne({ userId: customerId }).lean();
         }
 
         if (!customer) {
@@ -205,7 +207,8 @@ export async function getCustomerCredits(req, res) {
 
         const credits = await Credit.find({ customerId: customer._id })
             .populate("userId", "name email phone role")
-            .sort({ createdAt: -1 });
+            .sort({ createdAt: -1 })
+            .lean();
 
         return res.status(200).json({
             success: true,
@@ -226,7 +229,8 @@ export async function getAllCredits(req, res) {
         const credits = await Credit.find()
             .populate("customerId")
             .populate("userId", "name email phone role")
-            .sort({ createdAt: -1 });
+            .sort({ createdAt: -1 })
+            .lean();
 
         return res.status(200).json({
             success: true,

@@ -77,6 +77,11 @@ const productSchema = new mongoose.Schema(
     }
 );
 
+// Indexes for efficient querying, filtering, and full-text search
+productSchema.index({ deleted: 1, available: 1, category: 1 });
+productSchema.index({ deleted: 1, createdAt: -1 });
+productSchema.index({ name: "text", description: "text" });
+
 const productModel = mongoose.models.Product || mongoose.model("Product", productSchema);
 
 export default productModel;

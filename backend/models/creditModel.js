@@ -80,6 +80,11 @@ const creditSchema = new mongoose.Schema(
     }
 );
 
+// Compound indexes for user debt checks and status filtering
+creditSchema.index({ customerId: 1, status: 1 });
+creditSchema.index({ userId: 1, status: 1 });
+creditSchema.index({ dueDate: 1, status: 1 });
+
 const creditModel = mongoose.models.Credit || mongoose.model("Credit", creditSchema);
 
 export default creditModel;

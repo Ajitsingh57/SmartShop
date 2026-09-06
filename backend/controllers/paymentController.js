@@ -152,7 +152,8 @@ const paymentPopulate = (query) =>
     .populate("userId", "name email phone role")
     .populate("recordedBy", "name email role")
     .populate("verifiedBy", "name email role")
-    .populate("claimedReceiver", "name email role");
+    .populate("claimedReceiver", "name email role")
+    .lean();
 
 // Create cash or UPI payment record
 export async function createPayment(req, res) {
@@ -815,7 +816,8 @@ export async function getPendingPayments(req, res) {
       .populate("userId", "name email role")
       .populate("creditId")
       .populate("claimedReceiver", "name email role")
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .lean();
 
     return res.status(200).json({
       success: true,

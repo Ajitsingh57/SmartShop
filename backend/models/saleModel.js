@@ -120,6 +120,12 @@ const saleSchema = new mongoose.Schema(
     }
 );
 
+// Compound indexes for rapid chronological filtering by admin, customer, status and payment type
+saleSchema.index({ adminId: 1, createdAt: -1 });
+saleSchema.index({ customerId: 1, createdAt: -1 });
+saleSchema.index({ paymentType: 1, createdAt: -1 });
+saleSchema.index({ status: 1, createdAt: -1 });
+
 const saleModel = mongoose.models.Sale || mongoose.model("Sale", saleSchema);
 
 export default saleModel;
