@@ -1,16 +1,23 @@
 import React, { useEffect, useState } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
+import {
+  Menu,
+  ShoppingCart,
+  User,
+  LogOut,
+  Sparkles,
+  LogIn,
+  UserPlus,
+} from "lucide-react";
 import { authStorage } from "../services/api";
 import Logo from "./Logo";
 
-const Navbar = () => {
-  const [menuOpen, setMenuOpen] = useState(false);
+const Navbar = ({ onToggleSidebar }) => {
   const [user, setUser] = useState(() => authStorage.getUser());
-
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Synchronize authenticated customer state with token expiration checks
+  // Synchronize authenticated customer state
   useEffect(() => {
     const syncUser = () => {
       const currentUser = authStorage.getUser();
@@ -27,178 +34,135 @@ const Navbar = () => {
     };
   }, [location.pathname]);
 
-  // Close mobile drawer on route navigation
-  useEffect(() => {
-    setMenuOpen(false);
-  }, [location.pathname]);
+  const handleLogout = () => {
+    authStorage.clear();
+    setUser(null);
+    navigate("/");
+  };
 
-  // Public items (always visible to everyone)
+  // Public items for desktop
   const publicNavItems = [
     { name: "Home", path: "/" },
     { name: "Products", path: "/products" },
   ];
 
-  // Protected customer items (ONLY visible when authenticated)
-  const protectedNavItems = [
+  // Customer items for desktop
+  const customerNavItems = [
     { name: "Transactions", path: "/transactions" },
     { name: "Payments", path: "/payments" },
     { name: "Settings", path: "/settings" },
   ];
 
   const visibleNavItems = user
-    ? [...publicNavItems, ...protectedNavItems]
+    ? [...publicNavItems, ...customerNavItems]
     : publicNavItems;
 
-  const handleLogout = () => {
-    authStorage.clear();
-    setUser(null);
-    setMenuOpen(false);
-    navigate("/");
-  };
-
-  const linkClass = ({ isActive }) =>
-    `relative text-[15px] font-medium transition-all duration-300 ${
+  const desktopLinkClass = ({ isActive }) =>
+    `relative px-3 py-1.5 text-xs font-semibold rounded-xl transition-all duration-200 ${
       isActive
-        ? "text-white after:w-full"
-        : "text-zinc-400 hover:text-white after:w-0"
-    } after:absolute after:left-0 after:-bottom-2 after:h-[2px] after:bg-[var(--app-accent)] after:rounded-full after:transition-all after:duration-300 hover:after:w-full`;
+        ? "bg-[var(--app-accent-soft)] text-[var(--app-accent)] border border-[var(--app-accent-border)] shadow-[0_0_12px_var(--app-accent-soft)]"
+        : "text-zinc-400 hover:text-white hover:bg-zinc-900/80 border border-transparent"
+    }`;
 
   return (
-    <nav className="sticky top-0 z-50 border-b border-white/5 bg-zinc-950/75 px-4 py-3.5 shadow-[0_4px_30px_rgba(0,0,0,0.5)] backdrop-blur-2xl sm:px-6 md:px-8 lg:px-12">
-      <div className="flex items-center justify-between">
-        {/* Brand logo */}
-        <NavLink to="/" className="transition-transform active:scale-95">
-          <Logo size="sm" />
-        </NavLink>
+    <header className="sticky top-0 z-40 border-b border-white/5 bg-zinc-950/80 px-3 py-2.5 sm:px-6 sm:py-3 shadow-[0_4px_25px_rgba(0,0,0,0.4)] backdrop-blur-2xl">
+      <div className="flex items-center justify-between gap-4 max-w-7xl mx-auto">
+        {/* Left: Mobile Sidebar Trigger & Brand Logo */}
+        <div className="flex items-center gap-2.5 sm:gap-4">
+          {/* Mobile hamburger (< 1024px) */}
+          <button
+            type="button"
+            onClick={onToggleSidebar}
+            className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-zinc-900/80 text-white lg:hidden hover:border-[var(--app-accent-border)] hover:bg-zinc-800 transition active:scale-95 shadow-sm"
+            aria-label="Open sidebar menu"
+            title="Open Menu"
+          >
+            <Menu className="h-5 w-5 text-zinc-200" />
+          </button>
 
-        {/* Desktop navigation (lg and above) */}
-        <div className="hidden items-center gap-6 lg:flex xl:gap-8">
+          <NavLink to="/" className="transition-transform active:scale-95">
+            <Logo size="sm" showBadge badgeText="Store" />
+          </NavLink>
+        </div>
+
+        {/* Center: Desktop Navigation Bar (>= 1024px) */}
+        <nav className="hidden lg:flex items-center gap-1.5 rounded-2xl border border-white/5 bg-zinc-900/50 p-1 backdrop-blur-md">
           {visibleNavItems.map((item) => (
-            <NavLink key={item.path} to={item.path} className={linkClass}>
+            <NavLink key={item.path} to={item.path} className={desktopLinkClass}>
               {item.name}
             </NavLink>
           ))}
+        </nav>
 
+        {/* Right: Desktop Actions & Mobile Compact Trigger */}
+        <div className="flex items-center gap-2 sm:gap-2.5">
           {user ? (
-            <div className="ml-2 flex items-center gap-3">
+            <>
+              {/* Desktop Profile Pill */}
               <NavLink
                 to="/settings/profile"
-                className="max-w-[150px] truncate text-sm font-medium text-zinc-300 transition-colors hover:text-[var(--app-accent)]"
+                className="hidden sm:flex items-center gap-2 rounded-xl border border-white/10 bg-zinc-900/80 px-3 py-1.5 text-xs font-semibold text-zinc-300 hover:border-[var(--app-accent-border)] hover:text-white hover:bg-zinc-800/90 transition shadow-sm"
                 title="View Profile"
               >
-                {user.name || user.username || "Customer"}
+                <div className="flex h-5 w-5 items-center justify-center rounded-md bg-[var(--app-accent)] font-bold text-white text-[10px]">
+                  {(user.name || user.username || "C").charAt(0).toUpperCase()}
+                </div>
+                <span className="max-w-[120px] truncate">
+                  {user.name || user.username || "Customer"}
+                </span>
               </NavLink>
 
+              {/* Desktop Logout Button */}
               <button
                 type="button"
                 onClick={handleLogout}
-                className="rounded-lg border border-zinc-700 bg-zinc-900/80 px-3.5 py-1.5 text-xs font-medium text-zinc-300 transition-all duration-200 hover:border-red-500/40 hover:bg-red-500/10 hover:text-red-400"
+                className="hidden sm:flex h-9 w-9 items-center justify-center rounded-xl border border-zinc-800 bg-zinc-900/80 text-zinc-400 hover:border-red-500/40 hover:bg-red-500/10 hover:text-red-400 transition active:scale-95 shadow-sm"
+                title="Sign out"
               >
-                Logout
+                <LogOut className="h-4 w-4" />
               </button>
-            </div>
+
+              {/* Mobile Profile Avatar Link */}
+              <NavLink
+                to="/settings/profile"
+                className="flex sm:hidden h-8 w-8 items-center justify-center rounded-xl bg-[var(--app-accent)] text-white font-bold text-xs shadow-md active:scale-95"
+                title="My Profile"
+              >
+                {(user.name || user.username || "C").charAt(0).toUpperCase()}
+              </NavLink>
+            </>
           ) : (
-            <div className="ml-2 flex items-center gap-4">
-              <NavLink to="/login" className={linkClass}>
-                Login
-              </NavLink>
-
-              <NavLink
-                to="/signup"
-                className="rounded-lg bg-[var(--app-accent)] px-4 py-2 text-xs font-semibold text-white transition-all duration-300 hover:bg-[var(--app-accent-hover)]"
-              >
-                Create Account
-              </NavLink>
-            </div>
-          )}
-        </div>
-
-        {/* Mobile & Tablet menu toggle */}
-        <button
-          type="button"
-          aria-label="Toggle navigation menu"
-          aria-expanded={menuOpen}
-          onClick={() => setMenuOpen((prev) => !prev)}
-          className="flex h-10 w-10 shrink-0 flex-col items-center justify-center gap-1.5 rounded-lg border border-white/10 bg-zinc-900/70 backdrop-blur-md transition-colors hover:border-white/20 hover:bg-zinc-900/90 lg:hidden"
-        >
-          <span className="h-[2px] w-5 rounded-full bg-zinc-200" />
-          <span className="h-[2px] w-5 rounded-full bg-zinc-200" />
-          <span className="h-[2px] w-5 rounded-full bg-zinc-200" />
-        </button>
-      </div>
-
-      {/* Mobile & Tablet drawer */}
-      <div
-        className={`overflow-hidden transition-all duration-300 lg:hidden ${
-          menuOpen ? "mt-4 max-h-[85vh] opacity-100" : "max-h-0 opacity-0"
-        }`}
-      >
-        <div className="rounded-2xl border border-white/10 bg-zinc-950/65 p-4 shadow-[0_12px_40px_rgba(0,0,0,0.6)] backdrop-blur-2xl max-h-[80vh] overflow-y-auto">
-          <div className="flex flex-col items-center gap-1.5">
-            {visibleNavItems.map((item) => (
-              <NavLink
-                key={item.path}
-                to={item.path}
-                onClick={() => setMenuOpen(false)}
-                className={({ isActive }) =>
-                  `w-full max-w-[280px] rounded-lg px-4 py-2.5 text-center text-sm font-medium transition-all duration-200 ${
-                    isActive
-                      ? "bg-[var(--app-accent-soft)] text-[var(--app-accent)] font-semibold border border-[var(--app-accent-border)] backdrop-blur-sm"
-                      : "text-zinc-300 hover:bg-white/10 hover:text-white"
-                  }`
-                }
-              >
-                {item.name}
-              </NavLink>
-            ))}
-
-            {user ? (
-              <div className="mt-3 w-full max-w-[280px] border-t border-white/10 pt-3">
-                <NavLink
-                  to="/settings/profile"
-                  onClick={() => setMenuOpen(false)}
-                  className="mb-2 block rounded-lg bg-white/[0.05] border border-white/5 px-4 py-2.5 text-center text-sm font-medium text-zinc-300 backdrop-blur-md transition-colors hover:bg-[var(--app-accent-soft)] hover:text-[var(--app-accent)]"
-                >
-                  My Profile ({user.name || user.username || "Customer"})
-                </NavLink>
-
-                <button
-                  type="button"
-                  onClick={handleLogout}
-                  className="w-full rounded-lg border border-zinc-700/60 bg-zinc-900/60 px-4 py-2.5 text-center text-sm font-medium text-zinc-300 backdrop-blur-md transition-all hover:border-red-500/40 hover:bg-red-500/10 hover:text-red-400"
-                >
-                  Logout
-                </button>
-              </div>
-            ) : (
-              <div className="mt-3 w-full max-w-[280px] border-t border-white/10 pt-3">
+            <>
+              {/* Desktop Guest Auth Actions */}
+              <div className="hidden sm:flex items-center gap-2">
                 <NavLink
                   to="/login"
-                  onClick={() => setMenuOpen(false)}
-                  className={({ isActive }) =>
-                    `block w-full rounded-lg px-4 py-2.5 text-center text-sm font-medium transition-all ${
-                      isActive
-                        ? "bg-[var(--app-accent-soft)] text-[var(--app-accent)]"
-                        : "text-zinc-400 hover:bg-white/10 hover:text-white"
-                    }`
-                  }
+                  className="rounded-xl border border-white/10 bg-zinc-900/80 px-3.5 py-1.5 text-xs font-semibold text-zinc-300 hover:border-[var(--app-accent-border)] hover:text-white hover:bg-zinc-800/90 transition shadow-sm"
                 >
                   Login
                 </NavLink>
 
                 <NavLink
                   to="/signup"
-                  onClick={() => setMenuOpen(false)}
-                  className="mt-1.5 block w-full rounded-lg bg-[var(--app-accent)] px-4 py-2.5 text-center text-sm font-semibold text-white transition-all hover:bg-[var(--app-accent-hover)]"
+                  className="rounded-xl btn-primary px-3.5 py-1.5 text-xs font-bold shadow-md transition active:scale-95"
                 >
-                  Create Account
+                  Register
                 </NavLink>
               </div>
-            )}
-          </div>
+
+              {/* Mobile Guest Compact Login Button */}
+              <NavLink
+                to="/login"
+                className="flex sm:hidden items-center gap-1 rounded-xl btn-primary px-3 py-1.5 text-xs font-bold shadow-md active:scale-95"
+              >
+                <LogIn className="h-3.5 w-3.5" />
+                <span>Login</span>
+              </NavLink>
+            </>
+          )}
         </div>
       </div>
-    </nav>
+    </header>
   );
 };
 

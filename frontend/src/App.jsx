@@ -1,5 +1,5 @@
-import React from "react";
-import { Routes, Route } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import { Routes, Route, useLocation } from "react-router-dom";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
@@ -12,6 +12,7 @@ import HelpSupport from "./pages/HelpSupport";
 import About from "./pages/About";
 import AboutSmartShop from "./pages/AboutSmartShop";
 import Navbar from "./components/Navbar";
+import Sidebar from "./components/Sidebar";
 import Footer from "./components/Footer";
 import ForgotPassword from "./pages/ForgotPassword";
 
@@ -20,8 +21,33 @@ import Transactions from "./pages/Transactions";
 import Profile from "./pages/Profile";
 import ChangePassword from "./pages/ChangePassword";
 import ProtectedRoute from "./components/ProtectedRoute";
+import { authStorage } from "./services/api";
 
 export default function App() {
+  const [user, setUser] = useState(() => authStorage.getUser());
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const location = useLocation();
+
+  useEffect(() => {
+    const syncUser = () => {
+      setUser(authStorage.getUser());
+    };
+
+    syncUser();
+    window.addEventListener("auth-changed", syncUser);
+    window.addEventListener("storage", syncUser);
+
+    return () => {
+      window.removeEventListener("auth-changed", syncUser);
+      window.removeEventListener("storage", syncUser);
+    };
+  }, [location.pathname]);
+
+  // Automatically close sidebar drawer upon route navigation
+  useEffect(() => {
+    setSidebarOpen(false);
+  }, [location.pathname]);
+
   return (
     <div className="flex min-h-screen flex-col bg-[var(--app-bg)] text-[var(--app-text)] transition-colors duration-300">
       <ToastContainer
@@ -34,10 +60,23 @@ export default function App() {
         pauseOnFocusLoss
         draggable
         pauseOnHover
-        theme="colored"
+        theme="dark"
       />
-      <Navbar />
-      <main className="flex-1 pt-8">
+
+      {/* Slide-over Customer Sidebar Drawer */}
+      <Sidebar
+        isOpen={sidebarOpen}
+        setIsOpen={setSidebarOpen}
+        user={user}
+        setUser={setUser}
+      />
+
+      {/* Clean Top Navbar */}
+      <Navbar
+        onToggleSidebar={() => setSidebarOpen((prev) => !prev)}
+      />
+
+      <main className="flex-1 pt-6 sm:pt-8">
         <Routes>
           {/* Public customer routes */}
           <Route path="/" element={<Home />} />
