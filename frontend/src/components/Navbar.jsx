@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { authStorage } from "../services/api";
 import Logo from "./Logo";
+import ThemeToggle from "./ThemeToggle";
 
 const Navbar = ({ onToggleSidebar }) => {
   const [user, setUser] = useState(() => authStorage.getUser());
@@ -136,8 +137,11 @@ const Navbar = ({ onToggleSidebar }) => {
           ))}
         </nav>
 
-        {/* Right: Desktop Actions & Mobile Compact Trigger */}
+        {/* Right: Actions, Theme Toggle & Mobile Compact Trigger */}
         <div className="flex items-center gap-2 sm:gap-2.5">
+          {/* Theme Switcher Toggle (Desktop & Tablet) */}
+          <ThemeToggle className="hidden sm:inline-flex" />
+
           {user ? (
             <>
               {/* Desktop Profile Pill */}

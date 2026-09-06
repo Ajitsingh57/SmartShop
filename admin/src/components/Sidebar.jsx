@@ -22,6 +22,7 @@ import {
   X,
 } from "lucide-react";
 import Logo from "./Logo";
+import ThemeToggle from "./ThemeToggle";
 import { authStorage } from "../services/api";
 
 const parseJwt = (token) => {
@@ -247,8 +248,14 @@ const Sidebar = ({
           </div>
         </div>
 
-        {/* User Profile & Footer Section */}
+        {/* User Profile, Theme Switcher & Footer Section */}
         <div className="pt-4 mt-6 border-t border-white/5 space-y-2.5">
+          {/* Theme switcher toggle inside sidebar */}
+          <div className={`flex items-center ${collapsed ? "justify-center p-1.5" : "justify-between px-3 py-2"} rounded-xl bg-zinc-900/60 border border-white/5`}>
+            {!collapsed && <span className="text-xs font-semibold text-zinc-400">Appearance</span>}
+            <ThemeToggle compact={collapsed} showPaletteRoll={!collapsed} />
+          </div>
+
           {/* Admin profile snippet */}
           <div
             className={`flex items-center ${

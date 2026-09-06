@@ -242,7 +242,7 @@ const Home = () => {
       <div
         className="relative mb-10 overflow-hidden rounded-2xl sm:rounded-3xl border border-white/10 p-6 sm:p-10 lg:p-14 text-center text-white shadow-[0_12px_45px_rgba(0,0,0,0.6)] animate-fade-in-up"
         style={{
-          background: `radial-gradient(circle at ${ambientAngle}% 20%, var(--app-accent-soft) 0%, transparent 65%), linear-gradient(135deg, rgba(24, 27, 36, 0.9) 0%, rgba(9, 9, 11, 0.95) 100%)`,
+          background: `radial-gradient(circle at ${ambientAngle}% 20%, var(--app-accent-soft) 0%, transparent 65%), linear-gradient(135deg, var(--app-surface) 0%, var(--app-surface-light) 100%)`,
         }}
       >
         {/* Dynamic ambient backdrop lights */}

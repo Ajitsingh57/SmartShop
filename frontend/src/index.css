@@ -18,6 +18,22 @@
   --app-border-light: rgba(255, 255, 255, 0.08);
 }
 
+/* ==========================================================================
+   LIGHT MODE COMPREHENSIVE DESIGN TOKENS & ADAPTIVE CLASS MAPPINGS
+   ========================================================================== */
+html.light,
+[data-mode="light"] {
+  --app-bg: #f8fafc;
+  --app-surface: #ffffff;
+  --app-surface-light: #f1f5f9;
+  --app-surface-elevated: #ffffff;
+  --app-border: #e2e8f0;
+  --app-border-light: rgba(0, 0, 0, 0.08);
+  --app-text: #0f172a;
+  --app-text-muted: #64748b;
+  color-scheme: light;
+}
+
 * {
   margin: 0;
   padding: 0;
@@ -27,7 +43,7 @@
 html {
   min-height: 100%;
   background: var(--app-bg);
-  transition: background-color 0.4s ease;
+  transition: background-color 0.3s ease, color 0.3s ease;
   scroll-behavior: smooth;
   overflow-x: hidden;
 }
@@ -38,7 +54,7 @@ body {
   background-color: var(--app-bg);
   color: var(--app-text);
   overflow-x: hidden;
-  transition: background-color 0.4s ease, color 0.4s ease;
+  transition: background-color 0.3s ease, color 0.3s ease;
   -webkit-tap-highlight-color: transparent;
 }
 
@@ -66,9 +82,15 @@ body {
 ::-webkit-scrollbar-track {
   background: rgba(5, 8, 17, 0.8);
 }
+html.light ::-webkit-scrollbar-track {
+  background: rgba(241, 245, 249, 0.8);
+}
 ::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.15);
   border-radius: 9999px;
+}
+html.light ::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.2);
 }
 ::-webkit-scrollbar-thumb:hover {
   background: var(--app-accent);
@@ -104,18 +126,171 @@ body {
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, var(--app-accent) 0%, #ea580c 100%);
+  background: linear-gradient(135deg, var(--app-accent) 0%, var(--app-accent-hover) 100%);
   color: #ffffff;
   font-weight: 600;
-  box-shadow: 0 4px 14px -2px rgba(249, 115, 22, 0.4);
+  box-shadow: 0 4px 14px -2px var(--app-accent-soft);
   transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .btn-primary:hover {
-  box-shadow: 0 6px 20px -2px rgba(249, 115, 22, 0.6);
+  box-shadow: 0 6px 20px -2px var(--app-accent-glow);
   transform: translateY(-1px);
 }
 .btn-primary:active {
   transform: translateY(0px) scale(0.98);
+}
+
+/* ==========================================================================
+   GLOBAL LIGHT MODE COMPLETE THEME OVERRIDES
+   Automatically converts dark Tailwind utilities across all pages & components
+   ========================================================================== */
+
+html.light,
+html.light body,
+html.light #root,
+html.light main,
+html.light aside,
+html.light header,
+html.light nav,
+html.light footer {
+  color: #0f172a;
+}
+
+/* Backgrounds */
+html.light .bg-zinc-950,
+html.light [class*="bg-zinc-950"] {
+  background-color: var(--app-bg) !important;
+}
+
+html.light .bg-zinc-900,
+html.light [class*="bg-zinc-900"] {
+  background-color: var(--app-surface) !important;
+}
+
+html.light .bg-zinc-800,
+html.light [class*="bg-zinc-800"] {
+  background-color: var(--app-surface-light) !important;
+}
+
+html.light .bg-zinc-700,
+html.light [class*="bg-zinc-700"] {
+  background-color: #e2e8f0 !important;
+}
+
+html.light .bg-black,
+html.light [class*="bg-black/"] {
+  background-color: rgba(15, 23, 42, 0.05) !important;
+}
+
+html.light .bg-white\/5,
+html.light .bg-white\/10,
+html.light .bg-white\/\[0\.05\],
+html.light .bg-white\/\[0\.08\] {
+  background-color: rgba(0, 0, 0, 0.04) !important;
+}
+
+/* Text Colors */
+html.light .text-white,
+html.light .text-zinc-100,
+html.light .text-zinc-200 {
+  color: #0f172a !important;
+}
+
+html.light .text-zinc-300,
+html.light .text-zinc-400 {
+  color: #475569 !important;
+}
+
+html.light .text-zinc-500,
+html.light .text-zinc-600 {
+  color: #64748b !important;
+}
+
+/* Borders */
+html.light .border-white\/5,
+html.light .border-white\/10,
+html.light .border-white\/15,
+html.light .border-white\/20,
+html.light .border-white\/\[0\.05\],
+html.light .border-white\/\[0\.08\],
+html.light .border-zinc-900,
+html.light .border-zinc-800,
+html.light .border-zinc-700,
+html.light [class*="border-zinc-800"],
+html.light [class*="border-zinc-700"] {
+  border-color: #e2e8f0 !important;
+}
+
+/* Gradients */
+html.light [class*="from-zinc-950"],
+html.light [class*="from-zinc-900"] {
+  --tw-gradient-from: #ffffff !important;
+  --tw-gradient-to: #f1f5f9 !important;
+  --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to) !important;
+}
+
+html.light [class*="via-zinc-900"],
+html.light [class*="via-zinc-950"] {
+  --tw-gradient-via: #f8fafc !important;
+  --tw-gradient-stops: var(--tw-gradient-from), #f8fafc, var(--tw-gradient-to) !important;
+}
+
+html.light [class*="to-zinc-950"],
+html.light [class*="to-zinc-900"] {
+  --tw-gradient-to: #f1f5f9 !important;
+}
+
+/* Glass Panels & Cards */
+html.light .glass-panel,
+html.light [class*="glass-panel"] {
+  background: rgba(255, 255, 255, 0.88) !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05) !important;
+}
+
+html.light .glass-card,
+html.light [class*="glass-card"] {
+  background: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 4px 16px -2px rgba(0, 0, 0, 0.05) !important;
+}
+
+html.light .glass-card:hover {
+  border-color: var(--app-accent-border) !important;
+  box-shadow: 0 12px 28px -8px rgba(0, 0, 0, 0.1), 0 0 20px -5px var(--app-accent-soft) !important;
+}
+
+/* Form Controls & Inputs */
+html.light input,
+html.light select,
+html.light textarea {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  border-color: #cbd5e1 !important;
+}
+
+html.light input:focus,
+html.light select:focus,
+html.light textarea:focus {
+  border-color: var(--app-accent) !important;
+  box-shadow: 0 0 0 2px var(--app-accent-soft) !important;
+}
+
+html.light input::placeholder,
+html.light textarea::placeholder {
+  color: #94a3b8 !important;
+}
+
+/* Tables & Shadows */
+html.light table thead {
+  background-color: #f1f5f9 !important;
+}
+html.light table tbody tr:hover {
+  background-color: #f8fafc !important;
+}
+
+html.light [class*="shadow-[0_"] {
+  box-shadow: 0 4px 16px -2px rgba(0, 0, 0, 0.06), 0 1px 3px 0 rgba(0, 0, 0, 0.04) !important;
 }
 
 /* Micro-animations */
@@ -170,4 +345,3 @@ body {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
-

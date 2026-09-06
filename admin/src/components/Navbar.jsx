@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { authStorage } from "../services/api";
 import Logo from "./Logo";
+import ThemeToggle from "./ThemeToggle";
 
 const Navbar = ({ onToggleSidebar }) => {
   const [user, setUser] = useState(() => authStorage.getUser());
@@ -74,8 +75,11 @@ const Navbar = ({ onToggleSidebar }) => {
           </div>
         </div>
 
-        {/* Right Section: Actions */}
+        {/* Right Section: Actions & Theme Toggle */}
         <div className="flex items-center gap-2 sm:gap-2.5">
+          {/* Theme Mode & Color Roller Toggle */}
+          <ThemeToggle className="hidden sm:inline-flex" />
+
           {/* Quick POS Sale Button */}
           <NavLink
             to="/sales"
@@ -87,7 +91,7 @@ const Navbar = ({ onToggleSidebar }) => {
             <span className="text-[10px] bg-black/20 rounded px-1 hidden md:inline">F2</span>
           </NavLink>
 
-          {/* Desktop-Only Quick Profile Link (Cleanly hidden on mobile because it is inside the sidebar) */}
+          {/* Desktop-Only Quick Profile Link */}
           <NavLink
             to="/profile"
             className="hidden sm:flex items-center gap-2 rounded-xl border border-white/10 bg-zinc-900/80 px-3 py-1.5 text-xs font-semibold text-zinc-300 hover:border-[var(--app-accent-border)] hover:text-white hover:bg-zinc-800/90 transition shadow-sm"
@@ -103,7 +107,7 @@ const Navbar = ({ onToggleSidebar }) => {
             </span>
           </NavLink>
 
-          {/* Desktop-Only Logout Shortcut (Cleanly hidden on mobile because it is inside the sidebar) */}
+          {/* Desktop-Only Logout Shortcut */}
           <button
             type="button"
             onClick={handleLogout}

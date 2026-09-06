@@ -18,6 +18,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import Logo from "./Logo";
+import ThemeToggle from "./ThemeToggle";
 import { authStorage } from "../services/api";
 
 const Sidebar = ({ isOpen, setIsOpen, user, setUser }) => {
@@ -210,7 +211,13 @@ const Sidebar = ({ isOpen, setIsOpen, user, setUser }) => {
         </div>
 
         {/* Sidebar Footer */}
-        <div className="pt-4 mt-6 border-t border-white/5 space-y-2.5">
+        <div className="pt-4 mt-6 border-t border-white/5 space-y-3">
+          {/* Theme Switcher in Sidebar Drawer */}
+          <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-zinc-900/60 border border-white/5">
+            <span className="text-xs font-semibold text-zinc-400">Appearance</span>
+            <ThemeToggle compact={true} showPaletteRoll={true} />
+          </div>
+
           {user ? (
             <button
               type="button"
