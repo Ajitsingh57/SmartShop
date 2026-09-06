@@ -64,9 +64,20 @@ const Navbar = ({ onToggleSidebar }) => {
           </button>
 
           {/* Brand Logo for Mobile Screens */}
-          <div className="lg:hidden">
+          <NavLink
+            to="/dashboard"
+            onClick={() => {
+              window.scrollTo({ top: 0, left: 0, behavior: "smooth" });
+              const scrollContainers = document.querySelectorAll(".overflow-y-auto, main");
+              scrollContainers.forEach((el) => {
+                el.scrollTo({ top: 0, left: 0, behavior: "smooth" });
+              });
+            }}
+            className="lg:hidden cursor-pointer transition-transform active:scale-95"
+            title="SmartShop Admin - Scroll to top"
+          >
             <Logo size="sm" showBadge badgeText={isSuperAdmin ? "Super" : "Admin"} />
-          </div>
+          </NavLink>
 
           {/* Live Store Status Pill (Visible on tablet & desktop) */}
           <div className="hidden sm:inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-950/40 px-3 py-1 text-[11px] font-semibold text-emerald-400 backdrop-blur-md">

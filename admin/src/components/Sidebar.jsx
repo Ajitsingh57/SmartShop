@@ -149,14 +149,26 @@ const Sidebar = ({
               collapsed ? "flex-col gap-3 justify-center" : "justify-between"
             } pb-4 border-b border-white/5`}
           >
-            <div className="flex items-center justify-center">
+            <NavLink
+              to="/dashboard"
+              onClick={() => {
+                if (isMobile) setIsOpen(false);
+                window.scrollTo({ top: 0, left: 0, behavior: "smooth" });
+                const scrollContainers = document.querySelectorAll(".overflow-y-auto, main");
+                scrollContainers.forEach((el) => {
+                  el.scrollTo({ top: 0, left: 0, behavior: "smooth" });
+                });
+              }}
+              className="flex items-center justify-center cursor-pointer transition-transform active:scale-95"
+              title="SmartShop Admin - Scroll to top"
+            >
               <Logo
                 size="sm"
                 showText={!collapsed}
                 showBadge={!collapsed}
                 badgeText={isSuperAdmin ? "Super" : "Admin"}
               />
-            </div>
+            </NavLink>
 
             {/* Desktop single collapse / expand toggle */}
             {!isMobile && (

@@ -111,7 +111,15 @@ const Sidebar = ({ isOpen, setIsOpen, user, setUser }) => {
         <div>
           {/* Header with Brand Logo & Close Button */}
           <div className="flex items-center justify-between pb-4 border-b border-white/5">
-            <NavLink to="/" onClick={() => setIsOpen(false)}>
+            <NavLink
+              to="/"
+              onClick={() => {
+                setIsOpen(false);
+                window.scrollTo({ top: 0, left: 0, behavior: "smooth" });
+              }}
+              className="cursor-pointer transition-transform active:scale-95"
+              title="SmartShop Home - Scroll to top"
+            >
               <Logo size="sm" showBadge badgeText="Store" />
             </NavLink>
 

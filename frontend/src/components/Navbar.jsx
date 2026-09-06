@@ -123,7 +123,14 @@ const Navbar = ({ onToggleSidebar }) => {
             <Menu className="h-5 w-5 text-zinc-200" />
           </button>
 
-          <NavLink to="/" className="transition-transform active:scale-95">
+          <NavLink
+            to="/"
+            onClick={() => {
+              window.scrollTo({ top: 0, left: 0, behavior: "smooth" });
+            }}
+            className="transition-transform active:scale-95 cursor-pointer"
+            title="SmartShop Home - Scroll to top"
+          >
             <Logo size="sm" showBadge badgeText="Store" />
           </NavLink>
         </div>
