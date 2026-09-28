@@ -71,3 +71,6 @@ coverage/
 # Agents & workspace metadata
 .agents/
 .system_generated/
+
+# Documentation & local assets
+docs/
